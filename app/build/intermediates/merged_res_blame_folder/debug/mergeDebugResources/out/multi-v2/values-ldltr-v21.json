@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.laconical.player.app-mergeDebugResources-76:/values-ldltr-v21/values-ldltr-v21.xml",
+            "map": [
+                {
+                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/0affeb1cda0e1185a4edd54aa6fd8e64/transformed/appcompat-1.7.1/res/values-ldltr-v21/values-ldltr-v21.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "112",
+                        "endOffsets": "163"
+                    }
+                }
+            ]
+        }
+    ]
+}
