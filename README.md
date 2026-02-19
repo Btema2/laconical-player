@@ -1,30 +1,31 @@
-# Laconical Player
+# 🎵 Laconical Player
 
-A modern, FOSS, local-first music player for Android built with Jetpack Compose and Media3. Inspired by Namida aesthetics.
+A modern, privacy-focused, FOSS music player for Android. Built with Jetpack Compose and Media3, inspired by Namida's aesthetics and Material 3 simplicity.
 
 ## Features
-- **Modern UI:** Built entirely with Jetpack Compose using Material 3 and following Namida aesthetics.
-- **Media3 Integration:** High-performance, production-ready audio playback service extending `MediaSessionService`.
-- **Local Media Scanning:** Efficient `MediaStore` repository implementation to fetch and manage local audio files.
-- **Clean Architecture:** Strictly modularized design (UI, Core Model, Core Data, Core Media) with Hilt for dependency injection.
-- **Modern Build System:** Powered by AGP 9.0 and Gradle 9.1 with built-in Kotlin support and JVM 21.
+- **Modular Architecture:** Cleanly separated Core-Media, Core-Data, and UI modules.
+- **MediaStore Integration:** Scans your device for music automatically.
+- **Background Playback:** High-performance audio engine using Media3.
+- **Modern UI:** Built entirely with Jetpack Compose.
+- **Privacy First:** No internet, no trackers, strictly offline.
 
 ## Tech Stack
-- **Language:** Kotlin 2.2
+- **Language:** Kotlin 2.2+
+- **Build System:** AGP 9.0.1 + Gradle 9.1.0 (Built-in Kotlin support)
+- **Audio Engine:** Media3 (ExoPlayer)
+- **Dependency Injection:** Hilt 2.59.1
 - **UI:** Jetpack Compose (Material 3)
-- **Dependency Injection:** Hilt
-- **Database:** Room (Initialized)
-- **Media Playback:** Media3 1.6.0 (ExoPlayer)
-- **Build System:** AGP 9.0.1, Gradle 9.1
-
-## Project Status
-**Pre-alpha:** Infrastructure, foundational setup, and core playback services are complete. The app can now scan for local media items and initiate playback in the background.
 
 ## How to Build
-To build the debug APK, run:
-```bash
-./gradlew assembleDebug
-```
+1. Install **Android Studio Ladybug** (or newer) to get the required SDK 35/36.
+2. Clone this repo
+3. Run: `./gradlew assembleDebug`
+4. Find the APK at `app/build/outputs/apk/debug/`
 
-## License
-TBD (FOSS)
+<br>
+
+> **A Note on "Vibe-Coding"**
+> This project has been basically written by vibe-coding. I know more about music aesthetics and UI vibes than I do about the deep internals of the Android SDK. It started out as my typical "research and figure it out" programming, but then I cut out the and just used **Google Antigravity** to architect and write the heavy lifting. If the code looks like a sophisticated AI wrote it, it's because it did. I just make sure it feels right.
+
+## 📜 License
+Licensed under the [GNU General Public License v3.0](LICENSE).
