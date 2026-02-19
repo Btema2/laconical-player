@@ -1,5 +1,9 @@
 package com.laconical.player;
 
+import com.laconical.player.core.data.di.DataModule;
+import com.laconical.player.core.media.PlaybackService_GeneratedInjector;
+import com.laconical.player.core.media.di.MediaModule;
+import com.laconical.player.ui.MainViewModel_HiltModules;
 import dagger.Binds;
 import dagger.Component;
 import dagger.Module;
@@ -125,9 +129,11 @@ public final class LaconicalApp_HiltComponents {
   @Component(
       modules = {
           ApplicationContextModule.class,
+          DataModule.class,
           HiltWrapper_FragmentGetContextFix_FragmentGetContextFixModule.class,
           ActivityRetainedCBuilderModule.class,
-          ServiceCBuilderModule.class
+          ServiceCBuilderModule.class,
+          MediaModule.class
       }
   )
   @Singleton
@@ -142,7 +148,8 @@ public final class LaconicalApp_HiltComponents {
 
   @Subcomponent
   @ServiceScoped
-  public abstract static class ServiceC implements ServiceComponent,
+  public abstract static class ServiceC implements PlaybackService_GeneratedInjector,
+      ServiceComponent,
       GeneratedComponent {
     @Subcomponent.Builder
     abstract interface Builder extends ServiceComponentBuilder {
@@ -154,7 +161,8 @@ public final class LaconicalApp_HiltComponents {
           HiltWrapper_ActivityRetainedComponentManager_LifecycleModule.class,
           HiltWrapper_ActivitySavedStateHandleModule.class,
           ActivityCBuilderModule.class,
-          ViewModelCBuilderModule.class
+          ViewModelCBuilderModule.class,
+          MainViewModel_HiltModules.KeyModule.class
       }
   )
   @ActivityRetainedScoped
@@ -189,7 +197,10 @@ public final class LaconicalApp_HiltComponents {
   }
 
   @Subcomponent(
-      modules = HiltWrapper_HiltViewModelFactory_ViewModelModule.class
+      modules = {
+          HiltWrapper_HiltViewModelFactory_ViewModelModule.class,
+          MainViewModel_HiltModules.BindsModule.class
+      }
   )
   @ViewModelScoped
   public abstract static class ViewModelC implements ViewModelComponent,

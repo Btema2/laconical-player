@@ -6,8 +6,24 @@ import android.view.View;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.SavedStateHandle;
 import androidx.lifecycle.ViewModel;
+import androidx.media3.common.AudioAttributes;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.session.MediaSession;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.laconical.player.core.data.LocalMediaRepositoryImpl;
+import com.laconical.player.core.media.MusicPlayer;
+import com.laconical.player.core.media.PlaybackService;
+import com.laconical.player.core.media.PlaybackService_MembersInjector;
+import com.laconical.player.core.media.di.MediaModule_ProvideAudioAttributesFactory;
+import com.laconical.player.core.media.di.MediaModule_ProvideMediaSessionFactory;
+import com.laconical.player.core.media.di.MediaModule_ProvideMusicPlayerFactory;
+import com.laconical.player.core.media.di.MediaModule_ProvidePlayerFactory;
+import com.laconical.player.ui.MainViewModel;
+import com.laconical.player.ui.MainViewModel_HiltModules;
+import com.laconical.player.ui.MainViewModel_HiltModules_BindsModule_Binds_LazyMapKey;
+import com.laconical.player.ui.MainViewModel_HiltModules_KeyModule_Provide_LazyMapKey;
 import dagger.hilt.android.ActivityRetainedLifecycle;
 import dagger.hilt.android.ViewModelLifecycle;
 import dagger.hilt.android.internal.builders.ActivityComponentBuilder;
@@ -22,13 +38,15 @@ import dagger.hilt.android.internal.lifecycle.DefaultViewModelFactories_Internal
 import dagger.hilt.android.internal.managers.ActivityRetainedComponentManager_LifecycleModule_ProvideActivityRetainedLifecycleFactory;
 import dagger.hilt.android.internal.managers.SavedStateHandleHolder;
 import dagger.hilt.android.internal.modules.ApplicationContextModule;
+import dagger.hilt.android.internal.modules.ApplicationContextModule_ProvideContextFactory;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.DoubleCheck;
+import dagger.internal.LazyClassKeyMap;
 import dagger.internal.Preconditions;
+import dagger.internal.Provider;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @DaggerGenerated
 @Generated(
@@ -52,21 +70,20 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
     return new Builder();
   }
 
-  public static LaconicalApp_HiltComponents.SingletonC create() {
-    return new Builder().build();
-  }
-
   public static final class Builder {
+    private ApplicationContextModule applicationContextModule;
+
     private Builder() {
     }
 
     public Builder applicationContextModule(ApplicationContextModule applicationContextModule) {
-      Preconditions.checkNotNull(applicationContextModule);
+      this.applicationContextModule = Preconditions.checkNotNull(applicationContextModule);
       return this;
     }
 
     public LaconicalApp_HiltComponents.SingletonC build() {
-      return new SingletonCImpl();
+      Preconditions.checkBuilderRequirement(applicationContextModule, ApplicationContextModule.class);
+      return new SingletonCImpl(applicationContextModule);
     }
   }
 
@@ -359,12 +376,12 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
 
     @Override
     public DefaultViewModelFactories.InternalFactoryFactory getHiltInternalFactoryFactory() {
-      return DefaultViewModelFactories_InternalFactoryFactory_Factory.newInstance(ImmutableMap.<Class<?>, Boolean>of(), new ViewModelCBuilder(singletonCImpl, activityRetainedCImpl));
+      return DefaultViewModelFactories_InternalFactoryFactory_Factory.newInstance(getViewModelKeys(), new ViewModelCBuilder(singletonCImpl, activityRetainedCImpl));
     }
 
     @Override
     public Map<Class<?>, Boolean> getViewModelKeys() {
-      return ImmutableMap.<Class<?>, Boolean>of();
+      return LazyClassKeyMap.<Boolean>of(ImmutableMap.<String, Boolean>of(MainViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, MainViewModel_HiltModules.KeyModule.provide()));
     }
 
     @Override
@@ -390,22 +407,60 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
 
     private final ViewModelCImpl viewModelCImpl = this;
 
+    Provider<MainViewModel> mainViewModelProvider;
+
     ViewModelCImpl(SingletonCImpl singletonCImpl, ActivityRetainedCImpl activityRetainedCImpl,
         SavedStateHandle savedStateHandleParam, ViewModelLifecycle viewModelLifecycleParam) {
       this.singletonCImpl = singletonCImpl;
       this.activityRetainedCImpl = activityRetainedCImpl;
 
+      initialize(savedStateHandleParam, viewModelLifecycleParam);
 
     }
 
+    @SuppressWarnings("unchecked")
+    private void initialize(final SavedStateHandle savedStateHandleParam,
+        final ViewModelLifecycle viewModelLifecycleParam) {
+      this.mainViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 0);
+    }
+
     @Override
-    public Map<Class<?>, Provider<ViewModel>> getHiltViewModelMap() {
-      return ImmutableMap.<Class<?>, Provider<ViewModel>>of();
+    public Map<Class<?>, javax.inject.Provider<ViewModel>> getHiltViewModelMap() {
+      return LazyClassKeyMap.<javax.inject.Provider<ViewModel>>of(ImmutableMap.<String, javax.inject.Provider<ViewModel>>of(MainViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) (mainViewModelProvider))));
     }
 
     @Override
     public Map<Class<?>, Object> getHiltViewModelAssistedMap() {
       return ImmutableMap.<Class<?>, Object>of();
+    }
+
+    private static final class SwitchingProvider<T> implements Provider<T> {
+      private final SingletonCImpl singletonCImpl;
+
+      private final ActivityRetainedCImpl activityRetainedCImpl;
+
+      private final ViewModelCImpl viewModelCImpl;
+
+      private final int id;
+
+      SwitchingProvider(SingletonCImpl singletonCImpl, ActivityRetainedCImpl activityRetainedCImpl,
+          ViewModelCImpl viewModelCImpl, int id) {
+        this.singletonCImpl = singletonCImpl;
+        this.activityRetainedCImpl = activityRetainedCImpl;
+        this.viewModelCImpl = viewModelCImpl;
+        this.id = id;
+      }
+
+      @Override
+      @SuppressWarnings("unchecked")
+      public T get() {
+        switch (id) {
+          case 0: // com.laconical.player.ui.MainViewModel
+          return (T) new MainViewModel(singletonCImpl.localMediaRepositoryImplProvider.get(), singletonCImpl.provideMusicPlayerProvider.get());
+
+          default: throw new AssertionError(id);
+        }
+      }
     }
   }
 
@@ -414,7 +469,7 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
 
     private final ActivityRetainedCImpl activityRetainedCImpl = this;
 
-    dagger.internal.Provider<ActivityRetainedLifecycle> provideActivityRetainedLifecycleProvider;
+    Provider<ActivityRetainedLifecycle> provideActivityRetainedLifecycleProvider;
 
     ActivityRetainedCImpl(SingletonCImpl singletonCImpl,
         SavedStateHandleHolder savedStateHandleHolderParam) {
@@ -439,7 +494,7 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
       return provideActivityRetainedLifecycleProvider.get();
     }
 
-    private static final class SwitchingProvider<T> implements dagger.internal.Provider<T> {
+    private static final class SwitchingProvider<T> implements Provider<T> {
       private final SingletonCImpl singletonCImpl;
 
       private final ActivityRetainedCImpl activityRetainedCImpl;
@@ -476,18 +531,51 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
 
 
     }
+
+    @Override
+    public void injectPlaybackService(PlaybackService arg0) {
+      injectPlaybackService2(arg0);
+    }
+
+    @CanIgnoreReturnValue
+    private PlaybackService injectPlaybackService2(PlaybackService instance) {
+      PlaybackService_MembersInjector.injectMediaSession(instance, singletonCImpl.provideMediaSessionProvider.get());
+      return instance;
+    }
   }
 
   private static final class SingletonCImpl extends LaconicalApp_HiltComponents.SingletonC {
+    private final ApplicationContextModule applicationContextModule;
+
     private final SingletonCImpl singletonCImpl = this;
 
-    SingletonCImpl() {
+    Provider<LocalMediaRepositoryImpl> localMediaRepositoryImplProvider;
 
+    Provider<MusicPlayer> provideMusicPlayerProvider;
+
+    Provider<AudioAttributes> provideAudioAttributesProvider;
+
+    Provider<ExoPlayer> providePlayerProvider;
+
+    Provider<MediaSession> provideMediaSessionProvider;
+
+    SingletonCImpl(ApplicationContextModule applicationContextModuleParam) {
+      this.applicationContextModule = applicationContextModuleParam;
+      initialize(applicationContextModuleParam);
 
     }
 
+    @SuppressWarnings("unchecked")
+    private void initialize(final ApplicationContextModule applicationContextModuleParam) {
+      this.localMediaRepositoryImplProvider = DoubleCheck.provider(new SwitchingProvider<LocalMediaRepositoryImpl>(singletonCImpl, 0));
+      this.provideMusicPlayerProvider = DoubleCheck.provider(new SwitchingProvider<MusicPlayer>(singletonCImpl, 1));
+      this.provideAudioAttributesProvider = DoubleCheck.provider(new SwitchingProvider<AudioAttributes>(singletonCImpl, 4));
+      this.providePlayerProvider = DoubleCheck.provider(new SwitchingProvider<ExoPlayer>(singletonCImpl, 3));
+      this.provideMediaSessionProvider = DoubleCheck.provider(new SwitchingProvider<MediaSession>(singletonCImpl, 2));
+    }
+
     @Override
-    public void injectLaconicalApp(LaconicalApp arg0) {
+    public void injectLaconicalApp(LaconicalApp laconicalApp) {
     }
 
     @Override
@@ -503,6 +591,40 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
     @Override
     public ServiceComponentBuilder serviceComponentBuilder() {
       return new ServiceCBuilder(singletonCImpl);
+    }
+
+    private static final class SwitchingProvider<T> implements Provider<T> {
+      private final SingletonCImpl singletonCImpl;
+
+      private final int id;
+
+      SwitchingProvider(SingletonCImpl singletonCImpl, int id) {
+        this.singletonCImpl = singletonCImpl;
+        this.id = id;
+      }
+
+      @Override
+      @SuppressWarnings("unchecked")
+      public T get() {
+        switch (id) {
+          case 0: // com.laconical.player.core.data.LocalMediaRepositoryImpl
+          return (T) new LocalMediaRepositoryImpl(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+
+          case 1: // com.laconical.player.core.media.MusicPlayer
+          return (T) MediaModule_ProvideMusicPlayerFactory.provideMusicPlayer(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+
+          case 2: // androidx.media3.session.MediaSession
+          return (T) MediaModule_ProvideMediaSessionFactory.provideMediaSession(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.providePlayerProvider.get());
+
+          case 3: // androidx.media3.exoplayer.ExoPlayer
+          return (T) MediaModule_ProvidePlayerFactory.providePlayer(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.provideAudioAttributesProvider.get());
+
+          case 4: // androidx.media3.common.AudioAttributes
+          return (T) MediaModule_ProvideAudioAttributesFactory.provideAudioAttributes();
+
+          default: throw new AssertionError(id);
+        }
+      }
     }
   }
 }

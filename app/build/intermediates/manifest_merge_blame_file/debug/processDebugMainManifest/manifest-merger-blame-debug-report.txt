@@ -8,150 +8,179 @@
 8        android:minSdkVersion="26"
 9        android:targetSdkVersion="35" />
 10
-11    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-11-->[androidx.media3:media3-common:1.5.1] /home/btema2/.gradle/caches/9.1.0/transforms/fd09d88c3c2570f0059e7e6c02f8ccf4/transformed/media3-common-1.5.1/AndroidManifest.xml:22:5-79
-11-->[androidx.media3:media3-common:1.5.1] /home/btema2/.gradle/caches/9.1.0/transforms/fd09d88c3c2570f0059e7e6c02f8ccf4/transformed/media3-common-1.5.1/AndroidManifest.xml:22:22-76
-12
-13    <permission
-13-->[androidx.core:core:1.15.0] /home/btema2/.gradle/caches/9.1.0/transforms/f8f226b1f30c50203cde762c7369a083/transformed/core-1.15.0/AndroidManifest.xml:22:5-24:47
-14        android:name="com.laconical.player.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
-14-->[androidx.core:core:1.15.0] /home/btema2/.gradle/caches/9.1.0/transforms/f8f226b1f30c50203cde762c7369a083/transformed/core-1.15.0/AndroidManifest.xml:23:9-81
-15        android:protectionLevel="signature" />
-15-->[androidx.core:core:1.15.0] /home/btema2/.gradle/caches/9.1.0/transforms/f8f226b1f30c50203cde762c7369a083/transformed/core-1.15.0/AndroidManifest.xml:24:9-44
-16
-17    <uses-permission android:name="com.laconical.player.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
-17-->[androidx.core:core:1.15.0] /home/btema2/.gradle/caches/9.1.0/transforms/f8f226b1f30c50203cde762c7369a083/transformed/core-1.15.0/AndroidManifest.xml:26:5-97
-17-->[androidx.core:core:1.15.0] /home/btema2/.gradle/caches/9.1.0/transforms/f8f226b1f30c50203cde762c7369a083/transformed/core-1.15.0/AndroidManifest.xml:26:22-94
-18
-19    <application
-19-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:4:5-21:19
-20        android:name="com.laconical.player.LaconicalApp"
-20-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:5:9-37
-21        android:allowBackup="true"
-21-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:6:9-35
-22        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
-22-->[androidx.core:core:1.15.0] /home/btema2/.gradle/caches/9.1.0/transforms/f8f226b1f30c50203cde762c7369a083/transformed/core-1.15.0/AndroidManifest.xml:28:18-86
-23        android:debuggable="true"
-24        android:extractNativeLibs="false"
-25        android:icon="@mipmap/ic_launcher"
-25-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:7:9-43
-26        android:label="Laconical Player"
-26-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:8:9-41
-27        android:roundIcon="@mipmap/ic_launcher_round"
-27-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:9:9-54
-28        android:supportsRtl="true"
-28-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:10:9-35
-29        android:theme="@style/Theme.LaconicalPlayer" >
-29-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:11:9-53
-30        <activity
-30-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:12:9-20:20
-31            android:name="com.laconical.player.MainActivity"
-31-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:13:13-41
-32            android:exported="true"
-32-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:14:13-36
-33            android:theme="@style/Theme.LaconicalPlayer" >
-33-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:15:13-57
-34            <intent-filter>
-34-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:16:13-19:29
-35                <action android:name="android.intent.action.MAIN" />
-35-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:17:17-69
-35-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:17:25-66
-36
-37                <category android:name="android.intent.category.LAUNCHER" />
-37-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:18:17-77
-37-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:18:27-74
-38            </intent-filter>
-39        </activity>
-40        <activity
-40-->[androidx.compose.ui:ui-tooling-android:1.8.2] /home/btema2/.gradle/caches/9.1.0/transforms/73022797b96b371c0202f1094485b263/transformed/ui-tooling-release/AndroidManifest.xml:23:9-25:39
-41            android:name="androidx.compose.ui.tooling.PreviewActivity"
-41-->[androidx.compose.ui:ui-tooling-android:1.8.2] /home/btema2/.gradle/caches/9.1.0/transforms/73022797b96b371c0202f1094485b263/transformed/ui-tooling-release/AndroidManifest.xml:24:13-71
-42            android:exported="true" />
-42-->[androidx.compose.ui:ui-tooling-android:1.8.2] /home/btema2/.gradle/caches/9.1.0/transforms/73022797b96b371c0202f1094485b263/transformed/ui-tooling-release/AndroidManifest.xml:25:13-36
+11    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+11-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:4:5-75
+11-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:4:22-72
+12    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+12-->[:core:media] /home/btema2/smart-things/code/laconical-player/core/media/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:7:5-77
+12-->[:core:media] /home/btema2/smart-things/code/laconical-player/core/media/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:7:22-74
+13    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+13-->[:core:media] /home/btema2/smart-things/code/laconical-player/core/media/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:8:5-92
+13-->[:core:media] /home/btema2/smart-things/code/laconical-player/core/media/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:8:22-89
+14    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+14-->[androidx.media3:media3-common:1.6.0] /home/btema2/.gradle/caches/9.1.0/transforms/d1e56a285978039e57e66c88b4f6924e/transformed/media3-common-1.6.0/AndroidManifest.xml:22:5-79
+14-->[androidx.media3:media3-common:1.6.0] /home/btema2/.gradle/caches/9.1.0/transforms/d1e56a285978039e57e66c88b4f6924e/transformed/media3-common-1.6.0/AndroidManifest.xml:22:22-76
+15
+16    <permission
+16-->[androidx.core:core:1.15.0] /home/btema2/.gradle/caches/9.1.0/transforms/389960a60994cd738db95f223af273e3/transformed/core-1.15.0/AndroidManifest.xml:22:5-24:47
+17        android:name="com.laconical.player.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+17-->[androidx.core:core:1.15.0] /home/btema2/.gradle/caches/9.1.0/transforms/389960a60994cd738db95f223af273e3/transformed/core-1.15.0/AndroidManifest.xml:23:9-81
+18        android:protectionLevel="signature" />
+18-->[androidx.core:core:1.15.0] /home/btema2/.gradle/caches/9.1.0/transforms/389960a60994cd738db95f223af273e3/transformed/core-1.15.0/AndroidManifest.xml:24:9-44
+19
+20    <uses-permission android:name="com.laconical.player.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+20-->[androidx.core:core:1.15.0] /home/btema2/.gradle/caches/9.1.0/transforms/389960a60994cd738db95f223af273e3/transformed/core-1.15.0/AndroidManifest.xml:26:5-97
+20-->[androidx.core:core:1.15.0] /home/btema2/.gradle/caches/9.1.0/transforms/389960a60994cd738db95f223af273e3/transformed/core-1.15.0/AndroidManifest.xml:26:22-94
+21
+22    <application
+22-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:6:5-23:19
+23        android:name="com.laconical.player.LaconicalApp"
+23-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:7:9-37
+24        android:allowBackup="true"
+24-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:8:9-35
+25        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+25-->[androidx.core:core:1.15.0] /home/btema2/.gradle/caches/9.1.0/transforms/389960a60994cd738db95f223af273e3/transformed/core-1.15.0/AndroidManifest.xml:28:18-86
+26        android:debuggable="true"
+27        android:extractNativeLibs="false"
+28        android:icon="@mipmap/ic_launcher"
+28-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:9:9-43
+29        android:label="Laconical Player"
+29-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:10:9-41
+30        android:roundIcon="@mipmap/ic_launcher_round"
+30-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:11:9-54
+31        android:supportsRtl="true"
+31-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:12:9-35
+32        android:theme="@style/Theme.LaconicalPlayer" >
+32-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:13:9-53
+33        <activity
+33-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:14:9-22:20
+34            android:name="com.laconical.player.MainActivity"
+34-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:15:13-41
+35            android:exported="true"
+35-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:16:13-36
+36            android:theme="@style/Theme.LaconicalPlayer" >
+36-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:17:13-57
+37            <intent-filter>
+37-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:18:13-21:29
+38                <action android:name="android.intent.action.MAIN" />
+38-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:19:17-69
+38-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:19:25-66
+39
+40                <category android:name="android.intent.category.LAUNCHER" />
+40-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:20:17-77
+40-->/home/btema2/smart-things/code/laconical-player/app/src/main/AndroidManifest.xml:20:27-74
+41            </intent-filter>
+42        </activity>
 43
-44        <provider
-44-->[androidx.emoji2:emoji2:1.4.0] /home/btema2/.gradle/caches/9.1.0/transforms/2d424a41225ef7c06180b87a0c1fa9d3/transformed/emoji2-1.4.0/AndroidManifest.xml:24:9-32:20
-45            android:name="androidx.startup.InitializationProvider"
-45-->[androidx.emoji2:emoji2:1.4.0] /home/btema2/.gradle/caches/9.1.0/transforms/2d424a41225ef7c06180b87a0c1fa9d3/transformed/emoji2-1.4.0/AndroidManifest.xml:25:13-67
-46            android:authorities="com.laconical.player.androidx-startup"
-46-->[androidx.emoji2:emoji2:1.4.0] /home/btema2/.gradle/caches/9.1.0/transforms/2d424a41225ef7c06180b87a0c1fa9d3/transformed/emoji2-1.4.0/AndroidManifest.xml:26:13-68
-47            android:exported="false" >
-47-->[androidx.emoji2:emoji2:1.4.0] /home/btema2/.gradle/caches/9.1.0/transforms/2d424a41225ef7c06180b87a0c1fa9d3/transformed/emoji2-1.4.0/AndroidManifest.xml:27:13-37
-48            <meta-data
-48-->[androidx.emoji2:emoji2:1.4.0] /home/btema2/.gradle/caches/9.1.0/transforms/2d424a41225ef7c06180b87a0c1fa9d3/transformed/emoji2-1.4.0/AndroidManifest.xml:29:13-31:52
-49                android:name="androidx.emoji2.text.EmojiCompatInitializer"
-49-->[androidx.emoji2:emoji2:1.4.0] /home/btema2/.gradle/caches/9.1.0/transforms/2d424a41225ef7c06180b87a0c1fa9d3/transformed/emoji2-1.4.0/AndroidManifest.xml:30:17-75
-50                android:value="androidx.startup" />
-50-->[androidx.emoji2:emoji2:1.4.0] /home/btema2/.gradle/caches/9.1.0/transforms/2d424a41225ef7c06180b87a0c1fa9d3/transformed/emoji2-1.4.0/AndroidManifest.xml:31:17-49
-51            <meta-data
-51-->[androidx.lifecycle:lifecycle-process:2.9.1] /home/btema2/.gradle/caches/9.1.0/transforms/f8f75703034df21ecd54f5d9ca5726bb/transformed/lifecycle-process-2.9.1/AndroidManifest.xml:29:13-31:52
-52                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-52-->[androidx.lifecycle:lifecycle-process:2.9.1] /home/btema2/.gradle/caches/9.1.0/transforms/f8f75703034df21ecd54f5d9ca5726bb/transformed/lifecycle-process-2.9.1/AndroidManifest.xml:30:17-78
-53                android:value="androidx.startup" />
-53-->[androidx.lifecycle:lifecycle-process:2.9.1] /home/btema2/.gradle/caches/9.1.0/transforms/f8f75703034df21ecd54f5d9ca5726bb/transformed/lifecycle-process-2.9.1/AndroidManifest.xml:31:17-49
-54            <meta-data
-54-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:29:13-31:52
-55                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-55-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:30:17-85
-56                android:value="androidx.startup" />
-56-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:31:17-49
-57        </provider>
-58
-59        <activity
-59-->[androidx.compose.ui:ui-test-manifest:1.8.2] /home/btema2/.gradle/caches/9.1.0/transforms/b064dcaa2339079044ba3c7a4edc1be8/transformed/ui-test-manifest-1.8.2/AndroidManifest.xml:23:9-26:79
-60            android:name="androidx.activity.ComponentActivity"
-60-->[androidx.compose.ui:ui-test-manifest:1.8.2] /home/btema2/.gradle/caches/9.1.0/transforms/b064dcaa2339079044ba3c7a4edc1be8/transformed/ui-test-manifest-1.8.2/AndroidManifest.xml:24:13-63
-61            android:exported="true"
-61-->[androidx.compose.ui:ui-test-manifest:1.8.2] /home/btema2/.gradle/caches/9.1.0/transforms/b064dcaa2339079044ba3c7a4edc1be8/transformed/ui-test-manifest-1.8.2/AndroidManifest.xml:25:13-36
-62            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
-62-->[androidx.compose.ui:ui-test-manifest:1.8.2] /home/btema2/.gradle/caches/9.1.0/transforms/b064dcaa2339079044ba3c7a4edc1be8/transformed/ui-test-manifest-1.8.2/AndroidManifest.xml:26:13-76
-63
-64        <service
-64-->[androidx.room:room-runtime:2.6.1] /home/btema2/.gradle/caches/9.1.0/transforms/61d3b4bb467f06c9d8bedbdcbea0d965/transformed/room-runtime-2.6.1/AndroidManifest.xml:24:9-28:63
-65            android:name="androidx.room.MultiInstanceInvalidationService"
-65-->[androidx.room:room-runtime:2.6.1] /home/btema2/.gradle/caches/9.1.0/transforms/61d3b4bb467f06c9d8bedbdcbea0d965/transformed/room-runtime-2.6.1/AndroidManifest.xml:25:13-74
-66            android:directBootAware="true"
-66-->[androidx.room:room-runtime:2.6.1] /home/btema2/.gradle/caches/9.1.0/transforms/61d3b4bb467f06c9d8bedbdcbea0d965/transformed/room-runtime-2.6.1/AndroidManifest.xml:26:13-43
-67            android:exported="false" />
-67-->[androidx.room:room-runtime:2.6.1] /home/btema2/.gradle/caches/9.1.0/transforms/61d3b4bb467f06c9d8bedbdcbea0d965/transformed/room-runtime-2.6.1/AndroidManifest.xml:27:13-37
-68
-69        <receiver
-69-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:34:9-52:20
-70            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-70-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:35:13-76
-71            android:directBootAware="false"
-71-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:36:13-44
-72            android:enabled="true"
-72-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:37:13-35
-73            android:exported="true"
-73-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:38:13-36
-74            android:permission="android.permission.DUMP" >
-74-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:39:13-57
-75            <intent-filter>
-75-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:40:13-42:29
-76                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-76-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:41:17-91
-76-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:41:25-88
-77            </intent-filter>
-78            <intent-filter>
-78-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:43:13-45:29
-79                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-79-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:44:17-85
-79-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:44:25-82
-80            </intent-filter>
-81            <intent-filter>
-81-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:46:13-48:29
-82                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-82-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:47:17-88
-82-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:47:25-85
-83            </intent-filter>
-84            <intent-filter>
-84-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:49:13-51:29
-85                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-85-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:50:17-95
-85-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/565784de58eba914a71e918c11167ee8/transformed/profileinstaller-1.4.1/AndroidManifest.xml:50:25-92
-86            </intent-filter>
-87        </receiver>
-88    </application>
-89
-90</manifest>
+44        <service
+44-->[:core:media] /home/btema2/smart-things/code/laconical-player/core/media/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:11:9-19:19
+45            android:name="com.laconical.player.core.media.PlaybackService"
+45-->[:core:media] /home/btema2/smart-things/code/laconical-player/core/media/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:12:13-75
+46            android:exported="true"
+46-->[:core:media] /home/btema2/smart-things/code/laconical-player/core/media/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:13:13-36
+47            android:foregroundServiceType="mediaPlayback" >
+47-->[:core:media] /home/btema2/smart-things/code/laconical-player/core/media/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:14:13-58
+48            <intent-filter>
+48-->[:core:media] /home/btema2/smart-things/code/laconical-player/core/media/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:15:13-18:29
+49                <action android:name="androidx.media3.session.MediaSessionService" />
+49-->[:core:media] /home/btema2/smart-things/code/laconical-player/core/media/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:16:17-86
+49-->[:core:media] /home/btema2/smart-things/code/laconical-player/core/media/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:16:25-83
+50                <action android:name="android.intent.action.MEDIA_BUTTON" />
+50-->[:core:media] /home/btema2/smart-things/code/laconical-player/core/media/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:17:17-77
+50-->[:core:media] /home/btema2/smart-things/code/laconical-player/core/media/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:17:25-74
+51            </intent-filter>
+52        </service>
+53
+54        <activity
+54-->[androidx.compose.ui:ui-tooling-android:1.8.2] /home/btema2/.gradle/caches/9.1.0/transforms/bcc92c2e1892a82da7a4c685fbb76cf1/transformed/ui-tooling-release/AndroidManifest.xml:23:9-25:39
+55            android:name="androidx.compose.ui.tooling.PreviewActivity"
+55-->[androidx.compose.ui:ui-tooling-android:1.8.2] /home/btema2/.gradle/caches/9.1.0/transforms/bcc92c2e1892a82da7a4c685fbb76cf1/transformed/ui-tooling-release/AndroidManifest.xml:24:13-71
+56            android:exported="true" />
+56-->[androidx.compose.ui:ui-tooling-android:1.8.2] /home/btema2/.gradle/caches/9.1.0/transforms/bcc92c2e1892a82da7a4c685fbb76cf1/transformed/ui-tooling-release/AndroidManifest.xml:25:13-36
+57
+58        <provider
+58-->[androidx.emoji2:emoji2:1.4.0] /home/btema2/.gradle/caches/9.1.0/transforms/b6e70ba496f4d8b60cec6adabf8e7d75/transformed/emoji2-1.4.0/AndroidManifest.xml:24:9-32:20
+59            android:name="androidx.startup.InitializationProvider"
+59-->[androidx.emoji2:emoji2:1.4.0] /home/btema2/.gradle/caches/9.1.0/transforms/b6e70ba496f4d8b60cec6adabf8e7d75/transformed/emoji2-1.4.0/AndroidManifest.xml:25:13-67
+60            android:authorities="com.laconical.player.androidx-startup"
+60-->[androidx.emoji2:emoji2:1.4.0] /home/btema2/.gradle/caches/9.1.0/transforms/b6e70ba496f4d8b60cec6adabf8e7d75/transformed/emoji2-1.4.0/AndroidManifest.xml:26:13-68
+61            android:exported="false" >
+61-->[androidx.emoji2:emoji2:1.4.0] /home/btema2/.gradle/caches/9.1.0/transforms/b6e70ba496f4d8b60cec6adabf8e7d75/transformed/emoji2-1.4.0/AndroidManifest.xml:27:13-37
+62            <meta-data
+62-->[androidx.emoji2:emoji2:1.4.0] /home/btema2/.gradle/caches/9.1.0/transforms/b6e70ba496f4d8b60cec6adabf8e7d75/transformed/emoji2-1.4.0/AndroidManifest.xml:29:13-31:52
+63                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+63-->[androidx.emoji2:emoji2:1.4.0] /home/btema2/.gradle/caches/9.1.0/transforms/b6e70ba496f4d8b60cec6adabf8e7d75/transformed/emoji2-1.4.0/AndroidManifest.xml:30:17-75
+64                android:value="androidx.startup" />
+64-->[androidx.emoji2:emoji2:1.4.0] /home/btema2/.gradle/caches/9.1.0/transforms/b6e70ba496f4d8b60cec6adabf8e7d75/transformed/emoji2-1.4.0/AndroidManifest.xml:31:17-49
+65            <meta-data
+65-->[androidx.lifecycle:lifecycle-process:2.9.1] /home/btema2/.gradle/caches/9.1.0/transforms/649e3dcf2daba82bd3b0249e0253cc20/transformed/lifecycle-process-2.9.1/AndroidManifest.xml:29:13-31:52
+66                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+66-->[androidx.lifecycle:lifecycle-process:2.9.1] /home/btema2/.gradle/caches/9.1.0/transforms/649e3dcf2daba82bd3b0249e0253cc20/transformed/lifecycle-process-2.9.1/AndroidManifest.xml:30:17-78
+67                android:value="androidx.startup" />
+67-->[androidx.lifecycle:lifecycle-process:2.9.1] /home/btema2/.gradle/caches/9.1.0/transforms/649e3dcf2daba82bd3b0249e0253cc20/transformed/lifecycle-process-2.9.1/AndroidManifest.xml:31:17-49
+68            <meta-data
+68-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:29:13-31:52
+69                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+69-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:30:17-85
+70                android:value="androidx.startup" />
+70-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:31:17-49
+71        </provider>
+72
+73        <activity
+73-->[androidx.compose.ui:ui-test-manifest:1.8.2] /home/btema2/.gradle/caches/9.1.0/transforms/aa172c4fb076ff2c2dd16337ff1d752f/transformed/ui-test-manifest-1.8.2/AndroidManifest.xml:23:9-26:79
+74            android:name="androidx.activity.ComponentActivity"
+74-->[androidx.compose.ui:ui-test-manifest:1.8.2] /home/btema2/.gradle/caches/9.1.0/transforms/aa172c4fb076ff2c2dd16337ff1d752f/transformed/ui-test-manifest-1.8.2/AndroidManifest.xml:24:13-63
+75            android:exported="true"
+75-->[androidx.compose.ui:ui-test-manifest:1.8.2] /home/btema2/.gradle/caches/9.1.0/transforms/aa172c4fb076ff2c2dd16337ff1d752f/transformed/ui-test-manifest-1.8.2/AndroidManifest.xml:25:13-36
+76            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+76-->[androidx.compose.ui:ui-test-manifest:1.8.2] /home/btema2/.gradle/caches/9.1.0/transforms/aa172c4fb076ff2c2dd16337ff1d752f/transformed/ui-test-manifest-1.8.2/AndroidManifest.xml:26:13-76
+77
+78        <service
+78-->[androidx.room:room-runtime:2.6.1] /home/btema2/.gradle/caches/9.1.0/transforms/d7a385c06555a35ac812cdf9d0b96d3e/transformed/room-runtime-2.6.1/AndroidManifest.xml:24:9-28:63
+79            android:name="androidx.room.MultiInstanceInvalidationService"
+79-->[androidx.room:room-runtime:2.6.1] /home/btema2/.gradle/caches/9.1.0/transforms/d7a385c06555a35ac812cdf9d0b96d3e/transformed/room-runtime-2.6.1/AndroidManifest.xml:25:13-74
+80            android:directBootAware="true"
+80-->[androidx.room:room-runtime:2.6.1] /home/btema2/.gradle/caches/9.1.0/transforms/d7a385c06555a35ac812cdf9d0b96d3e/transformed/room-runtime-2.6.1/AndroidManifest.xml:26:13-43
+81            android:exported="false" />
+81-->[androidx.room:room-runtime:2.6.1] /home/btema2/.gradle/caches/9.1.0/transforms/d7a385c06555a35ac812cdf9d0b96d3e/transformed/room-runtime-2.6.1/AndroidManifest.xml:27:13-37
+82
+83        <receiver
+83-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:34:9-52:20
+84            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+84-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:35:13-76
+85            android:directBootAware="false"
+85-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:36:13-44
+86            android:enabled="true"
+86-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:37:13-35
+87            android:exported="true"
+87-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:38:13-36
+88            android:permission="android.permission.DUMP" >
+88-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:39:13-57
+89            <intent-filter>
+89-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:40:13-42:29
+90                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+90-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:41:17-91
+90-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:41:25-88
+91            </intent-filter>
+92            <intent-filter>
+92-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:43:13-45:29
+93                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+93-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:44:17-85
+93-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:44:25-82
+94            </intent-filter>
+95            <intent-filter>
+95-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:46:13-48:29
+96                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+96-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:47:17-88
+96-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:47:25-85
+97            </intent-filter>
+98            <intent-filter>
+98-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:49:13-51:29
+99                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+99-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:50:17-95
+99-->[androidx.profileinstaller:profileinstaller:1.4.1] /home/btema2/.gradle/caches/9.1.0/transforms/e8284ce3e48c51ae6d85bf3dbbe3e9a1/transformed/profileinstaller-1.4.1/AndroidManifest.xml:50:25-92
+100            </intent-filter>
+101        </receiver>
+102    </application>
+103
+104</manifest>
