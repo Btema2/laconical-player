@@ -18,7 +18,7 @@
 ## Coding Standards (Senior Level)
 - **Functional Style:** Prefer immutable `val`, functional chains (`map`, `filter`), and excessive use of Kotlin standard library extensions.
 - **Compose:** Use `StateFlow` for UI state. All UI components must be previewable.
-- **Comments:** NO redundant comments. Short and precise.
+- **Comments:** NO redundant comments. Short and precise. English comments only.
 - **Formatting:** Kotlin official style guide. trailing commas enabled.
 
 ## Antigravity Agent Protocol
