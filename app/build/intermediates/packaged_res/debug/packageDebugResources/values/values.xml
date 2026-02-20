@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="ic_launcher_background">#453AAA</color>
     <style name="Theme.LaconicalPlayer" parent="@style/Theme.Material3.DayNight.NoActionBar">
         
         <item name="colorPrimary">@android:color/white</item>

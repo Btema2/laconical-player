@@ -4,7 +4,7 @@
             "outputFile": "com.laconical.player.app-mergeDebugResources-76:/values-v24/values-v24.xml",
             "map": [
                 {
-                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/0834a4221e481ddd41bf1bda7cea73ef/transformed/material-1.12.0/res/values-v24/values-v24.xml",
+                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/439526214126413f301009cd20952e99/transformed/material-1.12.0/res/values-v24/values-v24.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,9,12,15",
                         "startColumns": "4,4,4,4,4,4,4,4",
@@ -23,7 +23,7 @@
                     }
                 },
                 {
-                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/f96591c231daab11677f59a4f7d3c543/transformed/media3-session-1.6.0/res/values-v24/values-v24.xml",
+                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/ff1a02a04593dc4548941eaa7c8ad522/transformed/media3-session-1.6.0/res/values-v24/values-v24.xml",
                     "from": {
                         "startLines": "2,3,4,5",
                         "startColumns": "4,4,4,4",
@@ -40,7 +40,7 @@
                     }
                 },
                 {
-                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/5d3ea760c35a3cbf3fa041ea0ca63970/transformed/appcompat-1.7.1/res/values-v24/values-v24.xml",
+                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/d92254abb7af9beedaee33a1af1fe9a3/transformed/appcompat-1.7.1/res/values-v24/values-v24.xml",
                     "from": {
                         "startLines": "2,3",
                         "startColumns": "4,4",
