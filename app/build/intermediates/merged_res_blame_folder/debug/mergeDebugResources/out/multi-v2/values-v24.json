@@ -1,10 +1,20 @@
 {
     "logs": [
         {
-            "outputFile": "com.laconical.player.app-mergeDebugResources-76:/values-v24/values-v24.xml",
+            "outputFile": "com.laconical.player.app-mergeDebugResources-77:/values-v24/values-v24.xml",
             "map": [
                 {
-                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/439526214126413f301009cd20952e99/transformed/material-1.12.0/res/values-v24/values-v24.xml",
+                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/30be1b46d149a827f55b0a8ec968d34f/transformed/appcompat-1.7.1/res/values-v24/values-v24.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,212",
+                        "endColumns": "156,134",
+                        "endOffsets": "207,342"
+                    }
+                },
+                {
+                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/00c5e6b2dbfc98a665dfd7d2ceb6f7ee/transformed/material-1.12.0/res/values-v24/values-v24.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,9,12,15",
                         "startColumns": "4,4,4,4,4,4,4,4",
@@ -23,7 +33,7 @@
                     }
                 },
                 {
-                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/ff1a02a04593dc4548941eaa7c8ad522/transformed/media3-session-1.6.0/res/values-v24/values-v24.xml",
+                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/7fda5fa5c211052bb5a68f799d55e861/transformed/media3-session-1.6.0/res/values-v24/values-v24.xml",
                     "from": {
                         "startLines": "2,3,4,5",
                         "startColumns": "4,4,4,4",
@@ -37,16 +47,6 @@
                         "startOffsets": "1547,1613,1674,1740",
                         "endColumns": "65,60,65,66",
                         "endOffsets": "1608,1669,1735,1802"
-                    }
-                },
-                {
-                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/d92254abb7af9beedaee33a1af1fe9a3/transformed/appcompat-1.7.1/res/values-v24/values-v24.xml",
-                    "from": {
-                        "startLines": "2,3",
-                        "startColumns": "4,4",
-                        "startOffsets": "55,212",
-                        "endColumns": "156,134",
-                        "endOffsets": "207,342"
                     }
                 }
             ]

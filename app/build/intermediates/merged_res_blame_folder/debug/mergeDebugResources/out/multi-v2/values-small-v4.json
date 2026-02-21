@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.laconical.player.app-mergeDebugResources-76:/values-small-v4/values-small-v4.xml",
+            "outputFile": "com.laconical.player.app-mergeDebugResources-77:/values-small-v4/values-small-v4.xml",
             "map": [
                 {
-                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/439526214126413f301009cd20952e99/transformed/material-1.12.0/res/values-small-v4/values-small-v4.xml",
+                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/00c5e6b2dbfc98a665dfd7d2ceb6f7ee/transformed/material-1.12.0/res/values-small-v4/values-small-v4.xml",
                     "from": {
                         "startLines": "2,3,4,5",
                         "startColumns": "4,4,4,4",

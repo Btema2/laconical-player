@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.laconical.player.app-mergeDebugResources-76:/values-watch-v20/values-watch-v20.xml",
+            "outputFile": "com.laconical.player.app-mergeDebugResources-77:/values-watch-v20/values-watch-v20.xml",
             "map": [
                 {
-                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/d92254abb7af9beedaee33a1af1fe9a3/transformed/appcompat-1.7.1/res/values-watch-v20/values-watch-v20.xml",
+                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/30be1b46d149a827f55b0a8ec968d34f/transformed/appcompat-1.7.1/res/values-watch-v20/values-watch-v20.xml",
                     "from": {
                         "startLines": "2,5,8",
                         "startColumns": "4,4,4",
