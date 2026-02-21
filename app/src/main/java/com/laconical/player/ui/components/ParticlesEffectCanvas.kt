@@ -12,14 +12,16 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import kotlin.math.sin
 import kotlin.random.Random
 
 data class Particle(
     var x: Float,
     var y: Float,
-    var vx: Float,
-    var vy: Float,
+    var angle: Float,
+    var speed: Float,
     var baseAlpha: Float,
     var radius: Float,
     var life: Float,
@@ -41,15 +43,17 @@ fun ParticlesEffectCanvas(
         }
     }
 
+    val density = LocalDensity.current.density
+    val originX = with(LocalDensity.current) { 42.dp.toPx() }
     val particles = remember {
-        List(20) {
+        List(12) {
             Particle(
-                x = Random.nextFloat(),
-                y = Random.nextFloat(),
-                vx = Random.nextFloat() * 0.5f + 0.1f, // Drift right
-                vy = (Random.nextFloat() - 0.5f) * 0.2f, // Slight vertical drift
-                baseAlpha = Random.nextFloat() * 0.5f + 0.1f,
-                radius = Random.nextFloat() * 4f + 2f,
+                x = originX,
+                y = 0f, // will be properly initialized in draw loop once size is known
+                angle = Random.nextFloat() * (2f * Math.PI.toFloat()),
+                speed = (Random.nextFloat() * 200f + 50f) * density,
+                baseAlpha = Random.nextFloat() * 0.6f, // 0 to 0.6f
+                radius = (Random.nextFloat() * 3f + 2f) * density, // 2dp to 5dp
                 life = Random.nextFloat(),
                 maxLife = 1f
             )
@@ -58,15 +62,22 @@ fun ParticlesEffectCanvas(
 
     Canvas(modifier = modifier.fillMaxSize()) {
         val dt = 0.016f // Roughly 60fps delta
+        val originY = size.height / 2f
         
         particles.forEach { p ->
-            p.x += p.vx * dt * size.width * 0.1f
-            p.y += (p.vy + sin(time.toFloat() / 1000000000f + p.x) * 0.05f) * dt * size.height * 0.1f
-            p.life -= dt * 0.2f
+            // Initialize uninitialized Y coordinates
+            if (p.y == 0f && p.life < 1f) {
+                p.y = originY
+            }
 
-            if (p.life <= 0 || p.x > size.width) {
-                p.x = 0f
-                p.y = Random.nextFloat() * size.height
+            p.x += kotlin.math.cos(p.angle) * p.speed * dt
+            p.y += kotlin.math.sin(p.angle) * p.speed * dt
+            p.life -= dt * 0.5f
+
+            if (p.life <= 0) {
+                p.x = originX
+                p.y = originY
+                p.angle = Random.nextFloat() * (2f * Math.PI.toFloat())
                 p.life = p.maxLife
             }
 

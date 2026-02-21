@@ -456,7 +456,7 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
       public T get() {
         switch (id) {
           case 0: // com.laconical.player.ui.MainViewModel
-          return (T) new MainViewModel(singletonCImpl.localMediaRepositoryImplProvider.get(), singletonCImpl.provideMusicPlayerProvider.get());
+          return (T) new MainViewModel(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.localMediaRepositoryImplProvider.get(), singletonCImpl.provideMusicPlayerProvider.get());
 
           default: throw new AssertionError(id);
         }
