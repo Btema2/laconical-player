@@ -75,20 +75,36 @@ class MusicPlayerImpl @Inject constructor(
     }
 
     override fun play() {
-        mediaController?.play()
+        try {
+            mediaController?.play()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun pause() {
-        mediaController?.pause()
+        try {
+            mediaController?.pause()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun stop() {
-        mediaController?.stop()
+        try {
+            mediaController?.stop()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun playMediaItem(mediaItem: androidx.media3.common.MediaItem) {
-        mediaController?.setMediaItem(mediaItem)
-        mediaController?.prepare()
-        mediaController?.play()
+        try {
+            mediaController?.setMediaItem(mediaItem)
+            mediaController?.prepare()
+            mediaController?.play()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

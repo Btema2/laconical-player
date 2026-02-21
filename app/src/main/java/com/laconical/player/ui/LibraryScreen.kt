@@ -16,6 +16,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.laconical.player.ui.components.LaconicalBottomNav
+import com.laconical.player.ui.components.LaconicalTopBar
+import com.laconical.player.ui.components.TrackListItem
 
 /**
  * Main library screen that displays local audio files and handles media permissions.
@@ -41,12 +44,16 @@ fun LibraryScreen(
         hasPermission = isGranted
     }
 
+    val searchQuery by viewModel.searchQuery.collectAsState()
+
     Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Laconical Library") }
-            )
-        }
+        topBar = { 
+            LaconicalTopBar(
+                searchQuery = searchQuery,
+                onSearchQueryChange = viewModel::updateSearchQuery
+            ) 
+        },
+        bottomBar = { LaconicalBottomNav() }
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -61,17 +68,18 @@ fun LibraryScreen(
                     viewModel.loadTracks()
                 }
 
+                val currentTrack by viewModel.currentTrack.collectAsState()
+
                 if (tracks.isEmpty()) {
                     Text("No tracks found")
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(tracks) { track ->
-                            ListItem(
-                                headlineContent = { Text(track.title) },
-                                supportingContent = { Text(track.artist) },
-                                modifier = Modifier.clickable {
-                                    viewModel.playTrack(track)
-                                }
+                            val isPlaying = currentTrack?.id == track.id
+                            TrackListItem(
+                                track = track,
+                                isPlaying = isPlaying,
+                                onClick = { viewModel.playTrack(track) }
                             )
                         }
                     }
