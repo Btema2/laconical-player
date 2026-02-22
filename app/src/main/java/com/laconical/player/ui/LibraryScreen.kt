@@ -108,6 +108,7 @@ fun LibraryScreen(
                 }
 
                 val currentTrack by viewModel.currentTrack.collectAsState()
+                val isPlaybackActive by viewModel.isPlaying.collectAsState()
 
                 if (tracks.isEmpty()) {
                     Text(
@@ -117,10 +118,11 @@ fun LibraryScreen(
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(tracks) { track ->
-                            val isPlaying = currentTrack?.id == track.id
+                            val isActiveTrack = currentTrack?.id == track.id
                             TrackListItem(
                                 track = track,
-                                isPlaying = isPlaying,
+                                isActiveTrack = isActiveTrack,
+                                isPlaybackActive = isPlaybackActive,
                                 onClick = { viewModel.playTrack(track) }
                             )
                         }

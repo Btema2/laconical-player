@@ -30,6 +30,7 @@ data class Particle(
 @Composable
 fun ParticlesEffectCanvas(
     color: Color,
+    isPlaybackActive: Boolean,
     modifier: Modifier = Modifier
 ) {
     // Reading `time` inside the Canvas block is what drives recomposition each frame.
@@ -82,10 +83,18 @@ fun ParticlesEffectCanvas(
             p.life -= dt * 0.8f
 
             if (p.life <= 0f) {
-                p.x = originX
-                p.y = originY
-                p.angle = Random.nextFloat() * (2f * Math.PI.toFloat())
-                p.life = p.maxLife
+                if (isPlaybackActive) {
+                    // Detect if the particle was "waiting" for playback to resume.
+                    // If so, randomize its starting life and position to avoid all 
+                    // particles starting in sync (which causes a pulsing effect).
+                    val wasWaiting = p.life < -0.05f
+                    p.life = if (wasWaiting) Random.nextFloat() * p.maxLife else p.maxLife
+                    p.angle = Random.nextFloat() * (2f * Math.PI.toFloat())
+                    
+                    val age = p.maxLife - p.life
+                    p.x = originX + kotlin.math.cos(p.angle) * p.speed * age
+                    p.y = originY + kotlin.math.sin(p.angle) * p.speed * age
+                }
             }
 
             val alpha = (p.baseAlpha * p.life).coerceIn(0f, 1f)
