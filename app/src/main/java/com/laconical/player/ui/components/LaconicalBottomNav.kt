@@ -4,6 +4,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -35,17 +36,54 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.geometry.Offset
 
 @Composable
 fun LaconicalBottomNav(
+    dynamicColor: Color? = null,
     modifier: Modifier = Modifier
 ) {
     var selectedItem by remember { mutableIntStateOf(0) }
 
+    // Much darker and more subtle dynamic color
+    val navColor = if (dynamicColor != null) {
+        val alpha = 0.25f // Darker than before
+        Color(
+            red = dynamicColor.red * alpha,
+            green = dynamicColor.green * alpha,
+            blue = dynamicColor.blue * alpha,
+            alpha = 1f
+        )
+    } else {
+        Color(0xFF0D0D10)
+    }
+
+    // Whiter icons with a subtle tint
+    val iconBaseColor = if (dynamicColor != null) {
+        // Blend theme color with pure white (high white bias)
+        Color(
+            red = (dynamicColor.red * 0.3f + 0.7f).coerceIn(0f, 1f),
+            green = (dynamicColor.green * 0.3f + 0.7f).coerceIn(0f, 1f),
+            blue = (dynamicColor.blue * 0.3f + 0.7f).coerceIn(0f, 1f),
+            alpha = 1f
+        )
+    } else {
+        Color.White
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xFF000000).copy(alpha = 0.8f)) // Reverted to correct background from first build
+            .background(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        navColor.copy(alpha = 0.25f), // Even less visible (from 0.4f)
+                        Color.Black // Deep black edges
+                    ),
+                    center = Offset(100f, -50f),
+                    radius = 1040f // Expanded by 30% (from 800f)
+                )
+            )
     ) {
         Column(
             modifier = Modifier
@@ -55,8 +93,8 @@ fun LaconicalBottomNav(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp) // Reverted to 64dp
-                    .padding(horizontal = 32.dp), // Added padding to bring icons closer to center
+                    .height(64.dp)
+                    .padding(horizontal = 32.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -69,8 +107,7 @@ fun LaconicalBottomNav(
 
                 items.forEachIndexed { index, pair ->
                     val isSelected = selectedItem == index
-                    val itemColor = if (isSelected) Color.White else Color(0xFF888888)
-                    // Keep FontWeight consistent (Medium) to prevent jump/shift
+                    val itemColor = if (isSelected) iconBaseColor else Color(0xFF666666) // Darker unselected icons
                     val itemFontWeight = FontWeight.Medium
 
                     val yOffset by animateDpAsState(
