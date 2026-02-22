@@ -14,7 +14,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import kotlin.math.sin
 import kotlin.random.Random
 
 data class Particle(
@@ -33,57 +32,65 @@ fun ParticlesEffectCanvas(
     color: Color,
     modifier: Modifier = Modifier
 ) {
+    // Reading `time` inside the Canvas block is what drives recomposition each frame.
     var time by remember { mutableLongStateOf(0L) }
+    var lastTime by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(Unit) {
         while (true) {
-            withFrameNanos {
-                time = it
+            withFrameNanos { frameNanos ->
+                lastTime = time
+                time = frameNanos
             }
         }
     }
 
     val density = LocalDensity.current.density
     val originX = with(LocalDensity.current) { 42.dp.toPx() }
+
     val particles = remember {
-        List(12) {
+        List(24) {
             Particle(
                 x = originX,
-                y = 0f, // will be properly initialized in draw loop once size is known
+                y = -1f, // sentinel: will be initialized to center on first draw
                 angle = Random.nextFloat() * (2f * Math.PI.toFloat()),
-                speed = (Random.nextFloat() * 200f + 50f) * density,
-                baseAlpha = Random.nextFloat() * 0.6f, // 0 to 0.6f
-                radius = (Random.nextFloat() * 3f + 2f) * density, // 2dp to 5dp
+                speed = (Random.nextFloat() * 70f + 40f) * density,
+                baseAlpha = Random.nextFloat() * 0.5f + 0.2f,
+                radius = (Random.nextFloat() * 2.5f + 1.5f) * density,
                 life = Random.nextFloat(),
                 maxLife = 1f
             )
         }
     }
 
+    // Reading `time` here is critical — it makes Compose recompose this Canvas every frame.
     Canvas(modifier = modifier.fillMaxSize()) {
-        val dt = 0.016f // Roughly 60fps delta
+        val currentTime = time  // subscribe to state; triggers recomposition each frame
+        val dt = if (lastTime == 0L) 0.016f
+                 else ((currentTime - lastTime) / 1_000_000_000f).coerceIn(0f, 0.05f)
+
         val originY = size.height / 2f
-        
+
         particles.forEach { p ->
-            // Initialize uninitialized Y coordinates
-            if (p.y == 0f && p.life < 1f) {
+            // Initialize Y on first draw when layout size is known
+            if (p.y < 0f) {
                 p.y = originY
             }
 
             p.x += kotlin.math.cos(p.angle) * p.speed * dt
             p.y += kotlin.math.sin(p.angle) * p.speed * dt
-            p.life -= dt * 0.5f
+            p.life -= dt * 0.8f
 
-            if (p.life <= 0) {
+            if (p.life <= 0f) {
                 p.x = originX
                 p.y = originY
                 p.angle = Random.nextFloat() * (2f * Math.PI.toFloat())
                 p.life = p.maxLife
             }
 
-            val alpha = p.baseAlpha * p.life
+            val alpha = (p.baseAlpha * p.life).coerceIn(0f, 1f)
             drawCircle(
-                color = color.copy(alpha = alpha.coerceIn(0f, 1f)),
+                color = color.copy(alpha = alpha),
                 radius = p.radius,
                 center = Offset(p.x, p.y)
             )

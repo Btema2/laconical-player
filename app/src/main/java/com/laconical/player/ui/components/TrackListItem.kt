@@ -57,7 +57,6 @@ import com.laconical.player.ui.AudioAlbumArtKeyer
 import com.laconical.player.ui.AudioArtData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import android.util.Log
 
 @Composable
 fun TrackListItem(

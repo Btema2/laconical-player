@@ -102,7 +102,10 @@ fun LibraryScreen(
                 val currentTrack by viewModel.currentTrack.collectAsState()
 
                 if (tracks.isEmpty()) {
-                    Text("No tracks found")
+                    Text(
+                        text = "No tracks found",
+                        color = Color.White
+                    )
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(tracks) { track ->
