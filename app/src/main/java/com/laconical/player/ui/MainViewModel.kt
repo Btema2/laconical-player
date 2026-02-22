@@ -44,35 +44,25 @@ class AudioAlbumArtFetcher(
     private val options: Options
 ) : Fetcher {
     override suspend fun fetch(): FetchResult? {
-        Log.d("LaconicalDiag", "Fetcher starting for: ${artData.uri}")
         val retriever = MediaMetadataRetriever()
         try {
             if (artData.uri.startsWith("/")) {
-                Log.d("LaconicalDiag", "Setting data source via absolute path")
                 retriever.setDataSource(artData.uri)
             } else {
-                Log.d("LaconicalDiag", "Setting data source via context/uri")
                 retriever.setDataSource(options.context, Uri.parse(artData.uri))
             }
             val picture = retriever.embeddedPicture
             if (picture != null) {
-                Log.d("LaconicalDiag", "Embedded picture found! Size: ${picture.size}")
                 val bitmap = android.graphics.BitmapFactory.decodeByteArray(picture, 0, picture.size)
                 if (bitmap != null) {
-                    Log.d("LaconicalDiag", "Bitmap decoded successfully")
                     return ImageFetchResult(
                         image = bitmap.asImage(),
                         isSampled = false,
                         dataSource = DataSource.DISK
                     )
-                } else {
-                    Log.e("LaconicalDiag", "Bitmap decoding FAILED")
                 }
-            } else {
-                Log.w("LaconicalDiag", "No embedded picture found in file")
             }
         } catch (e: Exception) {
-            Log.e("LaconicalDiag", "Fetcher ERROR: ${e.message}", e)
         } finally {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -87,7 +77,6 @@ class AudioAlbumArtFetcher(
 
     class Factory : Fetcher.Factory<AudioArtData> {
         override fun create(data: AudioArtData, options: Options, imageLoader: coil3.ImageLoader): Fetcher {
-            Log.d("LaconicalDiag", "Factory create called for: ${data.uri}")
             return AudioAlbumArtFetcher(data, options)
         }
     }

@@ -3,20 +3,20 @@
 A modern, privacy-focused, FOSS music player for Android. Built with Jetpack Compose and Media3, inspired by Namida's aesthetics and Material 3 simplicity.
 
 ## Features
-- **Modular Architecture:** Cleanly separated Core-Media, Core-Data, and UI modules.
-- **MediaStore Integration:** Scans your device for music automatically.
-- **Background Playback:** High-performance audio engine using Media3.
-- **Modern UI:** Built entirely with Jetpack Compose.
-- **Privacy First:** No internet, no trackers, strictly offline.
+- **Namida-Inspired Aesthetics:** Dynamic UI that responds to the currently playing track's color palette.
+- **Search:** Real-time filtering of local library tracks.
+- **High-Performance Audio:** Powered by Android Media3 (ExoPlayer) with reliable background playback.
+- **Privacy First:** Offline, no trackers, no internet required.
 
 ## Tech Stack
-- **Language:** Kotlin 2.2+
-- **Build System:** AGP 9.0.1 + Gradle 9.1.0 (Built-in Kotlin support)
+- **UI:** Jetpack Compose (Material 3)
+- **Networking/Images:** Coil 3 (Custom implementation for local data)
+- **Colors:** Android Palette API
 - **Audio Engine:** Media3 (ExoPlayer)
 - **Dependency Injection:** Hilt 2.59.1
-- **UI:** Jetpack Compose (Material 3)
+- **Architecture:** Multi-module project with clean separation of concerns.
 
-## How to Build
+## Build it yourself
 1. Install **Android Studio Ladybug** (or newer) to get the required SDK 35/36.
 2. Clone this repo
 3. Run: `./gradlew assembleDebug`
