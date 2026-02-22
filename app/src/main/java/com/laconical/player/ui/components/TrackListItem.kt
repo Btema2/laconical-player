@@ -48,10 +48,16 @@ import androidx.palette.graphics.Palette
 import coil3.ImageLoader
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
+import coil3.request.Options
 import coil3.request.SuccessResult
+import coil3.asImage
 import com.laconical.player.core.model.Track
+import com.laconical.player.ui.AudioAlbumArtFetcher
+import com.laconical.player.ui.AudioAlbumArtKeyer
+import com.laconical.player.ui.AudioArtData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import android.util.Log
 
 @Composable
 fun TrackListItem(
@@ -63,12 +69,18 @@ fun TrackListItem(
     var vibeColor by remember { mutableStateOf(Color(0xFF888888)) }
     val context = LocalContext.current
 
-    LaunchedEffect(track.albumArtUri, isPlaying) {
-        if (isPlaying && track.albumArtUri != null) {
+    LaunchedEffect(track.mediaUri, track.dataPath, isPlaying) {
+        val loadTarget = if (!track.dataPath.isNullOrEmpty()) track.dataPath else track.mediaUri
+        if (isPlaying && !loadTarget.isNullOrEmpty()) {
             withContext(Dispatchers.Default) {
-                val imageLoader = ImageLoader(context)
+                val imageLoader = coil3.ImageLoader.Builder(context)
+                    .components {
+                        add(AudioAlbumArtFetcher.Factory())
+                        add(AudioAlbumArtKeyer())
+                    }
+                    .build()
                 val request = ImageRequest.Builder(context)
-                    .data(track.albumArtUri)
+                    .data(AudioArtData(loadTarget!!))
                     .size(100)
                     .build()
 
@@ -150,8 +162,21 @@ fun TrackListItem(
                         .background(Color(0xFF1E1E1E)),
                     contentAlignment = androidx.compose.ui.Alignment.Center
                 ) {
+                    val loader = remember(context) {
+                        coil3.ImageLoader.Builder(context)
+                            .components { 
+                                add(AudioAlbumArtFetcher.Factory()) 
+                                add(AudioAlbumArtKeyer())
+                            }
+                            .build()
+                    }
+                    var imageModel by remember(track.id) {
+                        val target = if (!track.dataPath.isNullOrEmpty()) track.dataPath!! else track.mediaUri
+                        mutableStateOf<Any?>(AudioArtData(target))
+                    }
                     SubcomposeAsyncImage(
-                        model = track.albumArtUri,
+                        model = imageModel,
+                        imageLoader = loader,
                         contentDescription = "Album Art",
                         modifier = Modifier.fillMaxSize(),
                         error = {
