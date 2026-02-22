@@ -73,6 +73,7 @@ fun LibraryScreen(
 
     Scaffold(
         containerColor = animatedColor,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = { 
             if (hasPermission) {
                 LaconicalTopBar(
@@ -93,7 +94,10 @@ fun LibraryScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
+                .padding(
+                    top = paddingValues.calculateTopPadding(),
+                    bottom = paddingValues.calculateBottomPadding()
+                ),
             contentAlignment = Alignment.Center
         ) {
             if (hasPermission) {
