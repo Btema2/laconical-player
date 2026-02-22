@@ -85,7 +85,7 @@ fun LibraryScreen(
             if (hasPermission) {
                 Column {
                     MiniPlayer(viewModel = viewModel)
-                    LaconicalBottomNav()
+                    LaconicalBottomNav(dynamicColor = playingTrackDominantColor)
                 }
             }
         }
