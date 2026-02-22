@@ -74,6 +74,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
 
     implementation(libs.coil.compose)
+    implementation(libs.coil3)
     implementation(libs.coil.network.okhttp)
     implementation(libs.coil.video)
     implementation(libs.androidx.media3.common)

@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.laconical.player.ui.components.LaconicalBottomNav
 import com.laconical.player.ui.components.LaconicalTopBar
+import com.laconical.player.ui.components.MiniPlayer
 import com.laconical.player.ui.components.TrackListItem
 
 /**
@@ -82,7 +83,10 @@ fun LibraryScreen(
         },
         bottomBar = { 
             if (hasPermission) {
-                LaconicalBottomNav() 
+                Column {
+                    MiniPlayer(viewModel = viewModel)
+                    LaconicalBottomNav()
+                }
             }
         }
     ) { paddingValues ->
