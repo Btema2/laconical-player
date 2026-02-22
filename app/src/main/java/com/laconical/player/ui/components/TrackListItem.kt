@@ -61,16 +61,17 @@ import kotlinx.coroutines.withContext
 @Composable
 fun TrackListItem(
     track: Track,
-    isPlaying: Boolean,
+    isActiveTrack: Boolean,
+    isPlaybackActive: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var vibeColor by remember { mutableStateOf(Color(0xFF888888)) }
     val context = LocalContext.current
 
-    LaunchedEffect(track.mediaUri, track.dataPath, isPlaying) {
+    LaunchedEffect(track.mediaUri, track.dataPath, isActiveTrack) {
         val loadTarget = if (!track.dataPath.isNullOrEmpty()) track.dataPath else track.mediaUri
-        if (isPlaying && !loadTarget.isNullOrEmpty()) {
+        if (isActiveTrack && !loadTarget.isNullOrEmpty()) {
             withContext(Dispatchers.Default) {
                 val imageLoader = coil3.ImageLoader.Builder(context)
                     .components {
@@ -111,7 +112,7 @@ fun TrackListItem(
                 onClick = onClick
             )
     ) {
-        if (isPlaying) {
+        if (isActiveTrack) {
             Canvas(modifier = Modifier.matchParentSize()) {
                 drawRect(
                     brush = Brush.horizontalGradient(
@@ -126,6 +127,7 @@ fun TrackListItem(
             }
             ParticlesEffectCanvas(
                 color = vibeColor,
+                isPlaybackActive = isPlaybackActive,
                 modifier = Modifier.matchParentSize()
             )
         }
@@ -138,7 +140,7 @@ fun TrackListItem(
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
             Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
-                if (isPlaying) {
+                if (isActiveTrack) {
                     val paint = remember {
                         Paint().apply {
                             color = vibeColor.copy(alpha = 0.6f)
@@ -214,8 +216,8 @@ fun TrackListItem(
                     fontSize = 16.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    fontWeight = if (isPlaying) FontWeight.ExtraBold else FontWeight.Normal,
-                    color = if (isPlaying) titleColor else MaterialTheme.colorScheme.onSurface
+                    fontWeight = if (isActiveTrack) FontWeight.ExtraBold else FontWeight.Normal,
+                    color = if (isActiveTrack) titleColor else MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = track.artist,
