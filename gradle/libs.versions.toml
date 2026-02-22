@@ -70,6 +70,7 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 # Coil
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
+coil-video = { group = "io.coil-kt.coil3", name = "coil-video", version.ref = "coil" }
 
 # Palette
 androidx-palette = { group = "androidx.palette", name = "palette-ktx", version.ref = "palette" }
