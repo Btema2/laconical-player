@@ -4,7 +4,7 @@
             "outputFile": "com.laconical.player.app-mergeDebugResources-77:/values-v28/values-v28.xml",
             "map": [
                 {
-                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/a02f764a487e22daf7dc46ffad331636/transformed/material-1.12.0/res/values-v28/values-v28.xml",
+                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/9c23f8022cc6fe67dc21ad63a8ce42d1/transformed/material-1.12.0/res/values-v28/values-v28.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4",
@@ -23,7 +23,7 @@
                     }
                 },
                 {
-                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/d8de05de8b3a68eb803580d048361692/transformed/appcompat-1.7.1/res/values-v28/values-v28.xml",
+                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/a2f9ab8bf30461d33482e8ac5df85f42/transformed/appcompat-1.7.1/res/values-v28/values-v28.xml",
                     "from": {
                         "startLines": "2,3,4,8",
                         "startColumns": "4,4,4,4",

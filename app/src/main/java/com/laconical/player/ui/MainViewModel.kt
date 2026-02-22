@@ -117,6 +117,17 @@ class MainViewModel @Inject constructor(
     private val _playingTrackDominantColor = MutableStateFlow<Color?>(null)
     val playingTrackDominantColor: StateFlow<Color?> = _playingTrackDominantColor.asStateFlow()
 
+    val isPlaying: StateFlow<Boolean> = musicPlayer.isPlaying
+    val currentPosition: StateFlow<Long> = musicPlayer.currentPosition
+    val duration: StateFlow<Long> = musicPlayer.duration
+
+    /**
+     * Observable state indicating playback progress from 0f to 1f.
+     */
+    val progress: StateFlow<Float> = combine(currentPosition, duration) { pos, dur ->
+        if (dur > 0) pos.toFloat() / dur.toFloat() else 0f
+    }.stateIn(viewModelScope, SharingStarted.Lazily, 0f)
+
     fun loadTracks() {
         viewModelScope.launch {
             _allTracks.value = repository.getTracks()
@@ -170,5 +181,29 @@ class MainViewModel @Inject constructor(
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
+    }
+
+    fun togglePlayPause() {
+        if (isPlaying.value) {
+            musicPlayer.pause()
+        } else {
+            musicPlayer.play()
+        }
+    }
+
+    fun skipToPrevious() {
+        musicPlayer.skipToPrevious()
+    }
+
+    fun skipToNext() {
+        musicPlayer.skipToNext()
+    }
+
+    fun seekTo(progress: Float) {
+        val dur = musicPlayer.duration.value
+        if (dur > 0) {
+            val position = (progress * dur).toLong()
+            musicPlayer.seekTo(position)
+        }
     }
 }

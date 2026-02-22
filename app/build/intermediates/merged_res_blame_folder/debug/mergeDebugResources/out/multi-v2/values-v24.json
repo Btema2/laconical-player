@@ -4,7 +4,17 @@
             "outputFile": "com.laconical.player.app-mergeDebugResources-77:/values-v24/values-v24.xml",
             "map": [
                 {
-                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/a02f764a487e22daf7dc46ffad331636/transformed/material-1.12.0/res/values-v24/values-v24.xml",
+                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/a2f9ab8bf30461d33482e8ac5df85f42/transformed/appcompat-1.7.1/res/values-v24/values-v24.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,212",
+                        "endColumns": "156,134",
+                        "endOffsets": "207,342"
+                    }
+                },
+                {
+                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/9c23f8022cc6fe67dc21ad63a8ce42d1/transformed/material-1.12.0/res/values-v24/values-v24.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,9,12,15",
                         "startColumns": "4,4,4,4,4,4,4,4",
@@ -23,7 +33,7 @@
                     }
                 },
                 {
-                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/1623b3baadeedfe6b7125d193820cdfe/transformed/media3-session-1.6.0/res/values-v24/values-v24.xml",
+                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/d4eb3d528b50029d9a79037766849106/transformed/media3-session-1.6.0/res/values-v24/values-v24.xml",
                     "from": {
                         "startLines": "2,3,4,5",
                         "startColumns": "4,4,4,4",
@@ -37,16 +47,6 @@
                         "startOffsets": "1547,1613,1674,1740",
                         "endColumns": "65,60,65,66",
                         "endOffsets": "1608,1669,1735,1802"
-                    }
-                },
-                {
-                    "source": "/home/btema2/.gradle/caches/9.1.0/transforms/d8de05de8b3a68eb803580d048361692/transformed/appcompat-1.7.1/res/values-v24/values-v24.xml",
-                    "from": {
-                        "startLines": "2,3",
-                        "startColumns": "4,4",
-                        "startOffsets": "55,212",
-                        "endColumns": "156,134",
-                        "endOffsets": "207,342"
                     }
                 }
             ]

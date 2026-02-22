@@ -28,6 +28,16 @@ interface MusicPlayer {
     val isPlaying: kotlinx.coroutines.flow.StateFlow<Boolean>
 
     /**
+     * Observable state indicating the current position in milliseconds.
+     */
+    val currentPosition: kotlinx.coroutines.flow.StateFlow<Long>
+
+    /**
+     * Observable state indicating the duration in milliseconds.
+     */
+    val duration: kotlinx.coroutines.flow.StateFlow<Long>
+
+    /**
      * Starts or resumes playback.
      */
     fun play()
@@ -41,6 +51,21 @@ interface MusicPlayer {
      * Stops playback.
      */
     fun stop()
+
+    /**
+     * Skips to the previous track.
+     */
+    fun skipToPrevious()
+
+    /**
+     * Skips to the next track in the queue.
+     */
+    fun skipToNext()
+
+    /**
+     * Seeks to a specific position in milliseconds.
+     */
+    fun seekTo(position: Long)
 
     /**
      * Plays a specific media item.
@@ -60,6 +85,12 @@ class MusicPlayerImpl @Inject constructor(
     private val _isPlaying = MutableStateFlow(false)
     override val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
+    private val _currentPosition = MutableStateFlow(0L)
+    override val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
+
+    private val _duration = MutableStateFlow(0L)
+    override val duration: StateFlow<Long> = _duration.asStateFlow()
+
     init {
         scope.launch {
             val sessionToken = SessionToken(context, ComponentName(context, PlaybackService::class.java))
@@ -68,8 +99,29 @@ class MusicPlayerImpl @Inject constructor(
                 addListener(object : Player.Listener {
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
                         _isPlaying.value = isPlaying
+                        if (isPlaying) {
+                            startPollingProgress()
+                        }
+                    }
+
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        if (playbackState == Player.STATE_READY) {
+                            _duration.value = duration
+                        }
                     }
                 })
+            }
+        }
+    }
+
+    private var pollingJob: kotlinx.coroutines.Job? = null
+
+    private fun startPollingProgress() {
+        pollingJob?.cancel()
+        pollingJob = scope.launch {
+            while (_isPlaying.value) {
+                _currentPosition.value = mediaController?.currentPosition ?: 0L
+                kotlinx.coroutines.delay(1000)
             }
         }
     }
@@ -93,6 +145,30 @@ class MusicPlayerImpl @Inject constructor(
     override fun stop() {
         try {
             mediaController?.stop()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun skipToPrevious() {
+        try {
+            mediaController?.seekToPrevious()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun skipToNext() {
+        try {
+            mediaController?.seekToNext()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun seekTo(position: Long) {
+        try {
+            mediaController?.seekTo(position)
         } catch (e: Exception) {
             e.printStackTrace()
         }
