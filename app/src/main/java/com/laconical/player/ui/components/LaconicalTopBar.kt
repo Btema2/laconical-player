@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -50,7 +51,13 @@ fun LaconicalTopBar(
     var isSearchExpanded by remember { mutableStateOf(false) }
 
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    
+    val targetScale = if (isSearchExpanded) 1.1f else 0.7f
+    val animatedPaddingScale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = targetScale,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 300),
+        label = "TopBarPaddingAnimation"
+    )
+
     TopAppBar(
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Color.Transparent,
@@ -77,6 +84,7 @@ fun LaconicalTopBar(
                         onValueChange = onSearchQueryChange,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .height(53.dp) // Reduced height (~5% from 56dp)
                             .padding(end = 8.dp),
                         placeholder = { Text("Search tracks...") },
                         singleLine = true,
@@ -93,6 +101,7 @@ fun LaconicalTopBar(
             }
         },
         actions = {
+            // ... (rest of actions remains unchanged)
             AnimatedContent(
                 targetState = isSearchExpanded,
                 label = "ActionIconAnimation"
@@ -126,6 +135,6 @@ fun LaconicalTopBar(
             }
         },
         windowInsets = WindowInsets(0, 0, 0, 0),
-        modifier = modifier.padding(top = statusBarHeight * 0.7f)
+        modifier = modifier.padding(top = statusBarHeight * animatedPaddingScale)
     )
 }
