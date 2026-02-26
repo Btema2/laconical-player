@@ -38,7 +38,8 @@ import com.laconical.player.ui.MainViewModel
 @Composable
 fun MiniPlayer(
     viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
 ) {
     val currentTrack by viewModel.currentTrack.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
@@ -69,6 +70,7 @@ fun MiniPlayer(
             .fillMaxWidth()
             .height(75.dp) // ~10% taller than 68dp
             .clip(RoundedCornerShape(16.dp)) 
+            .background(Color(0xFF0D0D10)) // Solid base to prevent see-through
             .background(
                 brush = Brush.horizontalGradient(
                     colors = listOf(
@@ -78,8 +80,19 @@ fun MiniPlayer(
                     )
                 )
             )
-            .clickable { /* Future: Open full player */ }
+            // Removed direct clickable here to avoid blocking internal buttons
     ) {
+        // Transparent interaction layer that doesn't overlap the control buttons
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(end = 120.dp) // Leave space for controls on the right
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null, // No ripple for the main area to keep it clean
+                    onClick = onClick
+                )
+        )
         // High-level top border for glass effect
         HorizontalDivider(
             modifier = Modifier.align(Alignment.TopCenter).padding(horizontal = 24.dp),
