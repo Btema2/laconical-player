@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.laconical.player.ui.components.FullPlayer
 import com.laconical.player.ui.components.LaconicalBottomNav
 import com.laconical.player.ui.components.LaconicalTopBar
 import com.laconical.player.ui.components.MiniPlayer
@@ -116,27 +117,14 @@ fun LibraryScreen(
                         .fillMaxSize()
                         .graphicsLayer { alpha = 1f }
                 ) {
-                    // Full Player Background and Placeholder
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color(0xFF0A0A0C).copy(alpha = expansionAlpha))
-                    ) {
-                        if (expansionAlpha > 0.1f) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(top = 100.dp),
-                                contentAlignment = Alignment.TopCenter
-                            ) {
-                                Text(
-                                    text = "Full Player Placeholder",
-                                    color = Color.White.copy(alpha = expansionAlpha),
-                                    fontSize = 24.sp
-                                )
-                            }
+                    // Full Player
+                    FullPlayer(
+                        viewModel = viewModel,
+                        expansionAlpha = expansionAlpha,
+                        onCollapse = {
+                            scope.launch { scaffoldState.bottomSheetState.partialExpand() }
                         }
-                    }
+                    )
 
                     // Mini Player (Visible when partially expanded)
                     if (expansionAlpha < 0.9f) {
