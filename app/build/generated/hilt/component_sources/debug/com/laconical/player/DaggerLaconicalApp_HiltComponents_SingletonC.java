@@ -13,10 +13,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.laconical.player.core.data.LocalMediaRepositoryImpl;
+import com.laconical.player.core.media.AudioVisualizerManager;
 import com.laconical.player.core.media.MusicPlayer;
 import com.laconical.player.core.media.PlaybackService;
 import com.laconical.player.core.media.PlaybackService_MembersInjector;
 import com.laconical.player.core.media.di.MediaModule_ProvideAudioAttributesFactory;
+import com.laconical.player.core.media.di.MediaModule_ProvideAudioVisualizerManagerFactory;
 import com.laconical.player.core.media.di.MediaModule_ProvideMediaSessionFactory;
 import com.laconical.player.core.media.di.MediaModule_ProvideMusicPlayerFactory;
 import com.laconical.player.core.media.di.MediaModule_ProvidePlayerFactory;
@@ -456,7 +458,7 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
       public T get() {
         switch (id) {
           case 0: // com.laconical.player.ui.MainViewModel
-          return (T) new MainViewModel(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.localMediaRepositoryImplProvider.get(), singletonCImpl.provideMusicPlayerProvider.get());
+          return (T) new MainViewModel(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.localMediaRepositoryImplProvider.get(), singletonCImpl.provideMusicPlayerProvider.get(), singletonCImpl.provideAudioVisualizerManagerProvider.get());
 
           default: throw new AssertionError(id);
         }
@@ -557,6 +559,8 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
 
     Provider<ExoPlayer> providePlayerProvider;
 
+    Provider<AudioVisualizerManager> provideAudioVisualizerManagerProvider;
+
     Provider<MediaSession> provideMediaSessionProvider;
 
     SingletonCImpl(ApplicationContextModule applicationContextModuleParam) {
@@ -571,7 +575,8 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
       this.provideMusicPlayerProvider = DoubleCheck.provider(new SwitchingProvider<MusicPlayer>(singletonCImpl, 1));
       this.provideAudioAttributesProvider = DoubleCheck.provider(new SwitchingProvider<AudioAttributes>(singletonCImpl, 4));
       this.providePlayerProvider = DoubleCheck.provider(new SwitchingProvider<ExoPlayer>(singletonCImpl, 3));
-      this.provideMediaSessionProvider = DoubleCheck.provider(new SwitchingProvider<MediaSession>(singletonCImpl, 2));
+      this.provideAudioVisualizerManagerProvider = DoubleCheck.provider(new SwitchingProvider<AudioVisualizerManager>(singletonCImpl, 2));
+      this.provideMediaSessionProvider = DoubleCheck.provider(new SwitchingProvider<MediaSession>(singletonCImpl, 5));
     }
 
     @Override
@@ -613,14 +618,17 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
           case 1: // com.laconical.player.core.media.MusicPlayer
           return (T) MediaModule_ProvideMusicPlayerFactory.provideMusicPlayer(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 2: // androidx.media3.session.MediaSession
-          return (T) MediaModule_ProvideMediaSessionFactory.provideMediaSession(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.providePlayerProvider.get());
+          case 2: // com.laconical.player.core.media.AudioVisualizerManager
+          return (T) MediaModule_ProvideAudioVisualizerManagerFactory.provideAudioVisualizerManager(singletonCImpl.providePlayerProvider.get());
 
           case 3: // androidx.media3.exoplayer.ExoPlayer
           return (T) MediaModule_ProvidePlayerFactory.providePlayer(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.provideAudioAttributesProvider.get());
 
           case 4: // androidx.media3.common.AudioAttributes
           return (T) MediaModule_ProvideAudioAttributesFactory.provideAudioAttributes();
+
+          case 5: // androidx.media3.session.MediaSession
+          return (T) MediaModule_ProvideMediaSessionFactory.provideMediaSession(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.providePlayerProvider.get());
 
           default: throw new AssertionError(id);
         }
