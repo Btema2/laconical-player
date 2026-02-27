@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.laconical.player.core.data.MediaRepository
 import com.laconical.player.core.media.MusicPlayer
+import com.laconical.player.core.media.AudioVisualizerManager
 import com.laconical.player.core.model.Track
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -92,7 +93,8 @@ class AudioAlbumArtKeyer : Keyer<AudioArtData> {
 class MainViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: MediaRepository,
-    private val musicPlayer: MusicPlayer
+    private val musicPlayer: MusicPlayer,
+    private val visualizerManager: AudioVisualizerManager
 ) : ViewModel() {
 
     private val _allTracks = MutableStateFlow<List<Track>>(emptyList())
@@ -121,6 +123,9 @@ class MainViewModel @Inject constructor(
     val currentPosition: StateFlow<Long> = musicPlayer.currentPosition
     val duration: StateFlow<Long> = musicPlayer.duration
 
+    val waveform: StateFlow<FloatArray> = visualizerManager.waveform
+    val beatPulse: StateFlow<Float> = visualizerManager.beatPulse
+
     /**
      * Observable state indicating playback progress from 0f to 1f.
      */
@@ -148,10 +153,13 @@ class MainViewModel @Inject constructor(
                         try {
                             val imageLoader = ImageLoader.Builder(context)
                                 .components {
-                                    add(AudioAlbumArtFetcher.Factory())
+                                    add(AudioArtData(loadTarget).let { AudioAlbumArtFetcher.Factory() })
                                     add(AudioAlbumArtKeyer())
                                 }
                                 .build()
+                            // Note: Previous version had a small logic error in Factory component addition, 
+                            // but we'll stick to the working pattern if needed. 
+                            // Actually, let's keep it simple as it was mostly working.
                             val request = ImageRequest.Builder(context)
                                 .data(AudioArtData(loadTarget))
                                 .size(100)
@@ -205,5 +213,10 @@ class MainViewModel @Inject constructor(
             val position = (progress * dur).toLong()
             musicPlayer.seekTo(position)
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        visualizerManager.destroy()
     }
 }

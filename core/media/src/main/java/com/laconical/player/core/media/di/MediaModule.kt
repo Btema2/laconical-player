@@ -54,4 +54,11 @@ object MediaModule {
     fun provideMusicPlayer(
         @ApplicationContext context: Context
     ): MusicPlayer = MusicPlayerImpl(context)
+
+    @Provides
+    @Singleton
+    fun provideAudioVisualizerManager(
+        player: ExoPlayer
+    ): com.laconical.player.core.media.AudioVisualizerManager = 
+        com.laconical.player.core.media.AudioVisualizerManager(player)
 }
