@@ -34,13 +34,19 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.laconical.player.ui.AudioArtData
 import com.laconical.player.ui.MainViewModel
+import com.laconical.player.LocalSharedTransitionScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun MiniPlayer(
     viewModel: MainViewModel,
+    isSharedVisible: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
+    val sharedTransitionScope = LocalSharedTransitionScope.current
     val currentTrack by viewModel.currentTrack.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val progress by viewModel.progress.collectAsState()
@@ -110,6 +116,16 @@ fun MiniPlayer(
             Box(
                 modifier = Modifier
                     .size(52.dp) // Slightly larger for taller player
+                    .then(
+                        if (sharedTransitionScope != null) {
+                            with(sharedTransitionScope) {
+                                Modifier.sharedElementWithCallerManagedVisibility(
+                                    sharedContentState = rememberSharedContentState(key = "album_art_${currentTrack!!.id}"),
+                                    visible = isSharedVisible
+                                )
+                            }
+                        } else Modifier
+                    )
                     .clip(RoundedCornerShape(10.dp)) // Rounded square
                     .background(Color(0xFF1E1E1E)),
                 contentAlignment = Alignment.Center
@@ -133,7 +149,17 @@ fun MiniPlayer(
                     fontSize = 15.sp, // Slightly larger
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.then(
+                        if (sharedTransitionScope != null) {
+                            with(sharedTransitionScope) {
+                                Modifier.sharedElementWithCallerManagedVisibility(
+                                    sharedContentState = rememberSharedContentState(key = "title_${currentTrack!!.id}"),
+                                    visible = isSharedVisible
+                                )
+                            }
+                        } else Modifier
+                    )
                 )
                 Text(
                     text = currentTrack!!.artist,

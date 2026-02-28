@@ -52,4 +52,5 @@ dependencies {
     ksp(libs.hilt.compiler)
     
     implementation(libs.kotlinx.coroutines.guava)
+    implementation(libs.amplituda)
 }

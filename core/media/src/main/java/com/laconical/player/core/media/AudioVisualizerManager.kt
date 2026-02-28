@@ -51,15 +51,79 @@ class AudioVisualizerManager @Inject constructor(
         }
     }
 
+    private var isVisualizerGeneratingRealData = false
+    private var fallbackJob: Job? = null
+
+    private fun processWaveform(bytes: ByteArray) {
+        val normalized = FloatArray(bytes.size.coerceAtLeast(1))
+        var sumSquares = 0f
+        var isAllSilent = true
+        
+        for (i in bytes.indices) {
+            val unsignedValue = bytes[i].toInt() and 0xFF
+            // Silence is usually 128 (center) or 0
+            if (unsignedValue != 128 && unsignedValue != 0) {
+                isAllSilent = false
+            }
+            
+            normalized[i] = unsignedValue / 255f
+            val deviation = (unsignedValue - 128).toFloat()
+            sumSquares += deviation * deviation
+        }
+        
+        isVisualizerGeneratingRealData = !isAllSilent
+
+        if (isVisualizerGeneratingRealData) {
+            val rms = if (bytes.isNotEmpty()) sqrt(sumSquares / bytes.size) else 0f
+            val pulse = (rms / 40f).coerceIn(0f, 1f)
+            
+            scope.launch {
+                _waveform.value = normalized
+                _beatPulse.value = pulse
+            }
+        }
+    }
+
+    private fun startFallbackLoop() {
+        if (fallbackJob?.isActive == true) return
+        fallbackJob = scope.launch(Dispatchers.Main) {
+            while (isActive) {
+                if (!isVisualizerGeneratingRealData && player.isPlaying) {
+                    val time = player.currentPosition
+                    val fakeWave = FloatArray(64)
+                    for (i in fakeWave.indices) {
+                        // Generate a dynamic, aesthetic sine/perlin-like wave based on time and index
+                        val phase = time * 0.005f + i * 0.2f
+                        val value = 0.5f + 0.3f * kotlin.math.sin(phase.toDouble()).toFloat() + 0.1f * kotlin.math.cos(time * 0.01 + i * 0.5).toFloat()
+                        fakeWave[i] = value.coerceIn(0f, 1f)
+                    }
+                    
+                    // Generate heartbeat pulse: (1.0f + 0.05f * sin(time)) scaled to 0..1 for UI
+                    // Sine goes from -1 to 1.
+                    val pulseSine = kotlin.math.sin(time * 0.004).toFloat()
+                    val fakePulse = (pulseSine + 1f) / 2f * 0.8f // 0 to 0.8 range
+                    
+                    _waveform.value = fakeWave
+                    _beatPulse.value = fakePulse
+                } else if (!player.isPlaying) {
+                    // Decay pulse smoothly when paused
+                    _beatPulse.value = (_beatPulse.value * 0.8f).coerceAtLeast(0f)
+                }
+                delay(32) // ~30fps update
+            }
+        }
+    }
+
     private fun initializeVisualizer() {
         if (visualizer != null) return
+        startFallbackLoop()
         
         val sessionId = player.audioSessionId
         if (sessionId == 0) return // Invalid session
 
         try {
             visualizer = Visualizer(sessionId).apply {
-                captureSize = Visualizer.getCaptureSizeRange()[1] // Max capture size
+                captureSize = 128 // Smaller capture size for faster/smoother fallback check
                 setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
                     override fun onWaveFormDataCapture(
                         v: Visualizer?,
@@ -69,41 +133,13 @@ class AudioVisualizerManager @Inject constructor(
                         waveform?.let { processWaveform(it) }
                     }
 
-                    override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {
-                        // Not used for now
-                    }
+                    override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {}
                 }, Visualizer.getMaxCaptureRate() / 2, true, false)
                 enabled = true
             }
         } catch (e: Exception) {
             e.printStackTrace()
-        }
-    }
-
-    private fun processWaveform(bytes: ByteArray) {
-        val normalized = FloatArray(bytes.size)
-        var sumSquares = 0f
-        
-        for (i in bytes.indices) {
-            // Visualizer returns unsigned 8-bit data [0, 255]
-            val unsignedValue = bytes[i].toInt() and 0xFF
-            
-            // Normalize to [0, 1] for Seekbar drawing
-            normalized[i] = unsignedValue / 255f
-            
-            // For Beat Pulse: calculate deviation from center (128)
-            val deviation = (unsignedValue - 128).toFloat()
-            sumSquares += deviation * deviation
-        }
-        
-        // RMS calculation for beat pulse
-        val rms = if (bytes.isNotEmpty()) sqrt(sumSquares / bytes.size) else 0f
-        // Scale RMS to a reasonable [0, 1] range for UI pulse (typical RMS for music is < 50)
-        val pulse = (rms / 40f).coerceIn(0f, 1f)
-        
-        scope.launch {
-            _waveform.value = normalized
-            _beatPulse.value = pulse
+            isVisualizerGeneratingRealData = false
         }
     }
 
@@ -113,8 +149,12 @@ class AudioVisualizerManager @Inject constructor(
             release()
         }
         visualizer = null
+        isVisualizerGeneratingRealData = false
+        fallbackJob?.cancel()
+        fallbackJob = null
         _beatPulse.value = 0f
     }
+
 
     /**
      * Call this when the application or service is being destroyed.

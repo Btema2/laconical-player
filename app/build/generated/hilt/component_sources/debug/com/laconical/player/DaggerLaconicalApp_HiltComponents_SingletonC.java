@@ -17,6 +17,7 @@ import com.laconical.player.core.media.AudioVisualizerManager;
 import com.laconical.player.core.media.MusicPlayer;
 import com.laconical.player.core.media.PlaybackService;
 import com.laconical.player.core.media.PlaybackService_MembersInjector;
+import com.laconical.player.core.media.WaveformExtractor;
 import com.laconical.player.core.media.di.MediaModule_ProvideAudioAttributesFactory;
 import com.laconical.player.core.media.di.MediaModule_ProvideAudioVisualizerManagerFactory;
 import com.laconical.player.core.media.di.MediaModule_ProvideMediaSessionFactory;
@@ -458,7 +459,7 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
       public T get() {
         switch (id) {
           case 0: // com.laconical.player.ui.MainViewModel
-          return (T) new MainViewModel(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.localMediaRepositoryImplProvider.get(), singletonCImpl.provideMusicPlayerProvider.get(), singletonCImpl.provideAudioVisualizerManagerProvider.get());
+          return (T) new MainViewModel(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.localMediaRepositoryImplProvider.get(), singletonCImpl.provideMusicPlayerProvider.get(), singletonCImpl.provideAudioVisualizerManagerProvider.get(), singletonCImpl.waveformExtractorProvider.get());
 
           default: throw new AssertionError(id);
         }
@@ -561,6 +562,8 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
 
     Provider<AudioVisualizerManager> provideAudioVisualizerManagerProvider;
 
+    Provider<WaveformExtractor> waveformExtractorProvider;
+
     Provider<MediaSession> provideMediaSessionProvider;
 
     SingletonCImpl(ApplicationContextModule applicationContextModuleParam) {
@@ -576,7 +579,8 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
       this.provideAudioAttributesProvider = DoubleCheck.provider(new SwitchingProvider<AudioAttributes>(singletonCImpl, 4));
       this.providePlayerProvider = DoubleCheck.provider(new SwitchingProvider<ExoPlayer>(singletonCImpl, 3));
       this.provideAudioVisualizerManagerProvider = DoubleCheck.provider(new SwitchingProvider<AudioVisualizerManager>(singletonCImpl, 2));
-      this.provideMediaSessionProvider = DoubleCheck.provider(new SwitchingProvider<MediaSession>(singletonCImpl, 5));
+      this.waveformExtractorProvider = DoubleCheck.provider(new SwitchingProvider<WaveformExtractor>(singletonCImpl, 5));
+      this.provideMediaSessionProvider = DoubleCheck.provider(new SwitchingProvider<MediaSession>(singletonCImpl, 6));
     }
 
     @Override
@@ -627,7 +631,10 @@ public final class DaggerLaconicalApp_HiltComponents_SingletonC {
           case 4: // androidx.media3.common.AudioAttributes
           return (T) MediaModule_ProvideAudioAttributesFactory.provideAudioAttributes();
 
-          case 5: // androidx.media3.session.MediaSession
+          case 5: // com.laconical.player.core.media.WaveformExtractor
+          return (T) new WaveformExtractor(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+
+          case 6: // androidx.media3.session.MediaSession
           return (T) MediaModule_ProvideMediaSessionFactory.provideMediaSession(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.providePlayerProvider.get());
 
           default: throw new AssertionError(id);
