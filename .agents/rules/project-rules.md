@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # "Laconical Music Player" - Project Rules
 
 ## Tech Stack
@@ -26,3 +30,5 @@
 2. **Atomic Changes:** Do not touch files unrelated to the current task.
 3. **Verification:** Always verify code compilation before finishing the task.
 4. **No Slop:** Do not generate placeholder code like `// TODO: Implement later` unless explicitly told. Write complete, working implementation or ask for clarification.
+5. **Wait:** When executing commands wait small ammount of time, like 10s for app compilation
+6. **Command output:** read command output from the terminal if you can't see it in chat

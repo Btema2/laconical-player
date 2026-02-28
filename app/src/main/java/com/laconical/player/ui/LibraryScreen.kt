@@ -31,6 +31,9 @@ import com.laconical.player.ui.components.LaconicalBottomNav
 import com.laconical.player.ui.components.LaconicalTopBar
 import com.laconical.player.ui.components.MiniPlayer
 import com.laconical.player.ui.components.TrackListItem
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
+import com.laconical.player.LocalSharedTransitionScope
 import kotlinx.coroutines.launch
 
 /**
@@ -101,40 +104,51 @@ fun LibraryScreen(
         scope.launch { scaffoldState.bottomSheetState.partialExpand() }
     }
 
+    var containerHeightPx by remember { mutableFloatStateOf(0f) }
+
     Surface(
         color = animatedColor,
         modifier = Modifier.fillMaxSize()
     ) {
         BottomSheetScaffold(
+            modifier = Modifier.onSizeChanged { containerHeightPx = it.height.toFloat() },
             scaffoldState = scaffoldState,
             sheetPeekHeight = peekHeight,
             sheetContainerColor = Color.Transparent, 
             sheetShadowElevation = 0.dp,
             sheetDragHandle = null,
             sheetContent = {
+                val maxOffset = if (containerHeightPx > 0f) containerHeightPx - with(density) { peekHeight.toPx() } else 1000f
+                val currentOffset = try { scaffoldState.bottomSheetState.requireOffset() } catch (e: Exception) { maxOffset }
+                val expandedFraction = if (maxOffset > 0f) (1f - (currentOffset / maxOffset)).coerceIn(0f, 1f) else 0f
+
+                // We provide target booleans for shared element visibility
+                val isMiniVisible = expandedFraction < 0.6f
+                val isFullVisible = expandedFraction >= 0.2f
+
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { alpha = 1f }
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     // Full Player
                     FullPlayer(
                         viewModel = viewModel,
-                        expansionAlpha = expansionAlpha,
+                        expandedFraction = expandedFraction,
+                        isSharedVisible = isFullVisible,
                         onCollapse = {
                             scope.launch { scaffoldState.bottomSheetState.partialExpand() }
                         }
                     )
 
-                    // Mini Player (Visible when partially expanded)
-                    if (expansionAlpha < 0.9f) {
+                    // Mini Player (Fades out based on pure drag fraction)
+                    if (expandedFraction < 0.99f) {
                         MiniPlayer(
                             viewModel = viewModel,
+                            isSharedVisible = isMiniVisible,
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
                                 .graphicsLayer { 
-                                    alpha = 1f - expansionAlpha
-                                    translationY = expansionAlpha * -50f 
+                                    alpha = (1f - (expandedFraction * 1.5f)).coerceIn(0f, 1f)
+                                    translationY = expandedFraction * -50f 
                                 },
                             onClick = {
                                 if (hasPermission) {
@@ -144,16 +158,16 @@ fun LibraryScreen(
                         )
                     }
 
-                    // Bottom Navigation Bar (Visible in peek area, below MiniPlayer)
-                    if (hasPermission) {
+                    // Bottom Navigation Bar (Visible in peek area)
+                    if (hasPermission && expandedFraction < 0.99f) {
                         LaconicalBottomNav(
                             dynamicColor = playingTrackDominantColor,
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
                                 .offset(y = miniPlayerHeight)
                                 .graphicsLayer {
-                                    translationY = expansionAlpha * with(density) { (bottomNavHeight + bottomInsets).toPx() }
-                                    alpha = 1f - expansionAlpha
+                                    translationY = (expandedFraction * 1.5f) * with(density) { (bottomNavHeight + bottomInsets).toPx() }
+                                    alpha = (1f - (expandedFraction * 2f)).coerceIn(0f, 1f)
                                 }
                         )
                     }

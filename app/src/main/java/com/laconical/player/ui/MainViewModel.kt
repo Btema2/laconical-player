@@ -6,6 +6,7 @@ import com.laconical.player.core.data.MediaRepository
 import com.laconical.player.core.media.MusicPlayer
 import com.laconical.player.core.media.AudioVisualizerManager
 import com.laconical.player.core.model.Track
+import com.laconical.player.core.media.WaveformExtractor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -94,7 +95,8 @@ class MainViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: MediaRepository,
     private val musicPlayer: MusicPlayer,
-    private val visualizerManager: AudioVisualizerManager
+    private val visualizerManager: AudioVisualizerManager,
+    private val waveformExtractor: WaveformExtractor
 ) : ViewModel() {
 
     private val _allTracks = MutableStateFlow<List<Track>>(emptyList())
@@ -125,6 +127,12 @@ class MainViewModel @Inject constructor(
 
     val waveform: StateFlow<FloatArray> = visualizerManager.waveform
     val beatPulse: StateFlow<Float> = visualizerManager.beatPulse
+    
+    private val _waveformData = MutableStateFlow<List<Int>>(emptyList())
+    val waveformData: StateFlow<List<Int>> = _waveformData.asStateFlow()
+
+    private val _currentNormalizedAmplitude = MutableStateFlow(0f)
+    val currentNormalizedAmplitude: StateFlow<Float> = _currentNormalizedAmplitude.asStateFlow()
 
     /**
      * Observable state indicating playback progress from 0f to 1f.
@@ -137,6 +145,21 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             _allTracks.value = repository.getTracks()
         }
+        
+        // Update normalized amplitude based on position
+        viewModelScope.launch {
+            combine(musicPlayer.currentPosition, musicPlayer.duration, _waveformData) { pos, dur, data ->
+                if (dur > 0 && data.isNotEmpty()) {
+                    val index = ((pos.toFloat() / dur.toFloat()) * (data.size - 1)).toInt().coerceIn(0, data.size - 1)
+                    val maxAmp = data.maxOrNull() ?: 1
+                    if (maxAmp > 0) data[index].toFloat() / maxAmp.toFloat() else 0f
+                } else {
+                    0f
+                }
+            }.collect {
+                _currentNormalizedAmplitude.value = it
+            }
+        }
     }
 
     fun playTrack(track: Track) {
@@ -145,7 +168,17 @@ class MainViewModel @Inject constructor(
             val mediaItem = MediaItem.fromUri(track.mediaUri)
             musicPlayer.playMediaItem(mediaItem)
             
-            // Extract the Palette in a background coroutine so LibraryScreen can transition its UI
+            // Extract waveform
+            viewModelScope.launch {
+                try {
+                    _waveformData.value = waveformExtractor.extractWaveform(track.mediaUri)
+                } catch (e: Exception) {
+                    Log.e("MainViewModel", "Failed to extract waveform", e)
+                    _waveformData.value = emptyList()
+                }
+            }
+            
+            // Extract the Palette in a background coroutine
             val loadTarget = if (!track.dataPath.isNullOrEmpty()) track.dataPath else track.mediaUri
             if (!loadTarget.isNullOrEmpty()) {
                 viewModelScope.launch {
