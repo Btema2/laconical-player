@@ -1,3 +1,4 @@
+
 package com.laconical.player.ui.components
 
 import android.graphics.BlurMaskFilter
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.MoreVert
@@ -21,10 +21,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.pointer.pointerInput
@@ -36,9 +34,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.laconical.player.ui.AudioArtData
 import com.laconical.player.ui.MainViewModel
-import kotlinx.coroutines.flow.StateFlow
-import java.util.*
-import kotlin.math.*
+import kotlin.random.Random
 
 /**
  * Full-screen "Now Playing" UI for the expanded bottom sheet.
@@ -61,20 +57,51 @@ fun FullPlayer(
     if (currentTrack == null) return
 
     val themeColor = dominantColor ?: Color(0xFF1E1E1E)
-    val darkenedBg = themeColor.copy(alpha = 1f).toHsl().let { (h, s, l) ->
-        Color.hsl(h, s, (l * 0.15f).coerceIn(0.02f, 0.1f))
+
+    // Match the tracks page background formula for visual consistency
+    val bgColor = if (dominantColor != null) {
+        val vibe = dominantColor!!
+        Color(
+            red = (0.04f * 0.92f) + (vibe.red * 0.08f),
+            green = (0.04f * 0.92f) + (vibe.green * 0.08f),
+            blue = (0.05f * 0.92f) + (vibe.blue * 0.08f),
+            alpha = 1f
+        )
+    } else {
+        Color(0xFF0A0A0C)
     }
+
+    val animatedBg by animateColorAsState(
+        targetValue = bgColor,
+        animationSpec = tween(1000),
+        label = "FullPlayerBg"
+    )
+
+    // Compute play-button color here so both ParticleSystem and PlaybackControls share it
+    val buttonColor = remember(themeColor) {
+        val hsl = themeColor.toHsl()
+        Color.hsl(
+            hue = hsl[0] * 360f,
+            saturation = hsl[1].coerceIn(0.15f, 0.45f),
+            lightness = 0.38f
+        )
+    }
+    val animatedButtonColor by animateColorAsState(
+        targetValue = buttonColor,
+        animationSpec = tween(800),
+        label = "ButtonColor"
+    )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(darkenedBg)
+            .background(animatedBg)
             .graphicsLayer { alpha = expansionAlpha }
     ) {
         // 1. Particle System Environment
         ParticleSystem(
             isPlaying = isPlaying,
-            color = themeColor.copy(alpha = 0.4f)
+            color = animatedButtonColor.copy(alpha = 0.45f)
         )
 
         Column(
@@ -118,20 +145,20 @@ fun FullPlayer(
                 }
             }
 
-            Spacer(modifier = Modifier.weight(0.5f))
+            Spacer(modifier = Modifier.height(26.dp))
 
-            // 3. Pulsating Album Art centerpiece
+            // 3. Album Art
             PulsatingAlbumArt(
                 trackData = currentTrack!!.dataPath ?: currentTrack!!.mediaUri,
                 beatPulse = beatPulse,
                 dominantColor = themeColor
             )
 
-            Spacer(modifier = Modifier.weight(0.5f))
+            Spacer(modifier = Modifier.height(32.dp))
 
             // 4. Track Info
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(start = 10.dp, top = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -143,6 +170,7 @@ fun FullPlayer(
                         fontWeight = FontWeight.Bold,
                         maxLines = 2
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = currentTrack!!.artist,
                         color = Color.LightGray,
@@ -161,32 +189,32 @@ fun FullPlayer(
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(38.dp))
 
-            // 5. Visualizer Progress Bar
+            // 5. Visualizer Seek Bar
             VisualizerSeekBar(
                 waveform = waveform,
                 progress = progress,
                 onSeek = { viewModel.seekTo(it) },
-                activeColor = themeColor,
-                currentTime = formatTime(currentPosition),
-                totalTime = formatTime(duration)
+                activeColor = themeColor
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
             // 6. Playback Controls
             PlaybackControls(
                 isPlaying = isPlaying,
-                themeColor = themeColor,
+                buttonColor = animatedButtonColor,
                 onTogglePlay = { viewModel.togglePlayPause() },
                 onPrevious = { viewModel.skipToPrevious() },
-                onNext = { viewModel.skipToNext() }
+                onNext = { viewModel.skipToNext() },
+                currentTime = formatTime(currentPosition),
+                totalTime = formatTime(duration)
             )
 
-            Spacer(modifier = Modifier.weight(0.8f))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // 7. YTM-Style Footer
+            // 7. Footer with shuffle/loop + navigation
             Footer()
         }
     }
@@ -198,16 +226,15 @@ fun PulsatingAlbumArt(
     beatPulse: Float,
     dominantColor: Color
 ) {
-    // Pulse animation: base scale is 0.95, pulse adds up to 0.05
     val animatedPulse by animateFloatAsState(
-        targetValue = 0.95f + (beatPulse * 0.05f),
+        targetValue = 0.97f + (beatPulse * 0.03f),
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
         label = "PulseAnim"
     )
 
     Box(
         modifier = Modifier
-            .fillMaxWidth(0.85f)
+            .fillMaxWidth()
             .aspectRatio(1f)
             .graphicsLayer {
                 scaleX = animatedPulse
@@ -215,17 +242,17 @@ fun PulsatingAlbumArt(
             },
         contentAlignment = Alignment.Center
     ) {
-        // Neon Glow behind the art
+        // Subtle glow behind the art
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawIntoCanvas { canvas ->
                 val paint = Paint().asFrameworkPaint().apply {
                     color = dominantColor.toArgb()
                     maskFilter = BlurMaskFilter(if (beatPulse > 0.5f) 80f else 60f, BlurMaskFilter.Blur.NORMAL)
-                    alpha = (0.3f + (beatPulse * 0.3f) * 255).toInt().coerceIn(40, 180)
+                    alpha = (0.25f + (beatPulse * 0.25f) * 255).toInt().coerceIn(30, 150)
                 }
                 canvas.nativeCanvas.drawRoundRect(
                     0f, 0f, size.width, size.height,
-                    48.dp.toPx(), 48.dp.toPx(),
+                    20.dp.toPx(), 20.dp.toPx(),
                     paint
                 )
             }
@@ -236,8 +263,8 @@ fun PulsatingAlbumArt(
             contentDescription = null,
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(32.dp))
-                .border(0.5.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(32.dp)),
+                .clip(RoundedCornerShape(16.dp))
+                .border(0.5.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(16.dp)),
             contentScale = ContentScale.Crop
         )
     }
@@ -248,77 +275,63 @@ fun VisualizerSeekBar(
     waveform: FloatArray,
     progress: Float,
     onSeek: (Float) -> Unit,
-    activeColor: Color,
-    currentTime: String,
-    totalTime: String
+    activeColor: Color
 ) {
-    Column {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-                .pointerInput(Unit) {
-                    detectTapGestures { offset ->
-                        onSeek(offset.x / size.width)
-                    }
-                }
-                .pointerInput(Unit) {
-                    detectDragGestures { change, _ ->
-                        onSeek(change.position.x / size.width)
-                    }
-                }
-        ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val path = Path()
-                val width = size.width
-                val height = size.height
-                val midY = height / 2
-                
-                if (waveform.isNotEmpty()) {
-                    val step = width / waveform.size
-                    waveform.forEachIndexed { index, value ->
-                        // Waveform values are 0..1, map to height
-                        val amplitude = (value - 0.5f) * height * 0.8f
-                        if (index == 0) {
-                            path.moveTo(0f, midY + amplitude)
-                        } else {
-                            path.lineTo(index * step, midY + amplitude)
-                        }
-                    }
-                } else {
-                    // Fallback straight line
-                    path.moveTo(0f, midY)
-                    path.lineTo(width, midY)
-                }
-
-                // Draw background (unplayed)
-                drawPath(
-                    path = path,
-                    color = Color.White.copy(alpha = 0.15f),
-                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
-                )
-
-                // Draw active (played) portion using a mask/clip
-                val playedWidth = width * progress
-                drawIntoCanvas { canvas ->
-                    canvas.save()
-                    canvas.clipRect(0f, 0f, playedWidth, height)
-                    drawPath(
-                        path = path,
-                        color = activeColor.copy(alpha = 0.9f),
-                        style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
-                    )
-                    canvas.restore()
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .pointerInput(Unit) {
+                detectTapGestures { offset ->
+                    onSeek(offset.x / size.width)
                 }
             }
-        }
-        
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(text = currentTime, color = Color.Gray, fontSize = 12.sp)
-            Text(text = totalTime, color = Color.Gray, fontSize = 12.sp)
+            .pointerInput(Unit) {
+                detectDragGestures { change, _ ->
+                    onSeek(change.position.x / size.width)
+                }
+            }
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val path = Path()
+            val width = size.width
+            val height = size.height
+            val midY = height / 2
+
+            if (waveform.isNotEmpty()) {
+                val step = width / waveform.size
+                waveform.forEachIndexed { index, value ->
+                    val amplitude = (value - 0.5f) * height * 0.8f
+                    if (index == 0) {
+                        path.moveTo(0f, midY + amplitude)
+                    } else {
+                        path.lineTo(index * step, midY + amplitude)
+                    }
+                }
+            } else {
+                path.moveTo(0f, midY)
+                path.lineTo(width, midY)
+            }
+
+            // Background (unplayed)
+            drawPath(
+                path = path,
+                color = Color.White.copy(alpha = 0.15f),
+                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+            )
+
+            // Active (played) portion
+            val playedWidth = width * progress
+            drawIntoCanvas { canvas ->
+                canvas.save()
+                canvas.clipRect(0f, 0f, playedWidth, height)
+                drawPath(
+                    path = path,
+                    color = activeColor.copy(alpha = 0.9f),
+                    style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
+                )
+                canvas.restore()
+            }
         }
     }
 }
@@ -326,55 +339,76 @@ fun VisualizerSeekBar(
 @Composable
 fun PlaybackControls(
     isPlaying: Boolean,
-    themeColor: Color,
+    buttonColor: Color,
     onTogglePlay: () -> Unit,
     onPrevious: () -> Unit,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    currentTime: String,
+    totalTime: String
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
     ) {
-        IconButton(onClick = { /* Shuffle */ }) {
-            Icon(Icons.Outlined.Shuffle, contentDescription = "Shuffle", tint = Color.LightGray)
-        }
+        // Current time — left-aligned
+        Text(
+            text = currentTime,
+            color = Color.LightGray,
+            fontSize = 13.sp,
+            modifier = Modifier.width(48.dp),
+            textAlign = TextAlign.Start
+        )
 
-        IconButton(onClick = onPrevious) {
+        Spacer(modifier = Modifier.weight(0.4f))
+
+        // Previous — close to play/pause
+        IconButton(onClick = onPrevious, modifier = Modifier.size(48.dp)) {
             Icon(Icons.Default.SkipPrevious, contentDescription = "Previous", tint = Color.White, modifier = Modifier.size(36.dp))
         }
 
-        // Main Play/Pause Button
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Main Play/Pause button with crossfade animation
         Box(
             modifier = Modifier
-                .size(72.dp)
+                .size(68.dp)
                 .clip(CircleShape)
-                .background(themeColor.copy(alpha = 0.2f))
-                .clickable(onClick = onTogglePlay)
-                .drawBehind {
-                    drawCircle(
-                        color = themeColor.copy(alpha = 0.15f),
-                        radius = size.width / 2 + 8.dp.toPx(),
-                        style = Stroke(width = 1.dp.toPx())
-                    )
-                },
+                .background(buttonColor)
+                .clickable(onClick = onTogglePlay),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                contentDescription = if (isPlaying) "Pause" else "Play",
-                tint = Color.White,
-                modifier = Modifier.size(42.dp)
-            )
+            Crossfade(
+                targetState = isPlaying,
+                animationSpec = tween(200),
+                label = "PlayPauseCrossfade"
+            ) { playing ->
+                Icon(
+                    imageVector = if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (playing) "Pause" else "Play",
+                    tint = Color.White,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
         }
 
-        IconButton(onClick = onNext) {
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Next — close to play/pause
+        IconButton(onClick = onNext, modifier = Modifier.size(48.dp)) {
             Icon(Icons.Default.SkipNext, contentDescription = "Next", tint = Color.White, modifier = Modifier.size(36.dp))
         }
 
-        IconButton(onClick = { /* Repeat */ }) {
-            Icon(Icons.Outlined.Repeat, contentDescription = "Repeat", tint = Color.LightGray)
-        }
+        Spacer(modifier = Modifier.weight(0.4f))
+
+        // Total time — right-aligned
+        Text(
+            text = totalTime,
+            color = Color.LightGray,
+            fontSize = 13.sp,
+            modifier = Modifier.width(48.dp),
+            textAlign = TextAlign.End
+        )
     }
 }
 
@@ -386,16 +420,33 @@ fun Footer() {
             thickness = 0.5.dp,
             color = Color.White.copy(alpha = 0.1f)
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            IconButton(onClick = { /* Shuffle */ }) {
+                Icon(
+                    Icons.Outlined.Shuffle,
+                    contentDescription = "Shuffle",
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(22.dp)
+                )
+            }
             TextButton(onClick = { }) {
                 Text("UP NEXT", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
             TextButton(onClick = { }) {
                 Text("LYRICS", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+            IconButton(onClick = { /* Repeat */ }) {
+                Icon(
+                    Icons.Outlined.Repeat,
+                    contentDescription = "Repeat",
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(22.dp)
+                )
             }
         }
     }
@@ -406,63 +457,91 @@ fun ParticleSystem(
     isPlaying: Boolean,
     color: Color
 ) {
-    val particles = remember { List(15) { DriftParticle() } }
-    val infiniteTransition = rememberInfiniteTransition(label = "ParticleAnim")
-    
-    // We update the positions based on a "motion" value that increments when playing
-    val motion by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(60000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "MotionFlow"
-    )
+    val particles = remember { List(24) { FullPlayerParticle() } }
 
-    var lastMotion by remember { mutableFloatStateOf(0f) }
-    
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val dt = if (isPlaying) (motion - lastMotion) else 0f
-        lastMotion = motion
-        
-        particles.forEach { p ->
-            if (isPlaying) {
-                p.update(size.width, size.height, dt)
+    // Frame-based animation loop — no infiniteTransition, no pulse bug
+    var time by remember { mutableLongStateOf(0L) }
+    var lastTime by remember { mutableLongStateOf(0L) }
+
+    // Smooth fade-in multiplier: snaps to 0 on each resume then animates to 1 over 900ms
+    val resumeMultiplier = remember { Animatable(1f) }
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            resumeMultiplier.snapTo(0f)
+            resumeMultiplier.animateTo(1f, animationSpec = tween(durationMillis = 900))
+        }
+        // On pause: leave multiplier at 1 so particles die naturally by their own life
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            withFrameNanos { frameNanos ->
+                lastTime = time
+                time = frameNanos
             }
-            drawCircle(
-                color = color,
-                radius = p.radius,
-                center = Offset(p.x, p.y)
-            )
+        }
+    }
+
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val dt = if (lastTime == 0L) 0.016f
+                 else ((time - lastTime) / 1_000_000_000f).coerceIn(0f, 0.05f)
+
+        val w = size.width
+        val h = size.height
+        // Upper region boundary — particles live in top ~45% of screen
+        val upperBound = h * 0.45f
+
+        particles.forEach { p ->
+            // Always update position (allows natural death drift after pause)
+            p.x += p.vx * dt
+            p.y += p.vy * dt
+            p.life -= dt * 0.5f  // faster fade
+
+            // Kill particles that touch screen edges
+            if (p.x < 0f || p.x > w || p.y < 0f || p.y > h) {
+                p.life = 0f
+            }
+
+            if (p.life <= 0f) {
+                if (isPlaying) {
+                    // Respawn with staggered life to prevent sync pulse
+                    val wasWaiting = p.life < -0.1f
+                    p.life = if (wasWaiting) Random.nextFloat() * p.maxLife else p.maxLife
+                    p.x = Random.nextFloat() * w
+                    p.y = Random.nextFloat() * upperBound
+                    val angle = Random.nextFloat() * (2f * Math.PI.toFloat())
+                    val speed = 40f + Random.nextFloat() * 55f
+                    p.vx = kotlin.math.cos(angle) * speed
+                    p.vy = kotlin.math.sin(angle) * speed
+                }
+                // When paused and life <= 0, particle stays dead (invisible)
+            }
+
+            // No wrapping — particles die at edges instead
+
+            val alpha = (p.baseAlpha * (p.life / p.maxLife) * resumeMultiplier.value).coerceIn(0f, 1f)
+            if (alpha > 0f) {
+                drawCircle(
+                    color = color.copy(alpha = alpha),
+                    radius = p.radius,
+                    center = Offset(p.x, p.y)
+                )
+            }
         }
     }
 }
 
-private class DriftParticle {
-    var x = Math.random().toFloat() * 1000f
-    var y = Math.random().toFloat() * 2000f
-    var vx = (Math.random().toFloat() - 0.5f) * 0.5f
-    var vy = (Math.random().toFloat() - 0.5f) * 0.5f
-    val radius = 2f + Math.random().toFloat() * 6f
-
-    fun update(width: Float, height: Float, dt: Float) {
-        // Random drift (Brownian-ish)
-        vx += (Math.random().toFloat() - 0.5f) * 0.05f
-        vy += (Math.random().toFloat() - 0.5f) * 0.05f
-        
-        // Speed limit
-        vx = vx.coerceIn(-1f, 1f)
-        vy = vy.coerceIn(-1f, 1f)
-
-        x += vx * 10f
-        y += vy * 10f
-
-        if (x < 0f) x = width
-        if (x > width) x = 0f
-        if (y < 0f) y = height
-        if (y > height) y = 0f
-    }
+private class FullPlayerParticle {
+    var x = Random.nextFloat() * 1000f
+    var y = Random.nextFloat() * 600f
+    val radius = 4f + Random.nextFloat() * 7f
+    val baseAlpha = 0.3f + Random.nextFloat() * 0.4f
+    val maxLife = 1.5f + Random.nextFloat() * 2.5f  // 1.5–4 seconds
+    var life = Random.nextFloat() * maxLife
+    private val initAngle = Random.nextFloat() * (2f * Math.PI.toFloat())
+    private val initSpeed = 40f + Random.nextFloat() * 55f
+    var vx = kotlin.math.cos(initAngle) * initSpeed
+    var vy = kotlin.math.sin(initAngle) * initSpeed
 }
 
 private fun formatTime(ms: Long): String {
