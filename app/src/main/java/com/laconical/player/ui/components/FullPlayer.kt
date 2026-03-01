@@ -492,7 +492,7 @@ fun VisualizerSeekBar(
             val playedWidth = cWidth * displayedProgress
             drawIntoCanvas { canvas ->
                 canvas.save()
-                canvas.clipRect(0f, 0f, playedWidth, cHeight)
+                canvas.clipRect(-10.dp.toPx(), 0f, playedWidth, cHeight)
                 drawPath(
                     path = path,
                     color = activeColor.copy(alpha = 0.9f),
