@@ -27,7 +27,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -505,27 +505,25 @@ fun VisualizerSeekBar(
             }
         }
 
-        // Scrubbing time bubble
+        // Scrubbing time label
         if (isDragging) {
             val timeText = formatTime((dragProgress * duration).toLong())
             val thumbX = maxWidth * dragProgress
-            val bubbleHalf = 24.dp
-            val clampedX = (thumbX - bubbleHalf).coerceIn(0.dp, maxWidth - bubbleHalf * 2)
 
-            Surface(
-                modifier = Modifier.offset(x = clampedX, y = 4.dp),
-                shape = RoundedCornerShape(8.dp),
-                color = Color.White.copy(alpha = 0.9f),
-                tonalElevation = 4.dp
-            ) {
-                Text(
-                    text = timeText,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    color = Color.Black,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            Text(
+                text = timeText,
+                modifier = Modifier
+                    .offset(x = thumbX, y = 4.dp)
+                    .layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints)
+                        layout(placeable.width, placeable.height) {
+                            placeable.placeRelative(-placeable.width / 2, 0)
+                        }
+                    },
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
