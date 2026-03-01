@@ -85,6 +85,11 @@ fun FullPlayer(
         label = "FullPlayerBg"
     )
 
+    val particleColor = remember(themeColor) {
+        val hsl = themeColor.toHsl()
+        Color.hsl(hue = hsl[0] * 360f, saturation = hsl[1].coerceIn(0.2f, 0.5f), lightness = 0.4f)
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -93,7 +98,7 @@ fun FullPlayer(
     ) {
         ParticleSystem(
             isPlaying = isPlaying,
-            color = themeColor.copy(alpha = 0.45f)
+            color = particleColor
         )
 
         Column(
@@ -574,7 +579,7 @@ fun ParticleSystem(
     val energy by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0f,
         animationSpec = tween(
-            durationMillis = if (isPlaying) 600 else 1500,
+            durationMillis = 1000,
             easing = FastOutSlowInEasing
         ),
         label = "ParticleEnergy"
@@ -624,7 +629,7 @@ private class DriftParticle {
         y = if (initial) Random.nextFloat() * height else Random.nextFloat() * (height * 0.15f)
         angle = Random.nextFloat() * (2f * Math.PI.toFloat())
         speed = 10f + Random.nextFloat() * 20f
-        radius = 1.5f + Random.nextFloat() * 4f
+        radius = 4f + Random.nextFloat() * 8f   // Larger particles
         maxLife = 4f + Random.nextFloat() * 5f
         life = if (initial) Random.nextFloat() * maxLife else maxLife
         fadeAlpha = 1f
@@ -646,8 +651,8 @@ private class DriftParticle {
         y += kotlin.math.sin(angle) * speed * speedMult * dt
         angle += (Random.nextFloat() - 0.5f) * 0.15f
 
-        // Brightness dims to 25 % when paused
-        fadeAlpha = 0.25f + energy * 0.75f
+        // Brightness dims to 0 % (total evaporation) when paused
+        fadeAlpha = energy
 
         // Life drains at 15 % speed when paused, full speed when playing
         life -= dt * (0.15f + energy * 0.85f)
