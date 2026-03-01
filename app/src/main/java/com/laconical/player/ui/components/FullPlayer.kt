@@ -369,17 +369,27 @@ fun VisualizerSeekBar(
     // The progress value frozen at the instant the drag started.
     var frozenProgress by remember { mutableFloatStateOf(0f) }
 
+    // The "optimistic" progress that tracks where we've told the player to go.
+    var stableProgress by remember { mutableFloatStateOf(progress) }
+
+    // Keep stableProgress in sync with live progress when NOT seeking.
+    LaunchedEffect(progress) {
+        if (!isDragging && seekTarget < 0f) {
+            stableProgress = progress
+        }
+    }
+
     // --- seekTarget cleanup ---------------------------------------------------
     // Clear as soon as real progress catches up …
     LaunchedEffect(progress) {
-        if (seekTarget >= 0f && kotlin.math.abs(progress - seekTarget) < 0.03f) {
+        if (seekTarget >= 0f && kotlin.math.abs(progress - seekTarget) < 0.01f) {
             seekTarget = -1f
         }
     }
     // … or after a safety timeout so it never sticks forever.
     LaunchedEffect(seekTarget) {
         if (seekTarget >= 0f) {
-            delay(800)
+            delay(1500)
             seekTarget = -1f
         }
     }
@@ -391,7 +401,7 @@ fun VisualizerSeekBar(
     val displayedProgress = when {
         isDragging      -> frozenProgress
         seekTarget >= 0f -> seekTarget
-        else            -> progress
+        else            -> stableProgress
     }
 
     // Slow ambient waveform drift
@@ -412,6 +422,7 @@ fun VisualizerSeekBar(
                 detectTapGestures { offset ->
                     val p = (offset.x / size.width).coerceIn(0f, 1f)
                     seekTarget = p
+                    stableProgress = p
                     onSeek(p)
                 }
             }
@@ -419,13 +430,14 @@ fun VisualizerSeekBar(
                 detectDragGestures(
                     onDragStart = { offset ->
                         isDragging = true
-                        // If a previous tap-seek hasn't resolved yet, freeze from that
-                        frozenProgress = if (seekTarget >= 0f) seekTarget else progress
+                        // Capture from stableProgress (which holds results of any previous seeking)
+                        frozenProgress = stableProgress
                         seekTarget = -1f
                         dragProgress = (offset.x / size.width).coerceIn(0f, 1f)
                     },
                     onDragEnd = {
                         seekTarget = dragProgress
+                        stableProgress = dragProgress
                         onSeek(dragProgress)
                         isDragging = false
                     },
