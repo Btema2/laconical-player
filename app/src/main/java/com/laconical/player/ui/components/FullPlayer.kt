@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -166,12 +167,26 @@ fun FullPlayer(
                     .padding(horizontal = 24.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                        .drawWithContent {
+                            drawContent()
+                            drawRect(
+                                brush = Brush.horizontalGradient(
+                                    0.85f to Color.Black,
+                                    1f to Color.Transparent
+                                ),
+                                blendMode = BlendMode.DstIn
+                            )
+                        }
+                ) {
                     Text(
                         text = track.title,
                         color = Color.White,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         modifier = Modifier.then(
                             if (sharedTransitionScope != null) {
@@ -187,8 +202,9 @@ fun FullPlayer(
                     Text(
                         text = track.artist,
                         color = Color.Gray,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Normal
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1
                     )
                 }
 
