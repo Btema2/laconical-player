@@ -161,9 +161,10 @@ class MainViewModel @Inject constructor(
                             .toInt().coerceIn(0, data.size - 1)
                             val targetAmp = data[index].toFloat() / cachedMaxAmplitude.toFloat()
 
-                            // Smooth follow — 60 % previous + 40 % new keeps it organic
+                            // 75% previous + 25% new — heavier smoothing absorbs small jitter,
+                            // only sustained loud sections drive noticeable movement
                             _currentNormalizedAmplitude.value =
-                            (_currentNormalizedAmplitude.value * 0.6f) + (targetAmp * 0.4f)
+                            (_currentNormalizedAmplitude.value * 0.75f) + (targetAmp * 0.25f)
                         }
                     } else {
                         // Gentle exponential decay toward 0 when paused / no data

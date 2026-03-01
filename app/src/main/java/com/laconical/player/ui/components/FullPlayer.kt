@@ -281,14 +281,15 @@ fun PulsatingAlbumArt(
     sharedTransitionScope: SharedTransitionScope?,
     isSharedVisible: Boolean
 ) {
-    // ── scale driven by the actual Amplituda amplitude ──
-    // Range: 0.93 (silence) → 1.07 (loudest), with a bouncy spring
-    // so drum hits overshoot slightly before settling.
+    // Quadratic curve: crushes small values, only real beats punch through
+    val shapedAmplitude = amplitude * amplitude
+
+    // Range: 0.98 (silence) → 1.02 (loudest) — subtle, organic breathing
     val animatedPulse by animateFloatAsState(
-        targetValue = 0.93f + (amplitude * 0.14f),
+        targetValue = 0.98f + (shapedAmplitude * 0.04f),
         animationSpec = spring(
-            dampingRatio = 0.55f,
-            stiffness = 350f
+            dampingRatio = 0.65f,
+            stiffness = 280f
         ),
         label = "PulseAnim"
     )
@@ -298,7 +299,7 @@ fun PulsatingAlbumArt(
 
     Box(
         modifier = Modifier
-            .fillMaxWidth(0.9f)
+            .fillMaxWidth(0.95f)
             .aspectRatio(1f)
             .graphicsLayer {
                 scaleX = animatedPulse
@@ -312,10 +313,10 @@ fun PulsatingAlbumArt(
                 val paint = Paint().asFrameworkPaint().apply {
                     color = dominantColor.toArgb()
                     maskFilter = BlurMaskFilter(
-                        70f + amplitude * 50f,          // 70 → 120
+                        70f + shapedAmplitude * 40f,
                         BlurMaskFilter.Blur.NORMAL
                     )
-                    alpha = (30 + (amplitude * 80)).toInt().coerceIn(20, 120)
+                    alpha = (25 + (shapedAmplitude * 60)).toInt().coerceIn(20, 100)
                 }
                 canvas.nativeCanvas.drawRoundRect(
                     0f, 0f, size.width, size.height,
