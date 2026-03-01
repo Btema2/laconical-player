@@ -20,7 +20,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -36,23 +35,24 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.laconical.player.ui.AudioArtData
 import com.laconical.player.ui.MainViewModel
-import com.laconical.player.LocalSharedTransitionScope
-import androidx.compose.animation.SharedTransitionScope
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
 /**
  * Full-screen "Now Playing" UI for the expanded bottom sheet.
+ *
+ * @param expandedFraction 0 = fully collapsed, 1 = fully expanded.
+ *   Used to fade in the full-player UI independently of the morphing overlay.
  */
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun FullPlayer(
     viewModel: MainViewModel,
     expandedFraction: Float,
-    isSharedVisible: Boolean,
-    onCollapse: () -> Unit
+    onCollapse: () -> Unit,
+    /** Reports the root-space Y pixel coordinate of the title ghost, so LibraryScreen
+     *  can land the morphing title overlay on exactly the right position. */
+    onTitlePositioned: (Float) -> Unit = {}
 ) {
-    val sharedTransitionScope = LocalSharedTransitionScope.current
     val currentTrack by viewModel.currentTrack.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val dominantColor by viewModel.playingTrackDominantColor.collectAsState()
@@ -61,8 +61,6 @@ fun FullPlayer(
     val progress by viewModel.progress.collectAsState()
     val currentPosition by viewModel.currentPosition.collectAsState()
     val duration by viewModel.duration.collectAsState()
-    val currentAmplitude by viewModel.currentNormalizedAmplitude.collectAsState()
-
     if (currentTrack == null) return
 
     val track = currentTrack!!
@@ -91,16 +89,16 @@ fun FullPlayer(
         Color.hsl(hue = hsl[0] * 360f, saturation = hsl[1].coerceIn(0.2f, 0.5f), lightness = 0.4f)
     }
 
+    // The full player content fades in as the sheet expands
+    val contentAlpha = expandedFraction.coerceIn(0f, 1f)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .graphicsLayer { alpha = contentAlpha }
             .background(animatedBg)
-            .graphicsLayer { alpha = expandedFraction }
     ) {
-        ParticleSystem(
-            isPlaying = isPlaying,
-            color = particleColor
-        )
+        ParticleSystem(isPlaying = isPlaying, color = particleColor)
 
         Column(
             modifier = Modifier
@@ -138,66 +136,44 @@ fun FullPlayer(
                 )
 
                 IconButton(onClick = { }) {
-                    Icon(
-                        imageVector = Icons.Outlined.MoreVert,
-                        contentDescription = "More",
-                        tint = Color.White
-                    )
+                    Icon(imageVector = Icons.Outlined.MoreVert, contentDescription = "More", tint = Color.White)
                 }
             }
 
             Spacer(modifier = Modifier.height(64.dp))
 
-            // Album Art — driven by real Amplituda amplitude
-            PulsatingAlbumArt(
-                trackId = track.id,
-                trackData = track.dataPath ?: track.mediaUri,
-                amplitude = currentAmplitude,
-                dominantColor = themeColor,
-                sharedTransitionScope = sharedTransitionScope,
-                isSharedVisible = isSharedVisible
+            // Album art layout spacer — the morphing overlay in LibraryScreen
+            // renders the actual art on top; this just reserves the right amount of space.
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth(0.95f)
+                    .aspectRatio(1f)
             )
 
+            // weight(1f) spacer pushes track info down to its natural position
+            // (same as before the animation rework — restores the 20:04 look)
             Spacer(modifier = Modifier.weight(1f))
 
             // Track Info Row
+            // Title is an invisible layout ghost — the morphing overlay in LibraryScreen
+            // renders the actual title on top, identical to how the thumbnail is handled.
+            // onGloballyPositioned reports the exact Y so LibraryScreen can align perfectly.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
-                        .drawWithContent {
-                            drawContent()
-                            drawRect(
-                                brush = Brush.horizontalGradient(
-                                    0.85f to Color.Black,
-                                    1f to Color.Transparent
-                                ),
-                                blendMode = BlendMode.DstIn
-                            )
-                        }
-                ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = track.title,
-                        color = Color.White,
+                        color = Color.White.copy(alpha = 0f), // invisible ghost for layout only
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        modifier = Modifier.then(
-                            if (sharedTransitionScope != null) {
-                                with(sharedTransitionScope) {
-                                    Modifier.sharedElementWithCallerManagedVisibility(
-                                        sharedContentState = rememberSharedContentState(key = "title_${track.id}"),
-                                        visible = isSharedVisible
-                                    )
-                                }
-                            } else Modifier
-                        )
+                        modifier = Modifier.onGloballyPositioned { coords ->
+                            onTitlePositioned(coords.positionInRoot().y)
+                        }
                     )
                     Text(
                         text = track.artist,
@@ -257,7 +233,6 @@ fun FullPlayer(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Divider & Footer
             HorizontalDivider(
                 modifier = Modifier.fillMaxWidth(0.8f),
                 thickness = 0.5.dp,
@@ -289,61 +264,44 @@ fun FullPlayer(
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- *  Album art that scales with real audio amplitude
+ *  Album art with real audio amplitude pulse (no shared element)
  * ────────────────────────────────────────────────────────────────────── */
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PulsatingAlbumArt(
-    trackId: Long,
     trackData: String,
     amplitude: Float,
     dominantColor: Color,
-    sharedTransitionScope: SharedTransitionScope?,
-    isSharedVisible: Boolean
+    modifier: Modifier = Modifier,
 ) {
-    // Quadratic curve: crushes small values, only real beats punch through
     val shapedAmplitude = amplitude * amplitude
 
-    // Range: 0.98 (silence) → 1.02 (loudest) — subtle, organic breathing
     val animatedPulse by animateFloatAsState(
         targetValue = 0.98f + (shapedAmplitude * 0.04f),
-        animationSpec = spring(
-            dampingRatio = 0.65f,
-            stiffness = 280f
-        ),
+        animationSpec = spring(dampingRatio = 0.65f, stiffness = 280f),
         label = "PulseAnim"
     )
 
-    // Stable model identity — prevents image reload on parent recomposition
     val imageModel = remember(trackData) { AudioArtData(trackData) }
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth(0.95f)
-            .aspectRatio(1f)
-            .graphicsLayer {
-                scaleX = animatedPulse
-                scaleY = animatedPulse
-            },
+        modifier = modifier
+            .fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        // Glow — blur radius and opacity now scale continuously with amplitude
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        // Glow — separate from the image so it never morphs
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { scaleX = animatedPulse; scaleY = animatedPulse }
+        ) {
             drawIntoCanvas { canvas ->
                 val paint = Paint().asFrameworkPaint().apply {
                     color = dominantColor.toArgb()
-                    maskFilter = BlurMaskFilter(
-                        70f + shapedAmplitude * 40f,
-                        BlurMaskFilter.Blur.NORMAL
-                    )
+                    maskFilter = BlurMaskFilter(70f + shapedAmplitude * 40f, BlurMaskFilter.Blur.NORMAL)
                     alpha = (25 + (shapedAmplitude * 60)).toInt().coerceIn(20, 100)
                 }
-                canvas.nativeCanvas.drawRoundRect(
-                    0f, 0f, size.width, size.height,
-                    24.dp.toPx(), 24.dp.toPx(),
-                    paint
-                )
+                canvas.nativeCanvas.drawRoundRect(0f, 0f, size.width, size.height, 24.dp.toPx(), 24.dp.toPx(), paint)
             }
         }
 
@@ -352,16 +310,7 @@ fun PulsatingAlbumArt(
             contentDescription = null,
             modifier = Modifier
                 .fillMaxSize()
-                .then(
-                    if (sharedTransitionScope != null) {
-                        with(sharedTransitionScope) {
-                            Modifier.sharedElementWithCallerManagedVisibility(
-                                sharedContentState = rememberSharedContentState(key = "album_art_$trackId"),
-                                visible = isSharedVisible
-                            )
-                        }
-                    } else Modifier
-                )
+                .graphicsLayer { scaleX = animatedPulse; scaleY = animatedPulse }
                 .clip(RoundedCornerShape(24.dp))
                 .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp)),
             contentScale = ContentScale.Crop
@@ -370,7 +319,7 @@ fun PulsatingAlbumArt(
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- *  Waveform seek bar (unchanged)
+ *  Waveform seek bar
  * ────────────────────────────────────────────────────────────────────── */
 
 @Composable
@@ -512,7 +461,7 @@ fun VisualizerSeekBar(
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- *  Playback controls (unchanged)
+ *  Playback controls
  * ────────────────────────────────────────────────────────────────────── */
 
 @Composable
@@ -560,44 +509,18 @@ fun PlaybackControls(
     }
 }
 
-@Composable
-fun Footer() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        HorizontalDivider(modifier = Modifier.fillMaxWidth(0.6f), thickness = 0.5.dp, color = Color.White.copy(alpha = 0.1f))
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = { }) { Icon(Icons.Outlined.Shuffle, "Shuffle", tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(22.dp)) }
-            TextButton(onClick = { }) { Text("UP NEXT", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
-            TextButton(onClick = { }) { Text("LYRICS", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
-            IconButton(onClick = { }) { Icon(Icons.Outlined.Repeat, "Repeat", tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(22.dp)) }
-        }
-    }
-}
-
 /* ──────────────────────────────────────────────────────────────────────
- *  Particle system — smooth energy-based transitions, no abrupt freeze
+ *  Particle system — smooth energy-based transitions
  * ────────────────────────────────────────────────────────────────────── */
 
 @Composable
-fun ParticleSystem(
-    isPlaying: Boolean,
-    color: Color
-) {
+fun ParticleSystem(isPlaying: Boolean, color: Color) {
     var time by remember { mutableLongStateOf(0L) }
     var lastTime by remember { mutableLongStateOf(0L) }
 
-    // Smooth 0→1 energy instead of a hard boolean flip.
-    // Ramps up in 600 ms (play), winds down over 1500 ms (pause).
     val energy by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0f,
-        animationSpec = tween(
-            durationMillis = 1000,
-            easing = FastOutSlowInEasing
-        ),
+        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
         label = "ParticleEnergy"
     )
 
@@ -613,8 +536,7 @@ fun ParticleSystem(
     val particles = remember { List(25) { DriftParticle() } }
 
     Canvas(modifier = Modifier.fillMaxSize()) {
-        val dt = if (lastTime == 0L) 0.016f
-        else ((time - lastTime) / 1_000_000_000f).coerceIn(0f, 0.05f)
+        val dt = if (lastTime == 0L) 0.016f else ((time - lastTime) / 1_000_000_000f).coerceIn(0f, 0.05f)
 
         particles.forEach { p ->
             p.update(size.width, size.height, dt, energy)
@@ -631,52 +553,29 @@ fun ParticleSystem(
 }
 
 private class DriftParticle {
-    var x = 0f
-    var y = 0f
-    var angle = 0f
-    var speed = 0f
-    var radius = 0f
-    var life = 0f
-    var maxLife = 0f
-    var fadeAlpha = 1f
+    var x = 0f; var y = 0f; var angle = 0f; var speed = 0f
+    var radius = 0f; var life = 0f; var maxLife = 0f; var fadeAlpha = 1f
 
     private fun spawn(width: Float, height: Float, initial: Boolean) {
         x = Random.nextFloat() * width
         y = if (initial) Random.nextFloat() * height else Random.nextFloat() * (height * 0.15f)
         angle = Random.nextFloat() * (2f * Math.PI.toFloat())
         speed = 10f + Random.nextFloat() * 20f
-        radius = 4f + Random.nextFloat() * 8f   // Larger particles
+        radius = 4f + Random.nextFloat() * 8f
         maxLife = 4f + Random.nextFloat() * 5f
         life = if (initial) Random.nextFloat() * maxLife else maxLife
         fadeAlpha = 1f
     }
 
-    /**
-     * @param energy 0 = fully paused, 1 = fully playing.
-     *               Smoothly animated by the caller so particles
-     *               never snap between states.
-     */
     fun update(width: Float, height: Float, dt: Float, energy: Float) {
-        if (maxLife == 0f) {
-            spawn(width, height, true)
-        }
-
-        // Movement slows to 30 % of normal when paused
+        if (maxLife == 0f) spawn(width, height, true)
         val speedMult = 0.3f + energy * 0.7f
         x += kotlin.math.cos(angle) * speed * speedMult * dt
         y += kotlin.math.sin(angle) * speed * speedMult * dt
         angle += (Random.nextFloat() - 0.5f) * 0.15f
-
-        // Brightness dims to 0 % (total evaporation) when paused
         fadeAlpha = energy
-
-        // Life drains at 15 % speed when paused, full speed when playing
         life -= dt * (0.15f + energy * 0.85f)
-        if (life <= 0f) {
-            spawn(width, height, false)
-        }
-
-        // Wrap around edges
+        if (life <= 0f) spawn(width, height, false)
         if (x < -10f) x = width + 10f
         if (x > width + 10f) x = -10f
         if (y > height + 10f) y = -10f
