@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,28 +24,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
-import com.laconical.player.ui.AudioArtData
 import com.laconical.player.ui.MainViewModel
-import com.laconical.player.LocalSharedTransitionScope
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun MiniPlayer(
     viewModel: MainViewModel,
-    isSharedVisible: Boolean,
     modifier: Modifier = Modifier,
+    /** When true the album-art slot is left empty (morphing overlay renders it instead). */
+    hideArt: Boolean = false,
     onClick: () -> Unit = {}
 ) {
-    val sharedTransitionScope = LocalSharedTransitionScope.current
     val currentTrack by viewModel.currentTrack.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val progress by viewModel.progress.collectAsState()
@@ -54,9 +45,7 @@ fun MiniPlayer(
 
     if (currentTrack == null) return
 
-    // Soften the color intensity for bright thumbnails
     val baseColor = if (vibeColor != null) {
-        // Blend with dark color to de-intensify
         val alpha = 0.6f
         Color(
             red = vibeColor!!.red * alpha,
@@ -67,39 +56,35 @@ fun MiniPlayer(
     } else {
         Color(0xFF1E1E1E)
     }
-    
-    // Floating rounded rectangle (not circular pill)
+
     Box(
         modifier = modifier
             .padding(horizontal = 12.dp)
-            .padding(bottom = 12.dp) // Slightly more padding for floating effect
+            .padding(bottom = 12.dp)
             .fillMaxWidth()
-            .height(75.dp) // ~10% taller than 68dp
-            .clip(RoundedCornerShape(16.dp)) 
-            .background(Color(0xFF0D0D10)) // Solid base to prevent see-through
+            .height(75.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF0D0D10))
             .background(
                 brush = Brush.horizontalGradient(
                     colors = listOf(
-                        baseColor.copy(alpha = 0.5f), // Softer start
-                        baseColor.copy(alpha = 0.15f), // Fades earlier
-                        Color(0xF00D0D10) // Darker end
+                        baseColor.copy(alpha = 0.5f),
+                        baseColor.copy(alpha = 0.15f),
+                        Color(0xF00D0D10),
                     )
                 )
             )
-            // Removed direct clickable here to avoid blocking internal buttons
     ) {
-        // Transparent interaction layer that doesn't overlap the control buttons
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(end = 120.dp) // Leave space for controls on the right
+                .padding(end = 120.dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
-                    indication = null, // No ripple for the main area to keep it clean
+                    indication = null,
                     onClick = onClick
                 )
         )
-        // High-level top border for glass effect
         HorizontalDivider(
             modifier = Modifier.align(Alignment.TopCenter).padding(horizontal = 24.dp),
             thickness = 0.5.dp,
@@ -112,54 +97,28 @@ fun MiniPlayer(
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Album Art Thumbnail (Rounded Square)
+            // Art slot — kept as a transparent placeholder so layout is stable
             Box(
                 modifier = Modifier
-                    .size(52.dp) // Slightly larger for taller player
-                    .then(
-                        if (sharedTransitionScope != null) {
-                            with(sharedTransitionScope) {
-                                Modifier.sharedElementWithCallerManagedVisibility(
-                                    sharedContentState = rememberSharedContentState(key = "album_art_${currentTrack!!.id}"),
-                                    visible = isSharedVisible
-                                )
-                            }
-                        } else Modifier
-                    )
-                    .clip(RoundedCornerShape(10.dp)) // Rounded square
-                    .background(Color(0xFF1E1E1E)),
-                contentAlignment = Alignment.Center
-            ) {
-                val loadTarget = if (!currentTrack!!.dataPath.isNullOrEmpty()) currentTrack!!.dataPath else currentTrack!!.mediaUri
-                AsyncImage(
-                    model = AudioArtData(loadTarget!!),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            }
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (hideArt) Color.Transparent else Color(0xFF1E1E1E)),
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Text Info (Title on top, Artist on bottom)
             Column(modifier = Modifier.weight(1f)) {
+                // Title: always laid out so Column height is stable.
+                // When hideArt=true the morphing overlay renders the title on top,
+                // so we make it invisible (alpha=0) rather than replacing it with a
+                // spacer — this guarantees pixel-perfect geometry alignment.
                 Text(
                     text = currentTrack!!.title,
-                    color = Color.White,
-                    fontSize = 15.sp, // Slightly larger
+                    color = Color.White.copy(alpha = if (hideArt) 0f else 1f),
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.then(
-                        if (sharedTransitionScope != null) {
-                            with(sharedTransitionScope) {
-                                Modifier.sharedElementWithCallerManagedVisibility(
-                                    sharedContentState = rememberSharedContentState(key = "title_${currentTrack!!.id}"),
-                                    visible = isSharedVisible
-                                )
-                            }
-                        } else Modifier
-                    )
                 )
                 Text(
                     text = currentTrack!!.artist,
@@ -170,40 +129,30 @@ fun MiniPlayer(
                 )
             }
 
-            // Controls with pulsing glow
             Row(verticalAlignment = Alignment.CenterVertically) {
                 GlowIconButton(onClick = { viewModel.skipToPrevious() }) {
                     Icon(Icons.Default.SkipPrevious, "Previous", tint = Color.White, modifier = Modifier.size(24.dp))
                 }
-                
                 GlowIconButton(onClick = { viewModel.togglePlayPause() }) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = if (isPlaying) "Pause" else "Play",
                         tint = Color.White,
-                        modifier = Modifier.size(36.dp) // Slightly larger
+                        modifier = Modifier.size(36.dp)
                     )
                 }
-
                 GlowIconButton(onClick = { viewModel.skipToNext() }) {
                     Icon(Icons.Default.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(24.dp))
                 }
             }
         }
 
-        // Functional Progress Bar at the bottom
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(3.dp) // Slightly thinner, more elegant
+                .height(3.dp)
                 .align(Alignment.BottomCenter)
                 .background(Color(0x11FFFFFF))
-                .pointerInput(Unit) {
-                    detectTapGestures { offset ->
-                        val newProgress = (offset.x / size.width).coerceIn(0f, 1f)
-                        viewModel.seekTo(newProgress)
-                    }
-                }
         ) {
             Box(
                 modifier = Modifier
@@ -222,7 +171,7 @@ fun GlowIconButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    
+
     val glowAlpha by animateFloatAsState(
         targetValue = if (isPressed) 0.6f else 0f,
         animationSpec = if (isPressed) infiniteRepeatable(
