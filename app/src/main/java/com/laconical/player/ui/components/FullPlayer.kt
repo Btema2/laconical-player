@@ -171,6 +171,7 @@ fun FullPlayer(
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier.onGloballyPositioned { coords ->
                             onTitlePositioned(coords.positionInRoot().y)
                         }

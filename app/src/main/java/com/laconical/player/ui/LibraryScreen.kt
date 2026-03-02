@@ -317,6 +317,13 @@ fun LibraryScreen(
                         // The overlay IS the title — no fade-out, same approach as the thumbnail.
                         // FullPlayer's title is a permanent invisible ghost (alpha=0 layout spacer).
                         val titleOverlayAlpha = 1f
+                        // Mini: right limit = before the 3 control buttons (~140dp from right)
+                        // Full: right limit = before the heart icon (56dp from right)
+                        val titleMaxWidthDp = lerp(
+                            (screenWidthDp - miniTitleLeftDp - 170.dp).value,
+                            (screenWidthDp - fullTitleLeftDp - 86.dp).value,
+                            expandedFraction
+                        ).dp
 
                         Text(
                             text = track.title,
@@ -324,8 +331,10 @@ fun LibraryScreen(
                             fontSize = titleSizeSp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                             modifier = Modifier
                                 .offset(x = titleLeftDp, y = titleTopDp)
+                                .widthIn(max = titleMaxWidthDp)
                         )
 
                         // ── Morphing Playback Controls Overlay ──────────────
