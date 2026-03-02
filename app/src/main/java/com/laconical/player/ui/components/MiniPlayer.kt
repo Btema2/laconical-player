@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -129,7 +130,11 @@ fun MiniPlayer(
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // Controls — invisible ghost when hideArt=true; morphing overlay in LibraryScreen renders them.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.alpha(if (hideArt) 0f else 1f)
+            ) {
                 GlowIconButton(onClick = { viewModel.skipToPrevious() }) {
                     Icon(Icons.Default.SkipPrevious, "Previous", tint = Color.White, modifier = Modifier.size(24.dp))
                 }

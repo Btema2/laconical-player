@@ -22,7 +22,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -38,6 +40,13 @@ import com.laconical.player.ui.components.LaconicalBottomNav
 import com.laconical.player.ui.components.LaconicalTopBar
 import com.laconical.player.ui.components.MiniPlayer
 import com.laconical.player.ui.components.TrackListItem
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import kotlinx.coroutines.launch
 
 /**
@@ -163,18 +172,35 @@ fun LibraryScreen(
                 // Full player controls visible after 0.33, fully in at 0.67
                 val fullControlAlpha = ((expandedFraction - 0.33f) / 0.34f).coerceIn(0f, 1f)
 
-                Box(modifier = Modifier.fillMaxSize()) {
+                // Track the sheet content Box's own root-Y so we can convert
+                // boundsInRoot() from ghost elements to sheet-local coordinates.
+                var sheetRootYPx by remember { mutableFloatStateOf(0f) }
 
-                    // Capture the real-space Y of the ghost title from FullPlayer.
-                    // -1f means not yet measured; overlay uses a fallback until first layout.
+                Box(modifier = Modifier
+                    .fillMaxSize()
+                    .onGloballyPositioned { sheetRootYPx = it.positionInRoot().y }
+                ) {
+
+                    // Measured positions of ghost elements in FullPlayer (root coords = sheet-local when fully expanded)
                     var fullTitleTopPx by remember { mutableFloatStateOf(-1f) }
+                    var fullPrevCenterXPx  by remember { mutableFloatStateOf(-1f) }
+                    var fullPrevCenterYPx  by remember { mutableFloatStateOf(-1f) }
+                    var fullPlayCenterXPx  by remember { mutableFloatStateOf(-1f) }
+                    var fullPlayCenterYPx  by remember { mutableFloatStateOf(-1f) }
+                    var fullNextCenterXPx  by remember { mutableFloatStateOf(-1f) }
+                    var fullNextCenterYPx  by remember { mutableFloatStateOf(-1f) }
 
                     // ── Full Player (background + controls) ─────────────────
                     FullPlayer(
                         viewModel = viewModel,
                         expandedFraction = expandedFraction,
                         onCollapse = { scope.launch { scaffoldState.bottomSheetState.partialExpand() } },
-                        onTitlePositioned = { fullTitleTopPx = it }
+                        onTitlePositioned = { fullTitleTopPx = it },
+                        onPlayControlsPositioned = { px, py, lx, ly, nx, ny ->
+                            if (px != Float.MIN_VALUE) { fullPrevCenterXPx = px; fullPrevCenterYPx = py }
+                            if (lx != Float.MIN_VALUE) { fullPlayCenterXPx = lx; fullPlayCenterYPx = ly }
+                            if (nx != Float.MIN_VALUE) { fullNextCenterXPx = nx; fullNextCenterYPx = ny }
+                        }
                     )
 
                     // ── Mini Player (artwork slot is transparent) ────────────
@@ -278,9 +304,9 @@ fun LibraryScreen(
                         // so title text always starts at 48dp from screen left — matches artist text.
                         val fullTitleLeftDp  = 48.dp
                         // Use the measured ghost-title Y for a pixel-perfect landing position.
-                        // Fall back to a reasonable estimate until the first layout pass fires.
+                        // Subtract sheetRootYPx to convert root coords → sheet-local coords.
                         val fullTitleTopDp = if (fullTitleTopPx >= 0f)
-                            with(density) { fullTitleTopPx.toDp() }
+                            with(density) { (fullTitleTopPx - sheetRootYPx).toDp() }
                         else
                             fullArtTopDp + fullArtSizeDp + 200.dp // rough fallback, never visible
 
@@ -301,6 +327,113 @@ fun LibraryScreen(
                             modifier = Modifier
                                 .offset(x = titleLeftDp, y = titleTopDp)
                         )
+
+                        // ── Morphing Playback Controls Overlay ──────────────
+                        // Mini button centers (sheet-local, static geometry):
+                        //   MiniPlayer outer padding H=12, row padding H=12 → right edge at screenWidth-24dp
+                        //   3 × 48dp buttons (IconButton default) right-aligned
+                        //   Center Y = 75dp/2 = 37.5dp
+                        val miniCtrlCenterYDp = 37.5.dp
+                        val miniPrevCenterXDp = screenWidthDp - 144.dp  // 3rd from right: -24 - 120 = -144
+                        val miniPlayCenterXDp = screenWidthDp - 96.dp   // 2nd from right: -24 - 72 = -96
+                        val miniNextCenterXDp = screenWidthDp - 48.dp   // 1st from right: -24 - 24 = -48
+
+                        // Full button centers (sheet-local, from ghost onGloballyPositioned):
+                        val fullPrevCenterXDp = if (fullPrevCenterXPx >= 0f) with(density) { fullPrevCenterXPx.toDp() } else miniPrevCenterXDp
+                        val fullPrevCenterYDp = if (fullPrevCenterYPx >= 0f) with(density) { (fullPrevCenterYPx - sheetRootYPx).toDp() } else miniCtrlCenterYDp
+                        val fullPlayCenterXDp = if (fullPlayCenterXPx >= 0f) with(density) { fullPlayCenterXPx.toDp() } else miniPlayCenterXDp
+                        val fullPlayCenterYDp = if (fullPlayCenterYPx >= 0f) with(density) { (fullPlayCenterYPx - sheetRootYPx).toDp() } else miniCtrlCenterYDp
+                        val fullNextCenterXDp = if (fullNextCenterXPx >= 0f) with(density) { fullNextCenterXPx.toDp() } else miniNextCenterXDp
+                        val fullNextCenterYDp = if (fullNextCenterYPx >= 0f) with(density) { (fullNextCenterYPx - sheetRootYPx).toDp() } else miniCtrlCenterYDp
+
+                        // Lerped centers
+                        val prevCX = lerp(miniPrevCenterXDp.value, fullPrevCenterXDp.value, expandedFraction).dp
+                        val prevCY = lerp(miniCtrlCenterYDp.value, fullPrevCenterYDp.value, expandedFraction).dp
+                        val playCX = lerp(miniPlayCenterXDp.value, fullPlayCenterXDp.value, expandedFraction).dp
+                        val playCY = lerp(miniCtrlCenterYDp.value, fullPlayCenterYDp.value, expandedFraction).dp
+                        val nextCX = lerp(miniNextCenterXDp.value, fullNextCenterXDp.value, expandedFraction).dp
+                        val nextCY = lerp(miniCtrlCenterYDp.value, fullNextCenterYDp.value, expandedFraction).dp
+
+                        // Sizes: prev/next icon 24→48dp, play container 48→72dp, icon 36→42dp
+                        val prevNextIconSize = lerp(24f, 48f, expandedFraction).dp
+                        val playContainerSize = lerp(48f, 72f, expandedFraction).dp
+                        val playIconSize = lerp(36f, 42f, expandedFraction).dp
+
+                        // Circle background alpha: 0 at mini, 1 at full
+                        val circleAlpha = expandedFraction
+                        // themeColor and isPlaying already declared above in this block
+                        val buttonBgColor = remember(themeColor) {
+                            val hsl = run {
+                                val hslArr = FloatArray(3)
+                                val r = themeColor.red; val g = themeColor.green; val b = themeColor.blue
+                                val max = maxOf(r, g, b); val min = minOf(r, g, b)
+                                hslArr[2] = (max + min) / 2
+                                if (max == min) { hslArr[0] = 0f; hslArr[1] = 0f }
+                                else {
+                                    val d = max - min
+                                    hslArr[1] = if (hslArr[2] > 0.5f) d / (2f - max - min) else d / (max + min)
+                                    when (max) {
+                                        r -> hslArr[0] = (g - b) / d + (if (g < b) 6f else 0f)
+                                        g -> hslArr[0] = (b - r) / d + 2f
+                                        b -> hslArr[0] = (r - g) / d + 4f
+                                    }
+                                    hslArr[0] /= 6f
+                                }
+                                hslArr
+                            }
+                            Color.hsl(hue = hsl[0] * 360f, saturation = hsl[1].coerceIn(0.2f, 0.5f), lightness = 0.4f)
+                        }
+                        val animatedBtnColor by animateColorAsState(buttonBgColor, tween(800), label = "MorphBtnColor")
+
+                        // ── Prev Button ──
+                        Box(
+                            modifier = Modifier
+                                .offset(x = prevCX - prevNextIconSize / 2, y = prevCY - prevNextIconSize / 2)
+                                .size(prevNextIconSize),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.SkipPrevious, "Previous",
+                                tint = Color.White,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable { viewModel.skipToPrevious() }
+                            )
+                        }
+
+                        // ── Play/Pause Button ──
+                        Box(
+                            modifier = Modifier
+                                .offset(x = playCX - playContainerSize / 2, y = playCY - playContainerSize / 2)
+                                .size(playContainerSize)
+                                .clip(CircleShape)
+                                .background(animatedBtnColor.copy(alpha = circleAlpha))
+                                .clickable { viewModel.togglePlayPause() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = if (isPlaying) "Pause" else "Play",
+                                tint = Color.White,
+                                modifier = Modifier.size(playIconSize)
+                            )
+                        }
+
+                        // ── Next Button ──
+                        Box(
+                            modifier = Modifier
+                                .offset(x = nextCX - prevNextIconSize / 2, y = nextCY - prevNextIconSize / 2)
+                                .size(prevNextIconSize),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.SkipNext, "Next",
+                                tint = Color.White,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable { viewModel.skipToNext() }
+                            )
+                        }
                     }
                 }
             },
