@@ -49,9 +49,9 @@ fun FullPlayer(
     viewModel: MainViewModel,
     expandedFraction: Float,
     onCollapse: () -> Unit,
-    /** Reports the root-space Y pixel coordinate of the title ghost, so LibraryScreen
-     *  can land the morphing title overlay on exactly the right position. */
-    onTitlePositioned: (Float) -> Unit = {}
+    onTitlePositioned: (Float) -> Unit = {},
+    /** Reports root-space center (x, y) of Prev, Play, Next buttons for the morphing overlay. */
+    onPlayControlsPositioned: (prevX: Float, prevY: Float, playX: Float, playY: Float, nextX: Float, nextY: Float) -> Unit = { _, _, _, _, _, _ -> },
 ) {
     val currentTrack by viewModel.currentTrack.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
@@ -222,14 +222,20 @@ fun FullPlayer(
                 Text(text = formatTime(duration), color = Color.Gray, fontSize = 12.sp)
             }
 
-            // Playback Controls
-            PlaybackControls(
-                isPlaying = isPlaying,
-                themeColor = themeColor,
-                onTogglePlay = { viewModel.togglePlayPause() },
-                onPrevious = { viewModel.skipToPrevious() },
-                onNext = { viewModel.skipToNext() }
-            )
+            // Playback Controls ghost — invisible layout spacer that reports root-space
+            // button centers. The morphing overlay in LibraryScreen renders the real buttons.
+            Box(modifier = Modifier.graphicsLayer { alpha = 0f }) {
+                PlaybackControls(
+                    isPlaying = isPlaying,
+                    themeColor = themeColor,
+                    onTogglePlay = {},
+                    onPrevious = {},
+                    onNext = {},
+                    onPrevPositioned  = { x, y -> onPlayControlsPositioned(x, y, Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE) },
+                    onPlayPositioned  = { x, y -> onPlayControlsPositioned(Float.MIN_VALUE, Float.MIN_VALUE, x, y, Float.MIN_VALUE, Float.MIN_VALUE) },
+                    onNextPositioned  = { x, y -> onPlayControlsPositioned(Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE, x, y) },
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -470,7 +476,10 @@ fun PlaybackControls(
     themeColor: Color,
     onTogglePlay: () -> Unit,
     onPrevious: () -> Unit,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    onPrevPositioned: (Float, Float) -> Unit = { _, _ -> },
+    onPlayPositioned: (Float, Float) -> Unit = { _, _ -> },
+    onNextPositioned: (Float, Float) -> Unit = { _, _ -> },
 ) {
     val buttonBgColor = remember(themeColor) {
         val hsl = themeColor.toHsl()
@@ -482,16 +491,33 @@ fun PlaybackControls(
     )
 
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(top = 16.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onPrevious) {
+        IconButton(
+            onClick = onPrevious,
+            modifier = Modifier.onGloballyPositioned { coords ->
+                val c = coords.positionInRoot()
+                onPrevPositioned(c.x + coords.size.width / 2f, c.y + coords.size.height / 2f)
+            }
+        ) {
             Icon(Icons.Default.SkipPrevious, "Previous", tint = Color.White, modifier = Modifier.size(48.dp))
         }
 
         Box(
-            modifier = Modifier.size(72.dp).clip(CircleShape).background(animatedButtonColor).clickable(onClick = onTogglePlay),
+            modifier = Modifier
+                .size(72.dp)
+                .clip(CircleShape)
+                .background(animatedButtonColor)
+                .clickable(onClick = onTogglePlay)
+                .onGloballyPositioned { coords ->
+                    val c = coords.positionInRoot()
+                    onPlayPositioned(c.x + coords.size.width / 2f, c.y + coords.size.height / 2f)
+                },
             contentAlignment = Alignment.Center
         ) {
             Crossfade(targetState = isPlaying, label = "PlayPause") { playing ->
@@ -503,7 +529,13 @@ fun PlaybackControls(
             }
         }
 
-        IconButton(onClick = onNext) {
+        IconButton(
+            onClick = onNext,
+            modifier = Modifier.onGloballyPositioned { coords ->
+                val c = coords.positionInRoot()
+                onNextPositioned(c.x + coords.size.width / 2f, c.y + coords.size.height / 2f)
+            }
+        ) {
             Icon(Icons.Default.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(48.dp))
         }
     }
