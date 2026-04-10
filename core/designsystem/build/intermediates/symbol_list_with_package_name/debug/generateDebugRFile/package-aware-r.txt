@@ -1,1 +1,0 @@
-com.laconical.player.core.designsystem
