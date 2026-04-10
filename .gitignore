@@ -1,61 +1,26 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizard.xml
-/.idea/modules/
-/.idea/deploymentTargetSelector.xml
-/.idea/deploymentTargetDropDown.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
-
-# Gradle Wrapper
-/gradlew
-/gradlew.bat
-/gradle/wrapper/gradle-wrapper.jar
-
-# Kotlin
-.kotlin
-
-# Log files
-*.log
-
-# Android Studio
-*.keystore
-!debug.keystore
-
-# Built-in Kotlin / AGP temp
-.android
-.android-studio
-
-# Android Studio 3.x-specific caches
-.idea/codeStyles
-.idea/caches
-
-# Local configuration file (sdk path, etc)
-local.properties
-
-# Log files
-*.log
+# Build outputs
+build/
+**/build/
 
 # Gradle
 .gradle/
-build/
+gradle/wrapper/gradle-wrapper.jar
 
-# Android Studio
-*.iml
+# Android Studio / IntelliJ
 .idea/
+*.iml
+local.properties
+captures/
 
-# KSP
-build/generated/ksp/
+# Generated / temp
+.kotlin/
+.externalNativeBuild/
+.cxx/
+.android/
 
-# Lint
-lint/
+# Signing (keep debug.keystore for dev convenience)
+*.keystore
+!debug.keystore
+
+# Logs
+*.log
