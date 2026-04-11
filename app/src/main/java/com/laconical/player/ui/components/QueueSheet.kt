@@ -1,20 +1,15 @@
 package com.laconical.player.ui.components
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -30,12 +25,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -45,13 +45,31 @@ import com.laconical.player.ui.AudioArtData
 import com.laconical.player.ui.MainViewModel
 import com.laconical.player.ui.toHsl
 import kotlin.math.roundToInt
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 
 private val QUEUE_ITEM_HEIGHT = 72.dp
 
+/**
+ * Full-screen queue sheet. Positioned and translated by [LibraryScreen] via [modifier].
+ * The [progress] value (0f = closed, 1f = open) is passed in so that:
+ *  - The artist text fades in with progress
+ *  - The play/pause button fades in with progress
+ * Album art and title are INVISIBLE ghosts here — [LibraryScreen] renders the morphing
+ * overlay on top, lerping from FullPlayer to these exact positions.
+ *
+ * Ghost art target position (root coords): left=20dp, top=statusBarPadding+20dp, size=56dp
+ * Ghost title target position (root coords): left=88dp, top=statusBarPadding+26dp
+ */
 @Composable
 fun QueueSheet(
     viewModel: MainViewModel,
+    progress: Float,
+    modifier: Modifier = Modifier,
     onDismiss: () -> Unit,
+    onDragDelta: (Float) -> Unit,
+    onDragEnd: (velocityY: Float) -> Unit,
 ) {
     val queue by viewModel.queue.collectAsState()
     val currentIndex by viewModel.currentQueueIndex.collectAsState()
@@ -73,77 +91,113 @@ fun QueueSheet(
             alpha = 1f
         )
     } else Color(0xFF0A0A0C)
-    val animatedBg by androidx.compose.animation.animateColorAsState(bgColor, tween(800), label = "QueueBg")
+    val animatedBg by animateColorAsState(bgColor, tween(800), label = "QueueBg")
 
     val density = LocalDensity.current
     val itemHeightPx = with(density) { QUEUE_ITEM_HEIGHT.toPx() }
 
-    // Drag state — stable MutableState objects so graphicsLayer reads them without triggering recomposition.
     val dragFromIndexState = remember { mutableIntStateOf(-1) }
     val dragOffsetYState = remember { mutableFloatStateOf(0f) }
 
     val listState = rememberLazyListState()
 
-    LaunchedEffect(currentIndex, queue.size) {
-        if (currentIndex >= 0 && queue.isNotEmpty()) {
+    // Auto-scroll to current track when queue becomes visible
+    LaunchedEffect(progress > 0.8f, currentIndex, queue.size) {
+        if (progress > 0.8f && currentIndex >= 0 && queue.isNotEmpty()) {
             listState.animateScrollToItem(currentIndex.coerceIn(0, queue.lastIndex))
         }
     }
 
-    BackHandler { onDismiss() }
-
-    // Full-screen scrim — tap outside the sheet to dismiss
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.55f))
-            .clickable(
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() }
-            ) { onDismiss() }
-    ) {
-        // Sheet panel
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.88f)
-                .align(Alignment.BottomCenter)
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .background(animatedBg)
-                // Consume clicks so they don't reach the scrim dismissal
-                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {}
-        ) {
-            // Drag indicator handle at the very top
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 14.dp, bottom = 6.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(36.dp)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Color.White.copy(alpha = 0.22f))
-                )
+    // Intercept downward scroll at list top to drag the sheet down
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y > 0f && !listState.canScrollBackward) {
+                    onDragDelta(available.y)
+                    return available
+                }
+                return Offset.Zero
             }
 
-            // ── Mini-player clone ──────────────────────────────────────────
-            QueueMiniPlayer(
-                viewModel = viewModel,
-                currentTrack = currentTrack,
-                isPlaying = isPlaying,
-                seekBarActiveColor = seekBarActiveColor,
-            )
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (available.y > 250f) {
+                    onDragEnd(available.y)
+                    return available
+                }
+                return Velocity.Zero
+            }
+        }
+    }
 
-            Spacer(modifier = Modifier.height(4.dp))
+    BackHandler(enabled = progress > 0.5f) { onDismiss() }
 
-            // ── "UP NEXT" header ───────────────────────────────────────────
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(animatedBg)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+        ) {
+            // ── Borderless header row ──────────────────────────────────────────
+            // Art and title are INVISIBLE ghosts (LibraryScreen morph overlay draws them).
+            // Artist + play/pause fade in with progress.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 6.dp),
+                    .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 0.dp)
+                    .height(56.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Ghost art placeholder — 56dp, matches morph target
+                Box(modifier = Modifier.size(56.dp))
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    // Ghost title text — invisible, holds layout space for morph overlay alignment
+                    Text(
+                        text = currentTrack?.title ?: " ",
+                        color = Color.Transparent,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    // Artist — fades in as queue opens
+                    Text(
+                        text = currentTrack?.artist ?: "",
+                        color = Color(0xFFBBBBBB).copy(alpha = progress),
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Play/pause — fades in as queue opens
+                Box(modifier = Modifier.graphicsLayer { alpha = progress }) {
+                    GlowIconButton(onClick = { viewModel.togglePlayPause() }) {
+                        Crossfade(targetState = isPlaying, label = "QueuePlayPause") { playing ->
+                            Icon(
+                                imageVector = if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = if (playing) "Pause" else "Play",
+                                tint = Color.White,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // ── "UP NEXT" header ───────────────────────────────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -177,10 +231,12 @@ fun QueueSheet(
                 color = Color.White.copy(alpha = 0.10f)
             )
 
-            // ── Track list with drag-to-reorder ────────────────────────────
+            // ── Track list with drag-to-reorder ────────────────────────────────
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(nestedScrollConnection),
                 contentPadding = PaddingValues(vertical = 4.dp)
             ) {
                 itemsIndexed(queue, key = { _, track -> track.id }) { index, track ->
@@ -226,123 +282,6 @@ fun QueueSheet(
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- *  Mini-player clone — identical visual to MiniPlayer, only play/pause
- * ────────────────────────────────────────────────────────────────────── */
-
-@Composable
-private fun QueueMiniPlayer(
-    viewModel: MainViewModel,
-    currentTrack: Track?,
-    isPlaying: Boolean,
-    seekBarActiveColor: Color,
-) {
-    val progress by viewModel.progress.collectAsState()
-    val vibeColor by viewModel.playingTrackDominantColor.collectAsState()
-
-    val baseColor = if (vibeColor != null) {
-        Color(
-            red = vibeColor!!.red * 0.6f,
-            green = vibeColor!!.green * 0.6f,
-            blue = vibeColor!!.blue * 0.6f,
-            alpha = 1f
-        )
-    } else Color(0xFF1E1E1E)
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .height(75.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF0D0D10))
-            .background(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        baseColor.copy(alpha = 0.5f),
-                        baseColor.copy(alpha = 0.15f),
-                        Color(0xF00D0D10)
-                    )
-                )
-            )
-            .border(0.5.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(16.dp))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Album art
-            if (currentTrack != null) {
-                AsyncImage(
-                    model = remember(currentTrack.mediaUri) { AudioArtData(currentTrack.mediaUri) },
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(RoundedCornerShape(10.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF1E1E1E))
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = currentTrack?.title ?: "—",
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = currentTrack?.artist ?: "",
-                    color = Color(0xFFBBBBBB),
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Only play/pause — no skip buttons
-            GlowIconButton(onClick = { viewModel.togglePlayPause() }) {
-                Crossfade(targetState = isPlaying, label = "QueuePlayPause") { playing ->
-                    Icon(
-                        imageVector = if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (playing) "Pause" else "Play",
-                        tint = Color.White,
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-            }
-        }
-
-        // Progress bar at the bottom — same as MiniPlayer
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(3.dp)
-                .align(Alignment.BottomCenter)
-                .background(Color(0x11FFFFFF))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(progress.coerceIn(0f, 1f))
-                    .height(3.dp)
-                    .background(baseColor.copy(alpha = 0.9f))
-            )
-        }
-    }
-}
-
-/* ──────────────────────────────────────────────────────────────────────
  *  Individual queue track row with drag-to-reorder support
  * ────────────────────────────────────────────────────────────────────── */
 
@@ -363,7 +302,6 @@ private fun QueueTrackRow(
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
 ) {
-    // Read once for zIndex — triggers recompose only on drag start/end (not during continuous drag)
     val isDraggingThis = dragFromIndexState.intValue == index
 
     val dragScale by animateFloatAsState(
@@ -376,10 +314,8 @@ private fun QueueTrackRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(QUEUE_ITEM_HEIGHT)
-            // zIndex brings the dragged item above items rendered after it in LazyColumn
             .zIndex(if (isDraggingThis) 1f else 0f)
             .graphicsLayer {
-                // Read drag state here — only triggers layer redraws, not recomposition
                 val from = dragFromIndexState.intValue
                 val dy = dragOffsetYState.floatValue
                 if (from >= 0) {
@@ -445,7 +381,6 @@ private fun QueueTrackRow(
                 )
             }
 
-            // "Now playing" speaker icon for the current track
             if (isCurrentTrack) {
                 Spacer(modifier = Modifier.width(6.dp))
                 Icon(
@@ -458,7 +393,6 @@ private fun QueueTrackRow(
 
             Spacer(modifier = Modifier.width(4.dp))
 
-            // Drag handle — long-press to start reordering
             Box(
                 modifier = Modifier
                     .size(40.dp)
