@@ -4,6 +4,7 @@ agp = "9.0.1"
 kotlin = "2.2.10"
 ksp = "2.2.10-2.0.2"
 hilt = "2.59.1"
+amplituda = "2.3.1"
 
 # AndroidX
 coreKtx = "1.15.0"
@@ -75,6 +76,9 @@ coil-video = { group = "io.coil-kt.coil3", name = "coil-video", version.ref = "c
 
 # Palette
 androidx-palette = { group = "androidx.palette", name = "palette-ktx", version.ref = "palette" }
+
+# Amplituda
+amplituda = { group = "com.github.lincollincol", name = "amplituda", version.ref = "amplituda" }
 
 # Coroutines
 kotlinx-coroutines-guava = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-guava", version.ref = "kotlinxCoroutines" }

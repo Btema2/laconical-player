@@ -79,6 +79,7 @@ dependencies {
     implementation(libs.coil.video)
     implementation(libs.androidx.media3.common)
     implementation(libs.androidx.palette)
+    implementation(libs.amplituda)
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

@@ -47,7 +47,7 @@ fun LaconicalBottomNav(
 
     // Much darker and more subtle dynamic color
     val navColor = if (dynamicColor != null) {
-        val alpha = 0.25f // Darker than before
+        val alpha = 0.35f // Slightly weaker (from 0.4f)
         Color(
             red = dynamicColor.red * alpha,
             green = dynamicColor.green * alpha,
@@ -74,14 +74,15 @@ fun LaconicalBottomNav(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .background(Color(0xFF000000)) // Solid black base to prevent see-through
             .background(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        navColor.copy(alpha = 0.25f), // Even less visible (from 0.4f)
+                        navColor.copy(alpha = 0.35f), // Weakened per request (was 0.4f)
                         Color.Black // Deep black edges
                     ),
-                    center = Offset(100f, -50f),
-                    radius = 1040f // Expanded by 30% (from 800f)
+                    center = Offset(40f, -50f), // Moved further left to match thumbnail better
+                    radius = 950f 
                 )
             )
     ) {

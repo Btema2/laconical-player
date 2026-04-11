@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -12,6 +13,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlin.random.Random
@@ -33,18 +35,10 @@ fun ParticlesEffectCanvas(
     isPlaybackActive: Boolean,
     modifier: Modifier = Modifier
 ) {
-    // Reading `time` inside the Canvas block is what drives recomposition each frame.
-    var time by remember { mutableLongStateOf(0L) }
-    var lastTime by remember { mutableLongStateOf(0L) }
-
-    LaunchedEffect(Unit) {
-        while (true) {
-            withFrameNanos { frameNanos ->
-                lastTime = time
-                time = frameNanos
-            }
-        }
-    }
+    // Updated each frame inside LaunchedEffect to drive Canvas recomposition.
+    var frameTime by remember { mutableLongStateOf(0L) }
+    // Set via onSizeChanged so LaunchedEffect knows the canvas bounds for mutation.
+    var canvasHeight by remember { mutableFloatStateOf(0f) }
 
     val density = LocalDensity.current.density
     val originX = with(LocalDensity.current) { 42.dp.toPx() }
@@ -53,7 +47,7 @@ fun ParticlesEffectCanvas(
         List(24) {
             Particle(
                 x = originX,
-                y = -1f, // sentinel: will be initialized to center on first draw
+                y = -1f, // sentinel: initialized to center on first frame
                 angle = Random.nextFloat() * (2f * Math.PI.toFloat()),
                 speed = (Random.nextFloat() * 70f + 40f) * density,
                 baseAlpha = Random.nextFloat() * 0.5f + 0.2f,
@@ -64,39 +58,46 @@ fun ParticlesEffectCanvas(
         }
     }
 
-    // Reading `time` here is critical — it makes Compose recompose this Canvas every frame.
-    Canvas(modifier = modifier.fillMaxSize()) {
-        val currentTime = time  // subscribe to state; triggers recomposition each frame
-        val dt = if (lastTime == 0L) 0.016f
-                 else ((currentTime - lastTime) / 1_000_000_000f).coerceIn(0f, 0.05f)
+    // All particle state mutation happens here, outside the draw phase.
+    // Canvas is a pure reader of particle positions below.
+    LaunchedEffect(Unit) {
+        var lastNanos = 0L
+        while (true) {
+            withFrameNanos { nanos -> frameTime = nanos }
+            val dt = if (lastNanos == 0L) 0.016f
+                     else ((frameTime - lastNanos) / 1_000_000_000f).coerceIn(0f, 0.05f)
+            lastNanos = frameTime
 
-        val originY = size.height / 2f
+            val originY = canvasHeight / 2f
+            if (originY <= 0f) continue // canvas not yet laid out
 
-        particles.forEach { p ->
-            // Initialize Y on first draw when layout size is known
-            if (p.y < 0f) {
-                p.y = originY
-            }
+            particles.forEach { p ->
+                if (p.y < 0f) p.y = originY
 
-            p.x += kotlin.math.cos(p.angle) * p.speed * dt
-            p.y += kotlin.math.sin(p.angle) * p.speed * dt
-            p.life -= dt * 0.8f
+                p.x += kotlin.math.cos(p.angle) * p.speed * dt
+                p.y += kotlin.math.sin(p.angle) * p.speed * dt
+                p.life -= dt * 0.8f
 
-            if (p.life <= 0f) {
-                if (isPlaybackActive) {
-                    // Detect if the particle was "waiting" for playback to resume.
-                    // If so, randomize its starting life and position to avoid all 
-                    // particles starting in sync (which causes a pulsing effect).
+                if (p.life <= 0f && isPlaybackActive) {
                     val wasWaiting = p.life < -0.05f
                     p.life = if (wasWaiting) Random.nextFloat() * p.maxLife else p.maxLife
                     p.angle = Random.nextFloat() * (2f * Math.PI.toFloat())
-                    
                     val age = p.maxLife - p.life
                     p.x = originX + kotlin.math.cos(p.angle) * p.speed * age
                     p.y = originY + kotlin.math.sin(p.angle) * p.speed * age
                 }
             }
+        }
+    }
 
+    // Pure draw — reads particle state, no mutations.
+    Canvas(
+        modifier = modifier
+            .fillMaxSize()
+            .onSizeChanged { canvasHeight = it.height.toFloat() }
+    ) {
+        if (frameTime == 0L) return@Canvas // not yet started
+        particles.forEach { p ->
             val alpha = (p.baseAlpha * p.life).coerceIn(0f, 1f)
             drawCircle(
                 color = color.copy(alpha = alpha),
