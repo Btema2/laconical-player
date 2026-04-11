@@ -1,14 +1,12 @@
 package com.laconical.player.core.media
 
 import android.content.Context
-import android.net.Uri
 import com.linc.amplituda.Amplituda
-import com.linc.amplituda.AmplitudaResult
-import com.linc.amplituda.exceptions.io.AmplitudaIOException
-import com.linc.amplituda.exceptions.processing.AmplitudaProcessingException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,25 +19,29 @@ class WaveformExtractor @Inject constructor(
 ) {
     private val amplituda = Amplituda(context)
 
-    suspend fun extractWaveform(uriString: String): List<Int> = withContext(Dispatchers.IO) {
-        suspendCancellableCoroutine { continuation ->
-            try {
-                // Amplituda supports both file paths and URIs. 
-                // We'll treat it as a path if it starts with '/', otherwise as a URI.
-                val audioSource = if (uriString.startsWith("/")) {
-                    uriString
-                } else {
-                    uriString // Amplituda also handles String URIs
-                }
+    // Amplituda is not thread-safe. The Mutex ensures only one extraction runs at a
+    // time, preventing concurrent calls when the user switches tracks rapidly.
+    // When a coroutine is cancelled (track changed), the Mutex is released immediately
+    // so the next extraction can start without waiting for the old one to finish.
+    // Note: Amplituda has no cancel API, so the underlying IO thread completes its
+    // work regardless — but its callback becomes a safe no-op on a cancelled continuation.
+    private val mutex = Mutex()
 
-                amplituda.processAudio(audioSource).get({ result ->
-                    val amplitudes = result.amplitudesAsList()
-                    continuation.resume(amplitudes)
-                }, { exception ->
-                    continuation.resumeWithException(exception)
-                })
-            } catch (e: Exception) {
-                continuation.resumeWithException(e)
+    suspend fun extractWaveform(uriString: String): List<Int> = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            suspendCancellableCoroutine { continuation ->
+                try {
+                    amplituda.processAudio(uriString).get(
+                        { result ->
+                            continuation.resume(result.amplitudesAsList())
+                        },
+                        { exception ->
+                            continuation.resumeWithException(exception)
+                        }
+                    )
+                } catch (e: Exception) {
+                    continuation.resumeWithException(e)
+                }
             }
         }
     }
