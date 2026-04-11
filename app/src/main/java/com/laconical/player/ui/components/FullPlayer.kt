@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.laconical.player.ui.AudioArtData
 import com.laconical.player.ui.MainViewModel
+import com.laconical.player.ui.toHsl
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
@@ -625,23 +626,3 @@ private fun formatTime(ms: Long): String {
     return "%d:%02d".format(totalSeconds / 60, totalSeconds % 60)
 }
 
-private fun Color.toHsl(): FloatArray {
-    val hsl = FloatArray(3)
-    val r = red; val g = green; val b = blue
-    val max = maxOf(r, maxOf(g, b))
-    val min = minOf(r, minOf(g, b))
-    hsl[2] = (max + min) / 2
-    if (max == min) {
-        hsl[0] = 0f; hsl[1] = 0f
-    } else {
-        val d = max - min
-        hsl[1] = if (hsl[2] > 0.5f) d / (2f - max - min) else d / (max + min)
-        when (max) {
-            r -> hsl[0] = (g - b) / d + (if (g < b) 6f else 0f)
-            g -> hsl[0] = (b - r) / d + 2f
-            b -> hsl[0] = (r - g) / d + 4f
-        }
-        hsl[0] /= 6f
-    }
-    return hsl
-}
