@@ -15,6 +15,7 @@ import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Shuffle
+import androidx.media3.common.Player
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -62,6 +63,8 @@ fun FullPlayer(
     val progress by viewModel.progress.collectAsState()
     val currentPosition by viewModel.currentPosition.collectAsState()
     val duration by viewModel.duration.collectAsState()
+    val shuffleModeEnabled by viewModel.shuffleModeEnabled.collectAsState()
+    val repeatMode by viewModel.repeatMode.collectAsState()
     if (currentTrack == null) return
 
     val track = currentTrack!!
@@ -259,8 +262,13 @@ fun FullPlayer(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = { }) {
-                    Icon(Icons.Outlined.Shuffle, contentDescription = "Shuffle", tint = Color.Gray, modifier = Modifier.size(22.dp))
+                TextButton(onClick = { viewModel.toggleShuffle() }) {
+                    Icon(
+                        imageVector = if (shuffleModeEnabled) Icons.Filled.Shuffle else Icons.Outlined.Shuffle,
+                        contentDescription = "Shuffle",
+                        tint = if (shuffleModeEnabled) seekBarActiveColor else Color.Gray,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
                 TextButton(onClick = { }) {
                     Text("UP NEXT", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -268,8 +276,14 @@ fun FullPlayer(
                 TextButton(onClick = { }) {
                     Text("LYRICS", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
-                TextButton(onClick = { }) {
-                    Icon(Icons.Outlined.Repeat, contentDescription = "Repeat", tint = Color.Gray, modifier = Modifier.size(22.dp))
+                TextButton(onClick = { viewModel.cycleRepeatMode() }) {
+                    val repeatIcon = when (repeatMode) {
+                        Player.REPEAT_MODE_ONE -> Icons.Filled.RepeatOne
+                        Player.REPEAT_MODE_ALL -> Icons.Outlined.Repeat
+                        else -> Icons.Outlined.Repeat
+                    }
+                    val repeatTint = if (repeatMode != Player.REPEAT_MODE_OFF) seekBarActiveColor else Color.Gray
+                    Icon(repeatIcon, contentDescription = "Repeat", tint = repeatTint, modifier = Modifier.size(22.dp))
                 }
             }
         }
