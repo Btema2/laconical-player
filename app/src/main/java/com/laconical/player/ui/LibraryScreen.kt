@@ -48,6 +48,14 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import com.laconical.player.ui.components.QueueSheet
 import kotlinx.coroutines.launch
 
 /**
@@ -108,6 +116,8 @@ fun LibraryScreen(
     val scope = rememberCoroutineScope()
     val scaffoldState = rememberBottomSheetScaffoldState()
 
+    var showQueueSheet by remember { mutableStateOf(false) }
+
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp.dp
@@ -126,6 +136,7 @@ fun LibraryScreen(
         scope.launch { scaffoldState.bottomSheetState.partialExpand() }
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Surface(
         color = animatedColor,
         modifier = Modifier.fillMaxSize()
@@ -208,7 +219,8 @@ fun LibraryScreen(
                             if (px != Float.MIN_VALUE) { fullPrevCenterXPx = px; fullPrevCenterYPx = py }
                             if (lx != Float.MIN_VALUE) { fullPlayCenterXPx = lx; fullPlayCenterYPx = ly }
                             if (nx != Float.MIN_VALUE) { fullNextCenterXPx = nx; fullNextCenterYPx = ny }
-                        }
+                        },
+                        onShowQueue = { showQueueSheet = true }
                     )
 
                     // ── Mini Player (artwork slot is transparent) ────────────
@@ -504,4 +516,21 @@ fun LibraryScreen(
             }
         }
     }
+
+    // ── Queue sheet overlay — rendered above everything else ─────────────
+    AnimatedVisibility(
+        visible = showQueueSheet,
+        enter = slideInVertically(
+            animationSpec = tween(380, easing = FastOutSlowInEasing)
+        ) { it } + fadeIn(tween(220)),
+        exit = slideOutVertically(
+            animationSpec = tween(280, easing = FastOutLinearInEasing)
+        ) { it } + fadeOut(tween(180))
+    ) {
+        QueueSheet(
+            viewModel = viewModel,
+            onDismiss = { showQueueSheet = false }
+        )
+    }
+    } // end outer Box
 }

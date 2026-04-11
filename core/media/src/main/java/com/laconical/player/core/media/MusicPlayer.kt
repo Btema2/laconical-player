@@ -40,6 +40,9 @@ interface MusicPlayer {
     fun toggleShuffle()
     fun cycleRepeatMode()
 
+    /** Move a media item in the queue from [from] to [to]. ExoPlayer adjusts currentMediaItemIndex automatically. */
+    fun moveQueueItem(from: Int, to: Int)
+
     /** Release the MediaController IPC connection and cancel internal coroutines. */
     fun release()
 }
@@ -163,6 +166,10 @@ class MusicPlayerImpl @Inject constructor(
                 else -> Player.REPEAT_MODE_OFF
             }
         } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    override fun moveQueueItem(from: Int, to: Int) {
+        try { mediaController?.moveMediaItem(from, to) } catch (e: Exception) { e.printStackTrace() }
     }
 
     override fun release() {
