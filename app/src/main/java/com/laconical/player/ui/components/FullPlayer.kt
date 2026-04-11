@@ -279,7 +279,7 @@ fun FullPlayer(
                 TextButton(onClick = { viewModel.cycleRepeatMode() }) {
                     val repeatIcon = when (repeatMode) {
                         Player.REPEAT_MODE_ONE -> Icons.Filled.RepeatOne
-                        Player.REPEAT_MODE_ALL -> Icons.Outlined.Repeat
+                        Player.REPEAT_MODE_ALL -> Icons.Filled.Repeat   // filled = visually distinct from OFF
                         else -> Icons.Outlined.Repeat
                     }
                     val repeatTint = if (repeatMode != Player.REPEAT_MODE_OFF) seekBarActiveColor else Color.Gray
