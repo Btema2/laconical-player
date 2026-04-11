@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import android.content.Context
@@ -125,6 +126,8 @@ class MainViewModel @Inject constructor(
     val isPlaying: StateFlow<Boolean> = musicPlayer.isPlaying
     val currentPosition: StateFlow<Long> = musicPlayer.currentPosition
     val duration: StateFlow<Long> = musicPlayer.duration
+    val shuffleModeEnabled: StateFlow<Boolean> = musicPlayer.shuffleModeEnabled
+    val repeatMode: StateFlow<Int> = musicPlayer.repeatMode
 
     val waveform: StateFlow<FloatArray> = visualizerManager.waveform
     val beatPulse: StateFlow<Float> = visualizerManager.beatPulse
@@ -151,6 +154,7 @@ class MainViewModel @Inject constructor(
             _allTracks.value = repository.getTracks()
         }
         startAmplitudeTicker()
+        startAutoAdvanceCollector()
     }
 
     private var amplitudeTickerJob: Job? = null
@@ -191,74 +195,97 @@ class MainViewModel @Inject constructor(
             }
         }
 
+        /**
+         * Observes [MusicPlayer.currentMediaItemIndex] so that waveform data and dominant
+         * color are refreshed whenever the player advances to a new track automatically
+         * (auto-advance, notification controls, hardware buttons). Uses [collectLatest] so a
+         * rapid skip cancels the previous extraction before starting a new one.
+         */
+        private fun startAutoAdvanceCollector() {
+            viewModelScope.launch {
+                musicPlayer.currentMediaItemIndex.collectLatest { index ->
+                    val track = _allTracks.value.getOrNull(index) ?: return@collectLatest
+                    // Skip if the track didn't actually change (avoids double side-effect
+                    // when playTrack() already set _currentTrack before the listener fires).
+                    if (_currentTrack.value?.id == track.id) return@collectLatest
+                    _currentTrack.value = track
+                    resetAmplitudeState()
+                    launchWaveformExtraction(track)
+                    launchColorExtraction(track)
+                }
+            }
+        }
+
         fun playTrack(track: Track) {
             try {
-                // Cancel any in-flight extraction from the previous track so stale data
-                // from a slow decode never overwrites fresh data for the current track.
-                waveformJob?.cancel()
-                colorJob?.cancel()
+                val allTracks = _allTracks.value
+                val trackIndex = allTracks.indexOfFirst { it.id == track.id }
+                    .coerceAtLeast(0)
 
                 _currentTrack.value = track
+                resetAmplitudeState()
 
-                // Reset amplitude state so stale data from the previous track
-                // never drives the pulse on the new one.
-                _waveformData.value = emptyList()
-                cachedMaxAmplitude = 1
-                _currentNormalizedAmplitude.value = 0f
+                val mediaItems = allTracks.map { MediaItem.fromUri(it.mediaUri) }
+                musicPlayer.setPlaylist(mediaItems, trackIndex)
 
-                val mediaItem = MediaItem.fromUri(track.mediaUri)
-                musicPlayer.playMediaItem(mediaItem)
-
-                // Extract waveform via content URI — Amplituda's Uri overload uses
-                // ContentResolver, so it works correctly under scoped storage.
-                // WaveformExtractor serializes concurrent calls via an internal Mutex,
-                // so rapid track switches queue rather than race.
-                val waveformUri = Uri.parse(track.mediaUri)
-                waveformJob = viewModelScope.launch {
-                    try {
-                        val wf = waveformExtractor.extractWaveform(waveformUri)
-                        _waveformData.value = wf
-                        cachedMaxAmplitude = wf.maxOrNull()?.coerceAtLeast(1) ?: 1
-                    } catch (e: Exception) {
-                        Log.e("MainViewModel", "Failed to extract waveform", e)
-                        _waveformData.value = emptyList()
-                        cachedMaxAmplitude = 1
-                    }
-                }
-
-                // Extract dominant colour for theming.
-                // Uses the app-wide singleton ImageLoader (registered in LaconicalApp) so
-                // Coil's memory and disk cache are shared rather than discarded on each call.
-                val loadTarget = track.mediaUri
-                if (!loadTarget.isNullOrEmpty()) {
-                    colorJob = viewModelScope.launch {
-                        withContext(Dispatchers.Default) {
-                            try {
-                                val imageLoader = SingletonImageLoader.get(context)
-                                val request = ImageRequest.Builder(context)
-                                    .data(AudioArtData(loadTarget))
-                                    .size(100)
-                                    .build()
-
-                                val result = imageLoader.execute(request)
-                                if (result is SuccessResult) {
-                                    val bitmap = (result.image as? coil3.BitmapImage)?.bitmap
-                                    bitmap?.let { bmp ->
-                                        Palette.from(bmp).generate().dominantSwatch?.let { swatch ->
-                                            _playingTrackDominantColor.value = Color(swatch.rgb)
-                                        }
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        }
-                    }
-                } else {
-                    _playingTrackDominantColor.value = null
-                }
+                launchWaveformExtraction(track)
+                launchColorExtraction(track)
             } catch (e: Exception) {
                 e.printStackTrace()
+            }
+        }
+
+        private fun resetAmplitudeState() {
+            _waveformData.value = emptyList()
+            cachedMaxAmplitude = 1
+            _currentNormalizedAmplitude.value = 0f
+        }
+
+        private fun launchWaveformExtraction(track: Track) {
+            waveformJob?.cancel()
+            val waveformUri = Uri.parse(track.mediaUri)
+            waveformJob = viewModelScope.launch {
+                try {
+                    val wf = waveformExtractor.extractWaveform(waveformUri)
+                    _waveformData.value = wf
+                    cachedMaxAmplitude = wf.maxOrNull()?.coerceAtLeast(1) ?: 1
+                } catch (e: Exception) {
+                    Log.e("MainViewModel", "Failed to extract waveform", e)
+                    _waveformData.value = emptyList()
+                    cachedMaxAmplitude = 1
+                }
+            }
+        }
+
+        private fun launchColorExtraction(track: Track) {
+            colorJob?.cancel()
+            val loadTarget = track.mediaUri
+            if (loadTarget.isNullOrEmpty()) {
+                _playingTrackDominantColor.value = null
+                return
+            }
+            colorJob = viewModelScope.launch {
+                withContext(Dispatchers.Default) {
+                    try {
+                        val imageLoader = SingletonImageLoader.get(context)
+                        val request = ImageRequest.Builder(context)
+                            .data(AudioArtData(loadTarget))
+                            .size(100)
+                            .build()
+
+                        val result = imageLoader.execute(request)
+                        if (result is SuccessResult) {
+                            val bitmap = (result.image as? coil3.BitmapImage)?.bitmap
+                            bitmap?.let { bmp ->
+                                Palette.from(bmp).generate().dominantSwatch?.let { swatch ->
+                                    _playingTrackDominantColor.value = Color(swatch.rgb)
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
             }
         }
 
@@ -275,6 +302,9 @@ class MainViewModel @Inject constructor(
             val dur = musicPlayer.duration.value
             if (dur > 0) musicPlayer.seekTo((progress * dur).toLong())
         }
+
+        fun toggleShuffle() { musicPlayer.toggleShuffle() }
+        fun cycleRepeatMode() { musicPlayer.cycleRepeatMode() }
 
         override fun onCleared() {
             super.onCleared()
