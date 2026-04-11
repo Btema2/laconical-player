@@ -2,9 +2,9 @@
 
 First off, thank you for considering contributing to Laconical Player! It's people like you who make the open-source community such an amazing place to learn, inspire, and create.
 
-## Vibe-Coding with Antigravity
+## Vibe-Coding with AI
 
-This project is built using a "vibe-coding" approach. While I value deep technical knowledge, I also lean heavily on **Google Antigravity** and **Google Gemini** for architecting and implementing many of the complex systems. I focus on the vibe, the user experience, the aesthetics, and the overall feel of the app, and let the AI help with the heavy lifting of the Android SDK.
+This project is built using a "vibe-coding" approach. While I value deep technical knowledge, I lean heavily on **Claude Code** (and occasionally Google Antigravity) for architecting and implementing the complex systems. I focus on the vibe, the user experience, the aesthetics, and the overall feel of the app, and let the AI handle the heavy lifting of the Android SDK.
 
 ## How Can I Contribute?
 
@@ -21,7 +21,11 @@ I welcome pull requests!
 3. Commit your changes with clear, descriptive messages.
 4. Push to your fork and submit a pull request.
 
-Please make sure your code follows the existing style and that the app still builds successfully.
+Please make sure your code:
+- Builds successfully (`./gradlew assembleDebug`)
+- Follows the `LaconicalTheme` design system — no hardcoded colors or raw hex values in component code
+- Keeps animations on compositor-friendly properties (`scale`, `alpha`, `offset`) only
+- Does not mutate state inside Compose `Canvas` draw blocks
 
 ## Community
 

@@ -53,17 +53,17 @@ Key `StateFlow`s in `MainViewModel`:
 - `isPlaying`, `currentPosition`, `duration`, `progress` — delegated from `MusicPlayerImpl`
 - `waveform`, `beatPulse` — from `AudioVisualizerManager` (real-time)
 - `_waveformData` — static waveform from Amplituda (decoded on track change)
-- `_currentNormalizedAmplitude` — 60 fps ticker scrubbing `_waveformData` by playback position; drives album art pulse
+- `_currentNormalizedAmplitude` — amplitude ticker scrubbing `_waveformData` by playback position at ~60 fps while playing; suspends via `isPlaying.first { it }` when paused and amplitude decays to zero (zero CPU wakeups at idle); drives album art pulse
 
 ### Playback System (Two Layers)
 
 **`PlaybackService`** — `MediaSessionService` foreground service holding a singleton `ExoPlayer` (Hilt-injected via `MediaModule`). Handles background playback and audio focus.
 
-**`MusicPlayerImpl`** — Creates a `MediaController` connected to `PlaybackService` over Media3 IPC. All commands (`play`, `pause`, `seekTo`, `playMediaItem`) delegate to this controller. Position is polled at 50 ms intervals.
+**`MusicPlayerImpl`** — Holds a singleton `MediaController` connected to `PlaybackService` over Media3 IPC (created once in `init`, not recreated on each call — fixes the original MediaController leak). All commands (`play`, `pause`, `seekTo`, `playMediaItem`) delegate to this controller. Position is polled at 50 ms intervals.
 
-**`AudioVisualizerManager`** — Attaches Android `Visualizer` to ExoPlayer's `audioSessionId` for real-time waveform capture. Falls back to a sine-wave fake animation if the visualizer reports silence.
+**`AudioVisualizerManager`** — Attaches Android `Visualizer` to ExoPlayer's `audioSessionId` for real-time waveform capture. Falls back to a sine-wave fake animation if the visualizer reports silence. Uses `@Volatile` on the `isVisualizerGeneratingRealData` flag to ensure cross-thread visibility between the audio callback thread and `Dispatchers.Default`.
 
-**`WaveformExtractor`** — Uses the Amplituda library to decode the whole audio file into `List<Int>` amplitude data for the static seek-bar waveform.
+**`WaveformExtractor`** — Uses the Amplituda library to decode the whole audio file into `List<Int>` amplitude data for the static seek-bar waveform. Accepts a content `Uri`; uses `ContentResolver.openInputStream(uri)` internally (Amplituda 2.3.1 has no `Uri` overload). A `Mutex` serializes concurrent calls so rapid track switching never corrupts state.
 
 ### The Morphing Player Transition
 
@@ -82,22 +82,25 @@ Custom Coil 3 pipeline: `AudioAlbumArtFetcher` + `AudioAlbumArtKeyer` (currently
 ```
 app/src/main/kotlin/com/laconical/player/
   LaconicalApp.kt          # @HiltAndroidApp, global Coil ImageLoader
-  MainActivity.kt          # Entry point, edge-to-edge setup
 
 app/src/main/java/com/laconical/player/ui/
   MainViewModel.kt         # All state + orchestration logic
-  LibraryScreen.kt         # Entire app UI (~520 lines), BottomSheetScaffold
+  LibraryScreen.kt         # Entire app UI, BottomSheetScaffold, morph overlay
+  ColorUtils.kt            # Shared Color.toHsl() extension (single source of truth)
   components/
     FullPlayer.kt          # Expanded player, VisualizerSeekBar, ParticleSystem
-    MiniPlayer.kt          # Collapsed strip, GlowIconButton controls
+    MiniPlayer.kt          # Collapsed strip, morphing GlowIconButton controls
     TrackListItem.kt       # Per-row Palette extraction + ParticlesEffectCanvas
-    ParticlesEffectCanvas.kt
+    ParticlesEffectCanvas.kt  # Physics particles — mutations in LaunchedEffect, draw is pure
 
 core/media/.../
-  MusicPlayer.kt           # Interface + MusicPlayerImpl (MediaController)
+  MusicPlayer.kt           # Interface + MusicPlayerImpl (singleton MediaController)
   PlaybackService.kt       # MediaSessionService foreground service
-  AudioVisualizerManager.kt
-  WaveformExtractor.kt
+  AudioVisualizerManager.kt  # Real-time Visualizer + sine-wave fallback
+  WaveformExtractor.kt     # Amplituda via ContentResolver.openInputStream(Uri)
+
+core/data/.../
+  LocalMediaRepositoryImpl.kt  # MediaStore queries — uses content URIs, no DATA column
 ```
 
 ## Tech Stack
@@ -111,6 +114,24 @@ core/media/.../
 - Android `Visualizer` API (real-time waveform)
 - Palette API (dominant color extraction)
 - minSdk 26, targetSdk/compileSdk 35
+
+## Design System
+
+All UI components are built against `LaconicalTheme` from `:core:designsystem`. Design constraints:
+- Color palette is semantically driven — never hardcoded raw hex values in component code.
+- Dominant album art color tints the UI via `playingTrackDominantColor` passed through the component tree.
+- Typography and spacing come from Material 3 tokens defined in `core/designsystem`.
+- All motion uses compositor-friendly properties only (`scale`, `alpha`, `offset` via `lerp`).
+- `Color.toHsl()` is defined once in `ColorUtils.kt` (`com.laconical.player.ui`) and imported wherever HSL conversion is needed — no inline duplicates.
+
+## Memory Safety
+
+Zero known memory leaks. Key properties:
+- `MusicPlayerImpl` holds one `MediaController` for the process lifetime (not recreated per-call).
+- `waveformJob` and `colorJob` in `MainViewModel` are cancelled before a new one starts on track change.
+- `WaveformExtractor.mutex` prevents concurrent Amplituda calls, which is not thread-safe.
+- `@Volatile` on `AudioVisualizerManager.isVisualizerGeneratingRealData` ensures the audio thread's writes are visible on `Dispatchers.Default`.
+- `ParticlesEffectCanvas` mutates particle state only inside `LaunchedEffect` — never inside the `Canvas` draw phase.
 
 ## Visual Design Principles
 
