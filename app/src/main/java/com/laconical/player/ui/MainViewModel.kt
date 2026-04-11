@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -158,26 +159,34 @@ class MainViewModel @Inject constructor(
             amplitudeTickerJob?.cancel()
             amplitudeTickerJob = viewModelScope.launch {
                 while (true) {
-                    if (musicPlayer.isPlaying.value && _waveformData.value.isNotEmpty()) {
+                    if (musicPlayer.isPlaying.value) {
                         val pos = musicPlayer.currentPosition.value
                         val dur = musicPlayer.duration.value
                         val data = _waveformData.value
                         if (dur > 0 && data.isNotEmpty()) {
                             val index = ((pos.toFloat() / dur.toFloat()) * (data.size - 1))
-                            .toInt().coerceIn(0, data.size - 1)
+                                .toInt().coerceIn(0, data.size - 1)
                             val targetAmp = data[index].toFloat() / cachedMaxAmplitude.toFloat()
 
                             // 75% previous + 25% new — heavier smoothing absorbs small jitter,
                             // only sustained loud sections drive noticeable movement
                             _currentNormalizedAmplitude.value =
-                            (_currentNormalizedAmplitude.value * 0.75f) + (targetAmp * 0.25f)
+                                (_currentNormalizedAmplitude.value * 0.75f) + (targetAmp * 0.25f)
                         }
+                        delay(16) // ~60 fps while playing
                     } else {
-                        // Gentle exponential decay toward 0 when paused / no data
-                        _currentNormalizedAmplitude.value =
-                        (_currentNormalizedAmplitude.value * 0.92f).coerceAtLeast(0f)
+                        // Decay toward zero when paused.
+                        val decayed = (_currentNormalizedAmplitude.value * 0.92f).coerceAtLeast(0f)
+                        _currentNormalizedAmplitude.value = decayed
+                        if (decayed < 0.005f) {
+                            // Amplitude is effectively zero — suspend until playback resumes
+                            // instead of spinning 60fps doing nothing.
+                            _currentNormalizedAmplitude.value = 0f
+                            musicPlayer.isPlaying.first { it }
+                        } else {
+                            delay(16) // still decaying — keep ticking until silence
+                        }
                     }
-                    delay(16) // ~60 fps
                 }
             }
         }
@@ -200,13 +209,14 @@ class MainViewModel @Inject constructor(
                 val mediaItem = MediaItem.fromUri(track.mediaUri)
                 musicPlayer.playMediaItem(mediaItem)
 
-                // Extract waveform — prefer file path (Amplituda handles it best).
+                // Extract waveform via content URI — Amplituda's Uri overload uses
+                // ContentResolver, so it works correctly under scoped storage.
                 // WaveformExtractor serializes concurrent calls via an internal Mutex,
                 // so rapid track switches queue rather than race.
-                val waveformSource = track.dataPath ?: track.mediaUri
+                val waveformUri = Uri.parse(track.mediaUri)
                 waveformJob = viewModelScope.launch {
                     try {
-                        val wf = waveformExtractor.extractWaveform(waveformSource)
+                        val wf = waveformExtractor.extractWaveform(waveformUri)
                         _waveformData.value = wf
                         cachedMaxAmplitude = wf.maxOrNull()?.coerceAtLeast(1) ?: 1
                     } catch (e: Exception) {

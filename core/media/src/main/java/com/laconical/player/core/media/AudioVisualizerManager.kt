@@ -51,7 +51,7 @@ class AudioVisualizerManager @Inject constructor(
         }
     }
 
-    private var isVisualizerGeneratingRealData = false
+    @Volatile private var isVisualizerGeneratingRealData = false
     private var fallbackJob: Job? = null
 
     private fun processWaveform(bytes: ByteArray) {
