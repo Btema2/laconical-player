@@ -6,11 +6,12 @@ build/
 .gradle/
 gradle/wrapper/gradle-wrapper.jar
 
-# Android Studio / IntelliJ
+# Android Studio / IntelliJ / code editors
 .idea/
 *.iml
 local.properties
 captures/
+.vscode/
 
 # Generated / temp
 .kotlin/

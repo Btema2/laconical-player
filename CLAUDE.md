@@ -3,6 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 **Code quality:** Write modern, good quality code. Use context7 mcp for up-to-date documentation and leverage availbalse skills for better code quality.
+**Git:** After making and verifying changes, commit them to git repository on asociated branch.
 
 ## Project Overview
 
