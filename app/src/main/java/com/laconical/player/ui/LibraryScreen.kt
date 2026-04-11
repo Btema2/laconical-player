@@ -142,9 +142,11 @@ fun LibraryScreen(
                     containerHeightPx - with(density) { peekHeight.toPx() }
                 else 1000f
 
+                // requireOffset() throws IllegalStateException before the sheet is first measured.
+                // Only catch that specific type — all other exceptions should propagate.
                 val currentOffset = try {
                     scaffoldState.bottomSheetState.requireOffset()
-                } catch (e: Exception) {
+                } catch (_: IllegalStateException) {
                     maxOffset
                 }
 
@@ -378,24 +380,7 @@ fun LibraryScreen(
                         val circleAlpha = expandedFraction
                         // themeColor and isPlaying already declared above in this block
                         val buttonBgColor = remember(themeColor) {
-                            val hsl = run {
-                                val hslArr = FloatArray(3)
-                                val r = themeColor.red; val g = themeColor.green; val b = themeColor.blue
-                                val max = maxOf(r, g, b); val min = minOf(r, g, b)
-                                hslArr[2] = (max + min) / 2
-                                if (max == min) { hslArr[0] = 0f; hslArr[1] = 0f }
-                                else {
-                                    val d = max - min
-                                    hslArr[1] = if (hslArr[2] > 0.5f) d / (2f - max - min) else d / (max + min)
-                                    when (max) {
-                                        r -> hslArr[0] = (g - b) / d + (if (g < b) 6f else 0f)
-                                        g -> hslArr[0] = (b - r) / d + 2f
-                                        b -> hslArr[0] = (r - g) / d + 4f
-                                    }
-                                    hslArr[0] /= 6f
-                                }
-                                hslArr
-                            }
+                            val hsl = themeColor.toHsl()
                             Color.hsl(hue = hsl[0] * 360f, saturation = hsl[1].coerceIn(0.2f, 0.5f), lightness = 0.4f)
                         }
                         val animatedBtnColor by animateColorAsState(buttonBgColor, tween(800), label = "MorphBtnColor")
