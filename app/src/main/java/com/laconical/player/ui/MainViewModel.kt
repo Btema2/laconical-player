@@ -229,7 +229,7 @@ class MainViewModel @Inject constructor(
                 // Extract dominant colour for theming.
                 // Uses the app-wide singleton ImageLoader (registered in LaconicalApp) so
                 // Coil's memory and disk cache are shared rather than discarded on each call.
-                val loadTarget = if (!track.dataPath.isNullOrEmpty()) track.dataPath else track.mediaUri
+                val loadTarget = track.mediaUri
                 if (!loadTarget.isNullOrEmpty()) {
                     colorJob = viewModelScope.launch {
                         withContext(Dispatchers.Default) {

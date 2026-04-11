@@ -63,8 +63,8 @@ fun TrackListItem(
     var vibeColor by remember { mutableStateOf(Color(0xFF888888)) }
     val context = LocalContext.current
 
-    LaunchedEffect(track.mediaUri, track.dataPath, isActiveTrack) {
-        val loadTarget = if (!track.dataPath.isNullOrEmpty()) track.dataPath else track.mediaUri
+    LaunchedEffect(track.mediaUri, isActiveTrack) {
+        val loadTarget = track.mediaUri
         if (isActiveTrack && !loadTarget.isNullOrEmpty()) {
             withContext(Dispatchers.Default) {
                 // Reuse the app-wide singleton — shares cache with the full player
@@ -156,8 +156,7 @@ fun TrackListItem(
                     // SingletonImageLoader — one shared instance for the whole app, not one per row
                     val loader = SingletonImageLoader.get(context)
                     val imageModel = remember(track.id) {
-                        val target = if (!track.dataPath.isNullOrEmpty()) track.dataPath!! else track.mediaUri
-                        AudioArtData(target)
+                        AudioArtData(track.mediaUri)
                     }
                     SubcomposeAsyncImage(
                         model = imageModel,
