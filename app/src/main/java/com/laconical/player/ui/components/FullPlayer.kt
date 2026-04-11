@@ -67,6 +67,12 @@ fun FullPlayer(
     val track = currentTrack!!
     val themeColor = dominantColor ?: Color(0xFF1E1E1E)
 
+    // Matches the play/pause button background — used for the active portion of the seek bar
+    val seekBarActiveColor = remember(themeColor) {
+        val hsl = themeColor.toHsl()
+        Color.hsl(hue = hsl[0] * 360f, saturation = hsl[1].coerceIn(0.2f, 0.5f), lightness = 0.4f)
+    }
+
     val bgColor = if (dominantColor != null) {
         val vibe = dominantColor!!
         Color(
@@ -151,9 +157,8 @@ fun FullPlayer(
                     .aspectRatio(1f)
             )
 
-            // weight(1f) spacer pushes track info down to its natural position
-            // (same as before the animation rework — restores the 20:04 look)
-            Spacer(modifier = Modifier.weight(1f))
+            // weight(0.165f) leaves 50% of the previous gap — pulls title/author closer to thumbnail
+            Spacer(modifier = Modifier.weight(0.165f))
 
             // Track Info Row
             // Title is an invisible layout ghost — the morphing overlay in LibraryScreen
@@ -196,19 +201,19 @@ fun FullPlayer(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Visualizer Seek Bar
             VisualizerSeekBar(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp)
+                    .height(32.dp)
                     .padding(horizontal = 24.dp),
                 waveform = waveform,
                 progress = progress,
                 duration = duration,
                 onSeek = { viewModel.seekTo(it) },
-                activeColor = themeColor,
+                activeColor = seekBarActiveColor,
                 isPlaying = isPlaying
             )
 
@@ -239,7 +244,7 @@ fun FullPlayer(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             HorizontalDivider(
                 modifier = Modifier.fillMaxWidth(0.8f),
@@ -403,7 +408,7 @@ fun VisualizerSeekBar(
 
         Canvas(modifier = Modifier.fillMaxSize()) {
             val waveHeight = cHeight * 0.4f
-            val midY = cHeight * 0.7f
+            val midY = cHeight * 0.55f
 
             val path = Path()
             if (waveform.isNotEmpty()) {
@@ -438,12 +443,11 @@ fun VisualizerSeekBar(
 
             if (isDragging) {
                 val lineX = cWidth * dragProgress
-                val lineH = waveHeight * 1.2f
                 val lineW = 3.dp.toPx()
                 drawRoundRect(
                     Color.White,
-                    topLeft = Offset(lineX - lineW / 2f, midY - lineH / 2f),
-                    size = Size(lineW, lineH),
+                    topLeft = Offset(lineX - lineW / 2f, 0f),
+                    size = Size(lineW, cHeight),
                     cornerRadius = CornerRadius(lineW / 2f)
                 )
             }
@@ -455,7 +459,7 @@ fun VisualizerSeekBar(
             Text(
                 text = timeText,
                 modifier = Modifier
-                    .offset(x = thumbX, y = 4.dp)
+                    .offset(x = thumbX, y = (-18).dp)
                     .layout { measurable, constraints ->
                         val placeable = measurable.measure(constraints)
                         layout(placeable.width, placeable.height) {
@@ -496,7 +500,7 @@ fun PlaybackControls(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp)
-            .padding(top = 16.dp),
+            .padding(top = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
