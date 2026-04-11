@@ -54,6 +54,7 @@ fun FullPlayer(
     onTitlePositioned: (Float) -> Unit = {},
     /** Reports root-space center (x, y) of Prev, Play, Next buttons for the morphing overlay. */
     onPlayControlsPositioned: (prevX: Float, prevY: Float, playX: Float, playY: Float, nextX: Float, nextY: Float) -> Unit = { _, _, _, _, _, _ -> },
+    onShowQueue: () -> Unit = {},
 ) {
     val currentTrack by viewModel.currentTrack.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
@@ -270,8 +271,8 @@ fun FullPlayer(
                         modifier = Modifier.size(22.dp)
                     )
                 }
-                TextButton(onClick = { }) {
-                    Text("UP NEXT", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                TextButton(onClick = onShowQueue) {
+                    Text("UP NEXT", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
                 TextButton(onClick = { }) {
                     Text("LYRICS", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)

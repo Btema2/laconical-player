@@ -128,6 +128,8 @@ class MainViewModel @Inject constructor(
     val duration: StateFlow<Long> = musicPlayer.duration
     val shuffleModeEnabled: StateFlow<Boolean> = musicPlayer.shuffleModeEnabled
     val repeatMode: StateFlow<Int> = musicPlayer.repeatMode
+    val queue: StateFlow<List<Track>> = _allTracks.asStateFlow()
+    val currentQueueIndex: StateFlow<Int> = musicPlayer.currentMediaItemIndex
 
     val waveform: StateFlow<FloatArray> = visualizerManager.waveform
     val beatPulse: StateFlow<Float> = visualizerManager.beatPulse
@@ -305,6 +307,15 @@ class MainViewModel @Inject constructor(
 
         fun toggleShuffle() { musicPlayer.toggleShuffle() }
         fun cycleRepeatMode() { musicPlayer.cycleRepeatMode() }
+
+        fun moveQueueItem(from: Int, to: Int) {
+            val current = _allTracks.value.toMutableList()
+            if (from < 0 || to < 0 || from >= current.size || to >= current.size || from == to) return
+            val item = current.removeAt(from)
+            current.add(to, item)
+            _allTracks.value = current
+            musicPlayer.moveQueueItem(from, to)
+        }
 
         override fun onCleared() {
             super.onCleared()
