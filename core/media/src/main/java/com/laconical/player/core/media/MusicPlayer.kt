@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +30,9 @@ interface MusicPlayer {
     fun skipToNext()
     fun seekTo(position: Long)
     fun playMediaItem(mediaItem: androidx.media3.common.MediaItem)
+
+    /** Release the MediaController IPC connection and cancel internal coroutines. */
+    fun release()
 }
 
 @Singleton
@@ -113,5 +117,12 @@ class MusicPlayerImpl @Inject constructor(
                     mediaController?.prepare()
                     mediaController?.play()
                 } catch (e: Exception) { e.printStackTrace() }
+            }
+
+            override fun release() {
+                pollingJob?.cancel()
+                mediaController?.release()
+                mediaController = null
+                scope.cancel()
             }
 }

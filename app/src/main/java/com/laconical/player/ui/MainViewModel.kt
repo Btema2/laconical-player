@@ -260,5 +260,6 @@ class MainViewModel @Inject constructor(
         override fun onCleared() {
             super.onCleared()
             visualizerManager.destroy()
+            musicPlayer.release()
         }
 }
