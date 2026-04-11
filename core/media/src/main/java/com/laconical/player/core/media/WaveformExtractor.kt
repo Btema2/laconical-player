@@ -1,6 +1,7 @@
 package com.laconical.player.core.media
 
 import android.content.Context
+import android.net.Uri
 import com.linc.amplituda.Amplituda
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -27,11 +28,15 @@ class WaveformExtractor @Inject constructor(
     // work regardless — but its callback becomes a safe no-op on a cancelled continuation.
     private val mutex = Mutex()
 
-    suspend fun extractWaveform(uriString: String): List<Int> = withContext(Dispatchers.IO) {
+    // Accepts a content URI. Amplituda 2.3.1 has no Uri overload, so we open an
+    // InputStream via ContentResolver — works correctly under scoped storage.
+    suspend fun extractWaveform(uri: Uri): List<Int> = withContext(Dispatchers.IO) {
         mutex.withLock {
             suspendCancellableCoroutine { continuation ->
                 try {
-                    amplituda.processAudio(uriString).get(
+                    val stream = context.contentResolver.openInputStream(uri)
+                        ?: throw IllegalStateException("Cannot open audio stream: $uri")
+                    amplituda.processAudio(stream).get(
                         { result ->
                             continuation.resume(result.amplitudesAsList())
                         },
