@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.laconical.player.core.data.MediaRepository
 import com.laconical.player.core.media.MusicPlayer
+import com.laconical.player.core.media.AudioVisualizerManager
 import com.laconical.player.core.model.Track
+import com.laconical.player.core.media.WaveformExtractor
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +16,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -20,15 +25,16 @@ import androidx.media3.common.MediaItem
 import androidx.compose.ui.graphics.Color
 import androidx.palette.graphics.Palette
 import coil3.ImageLoader
-import coil3.request.ImageRequest
+import coil3.SingletonImageLoader
 import coil3.decode.DataSource
 import coil3.fetch.FetchResult
 import coil3.fetch.Fetcher
 import coil3.fetch.ImageFetchResult
 import coil3.key.Keyer
+import coil3.request.ImageRequest
 import coil3.request.Options
-import coil3.asImage
 import coil3.request.SuccessResult
+import coil3.asImage
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
@@ -41,7 +47,7 @@ data class AudioArtData(val uri: String)
 
 class AudioAlbumArtFetcher(
     private val artData: AudioArtData,
-    private val options: Options
+        private val options: Options
 ) : Fetcher {
     override suspend fun fetch(): FetchResult? {
         val retriever = MediaMetadataRetriever()
@@ -57,12 +63,12 @@ class AudioAlbumArtFetcher(
                 if (bitmap != null) {
                     return ImageFetchResult(
                         image = bitmap.asImage(),
-                        isSampled = false,
-                        dataSource = DataSource.DISK
+                                            isSampled = false,
+                                            dataSource = DataSource.DISK
                     )
                 }
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
         } finally {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -70,13 +76,13 @@ class AudioAlbumArtFetcher(
                 } else {
                     retriever.release()
                 }
-            } catch (e: Exception) {}
+            } catch (_: Exception) {}
         }
         return null
     }
 
     class Factory : Fetcher.Factory<AudioArtData> {
-        override fun create(data: AudioArtData, options: Options, imageLoader: coil3.ImageLoader): Fetcher {
+        override fun create(data: AudioArtData, options: Options, imageLoader: ImageLoader): Fetcher {
             return AudioAlbumArtFetcher(data, options)
         }
     }
@@ -92,23 +98,22 @@ class AudioAlbumArtKeyer : Keyer<AudioArtData> {
 class MainViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: MediaRepository,
-    private val musicPlayer: MusicPlayer
+        private val musicPlayer: MusicPlayer,
+            private val visualizerManager: AudioVisualizerManager,
+                private val waveformExtractor: WaveformExtractor
 ) : ViewModel() {
 
     private val _allTracks = MutableStateFlow<List<Track>>(emptyList())
-    
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     val tracks: StateFlow<List<Track>> = combine(_allTracks, _searchQuery) { tracks, query ->
-        if (query.isBlank()) {
-            tracks
-        } else {
-            tracks.filter { 
-                it.title.contains(query, ignoreCase = true) || 
-                it.artist.contains(query, ignoreCase = true) 
+        if (query.isBlank()) tracks
+            else tracks.filter {
+                it.title.contains(query, ignoreCase = true) ||
+                it.artist.contains(query, ignoreCase = true)
             }
-        }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _currentTrack = MutableStateFlow<Track?>(null)
@@ -121,89 +126,161 @@ class MainViewModel @Inject constructor(
     val currentPosition: StateFlow<Long> = musicPlayer.currentPosition
     val duration: StateFlow<Long> = musicPlayer.duration
 
-    /**
-     * Observable state indicating playback progress from 0f to 1f.
-     */
+    val waveform: StateFlow<FloatArray> = visualizerManager.waveform
+    val beatPulse: StateFlow<Float> = visualizerManager.beatPulse
+
+    private val _waveformData = MutableStateFlow<List<Int>>(emptyList())
+    val waveformData: StateFlow<List<Int>> = _waveformData.asStateFlow()
+
+    private val _currentNormalizedAmplitude = MutableStateFlow(0f)
+    val currentNormalizedAmplitude: StateFlow<Float> = _currentNormalizedAmplitude.asStateFlow()
+
+    /** Pre-computed peak so we don't scan the list every 16 ms. */
+    private var cachedMaxAmplitude = 1
+
     val progress: StateFlow<Float> = combine(currentPosition, duration) { pos, dur ->
         if (dur > 0) pos.toFloat() / dur.toFloat() else 0f
     }.stateIn(viewModelScope, SharingStarted.Lazily, 0f)
+
+    // Tracked so playTrack() can cancel them when the user switches tracks rapidly.
+    private var waveformJob: Job? = null
+    private var colorJob: Job? = null
 
     fun loadTracks() {
         viewModelScope.launch {
             _allTracks.value = repository.getTracks()
         }
+        startAmplitudeTicker()
     }
 
-    fun playTrack(track: Track) {
-        try {
-            _currentTrack.value = track
-            val mediaItem = MediaItem.fromUri(track.mediaUri)
-            musicPlayer.playMediaItem(mediaItem)
-            
-            // Extract the Palette in a background coroutine so LibraryScreen can transition its UI
-            val loadTarget = if (!track.dataPath.isNullOrEmpty()) track.dataPath else track.mediaUri
-            if (!loadTarget.isNullOrEmpty()) {
-                viewModelScope.launch {
-                    withContext(Dispatchers.Default) {
-                        try {
-                            val imageLoader = ImageLoader.Builder(context)
-                                .components {
-                                    add(AudioAlbumArtFetcher.Factory())
-                                    add(AudioAlbumArtKeyer())
-                                }
-                                .build()
-                            val request = ImageRequest.Builder(context)
-                                .data(AudioArtData(loadTarget))
-                                .size(100)
-                                .build()
-        
-                            val result = imageLoader.execute(request)
-                            if (result is SuccessResult) {
-                                val bitmap = (result.image as? coil3.BitmapImage)?.bitmap
-                                bitmap?.let { bmp ->
-                                    Palette.from(bmp).generate().dominantSwatch?.let { swatch ->
-                                        _playingTrackDominantColor.value = Color(swatch.rgb)
-                                    }
-                                }
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
+    private var amplitudeTickerJob: Job? = null
+
+        private fun startAmplitudeTicker() {
+            amplitudeTickerJob?.cancel()
+            amplitudeTickerJob = viewModelScope.launch {
+                while (true) {
+                    if (musicPlayer.isPlaying.value) {
+                        val pos = musicPlayer.currentPosition.value
+                        val dur = musicPlayer.duration.value
+                        val data = _waveformData.value
+                        if (dur > 0 && data.isNotEmpty()) {
+                            val index = ((pos.toFloat() / dur.toFloat()) * (data.size - 1))
+                                .toInt().coerceIn(0, data.size - 1)
+                            val targetAmp = data[index].toFloat() / cachedMaxAmplitude.toFloat()
+
+                            // 75% previous + 25% new — heavier smoothing absorbs small jitter,
+                            // only sustained loud sections drive noticeable movement
+                            _currentNormalizedAmplitude.value =
+                                (_currentNormalizedAmplitude.value * 0.75f) + (targetAmp * 0.25f)
+                        }
+                        delay(16) // ~60 fps while playing
+                    } else {
+                        // Decay toward zero when paused.
+                        val decayed = (_currentNormalizedAmplitude.value * 0.92f).coerceAtLeast(0f)
+                        _currentNormalizedAmplitude.value = decayed
+                        if (decayed < 0.005f) {
+                            // Amplitude is effectively zero — suspend until playback resumes
+                            // instead of spinning 60fps doing nothing.
+                            _currentNormalizedAmplitude.value = 0f
+                            musicPlayer.isPlaying.first { it }
+                        } else {
+                            delay(16) // still decaying — keep ticking until silence
                         }
                     }
                 }
-            } else {
-                _playingTrackDominantColor.value = null
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
-    }
 
-    fun updateSearchQuery(query: String) {
-        _searchQuery.value = query
-    }
+        fun playTrack(track: Track) {
+            try {
+                // Cancel any in-flight extraction from the previous track so stale data
+                // from a slow decode never overwrites fresh data for the current track.
+                waveformJob?.cancel()
+                colorJob?.cancel()
 
-    fun togglePlayPause() {
-        if (isPlaying.value) {
-            musicPlayer.pause()
-        } else {
-            musicPlayer.play()
+                _currentTrack.value = track
+
+                // Reset amplitude state so stale data from the previous track
+                // never drives the pulse on the new one.
+                _waveformData.value = emptyList()
+                cachedMaxAmplitude = 1
+                _currentNormalizedAmplitude.value = 0f
+
+                val mediaItem = MediaItem.fromUri(track.mediaUri)
+                musicPlayer.playMediaItem(mediaItem)
+
+                // Extract waveform via content URI — Amplituda's Uri overload uses
+                // ContentResolver, so it works correctly under scoped storage.
+                // WaveformExtractor serializes concurrent calls via an internal Mutex,
+                // so rapid track switches queue rather than race.
+                val waveformUri = Uri.parse(track.mediaUri)
+                waveformJob = viewModelScope.launch {
+                    try {
+                        val wf = waveformExtractor.extractWaveform(waveformUri)
+                        _waveformData.value = wf
+                        cachedMaxAmplitude = wf.maxOrNull()?.coerceAtLeast(1) ?: 1
+                    } catch (e: Exception) {
+                        Log.e("MainViewModel", "Failed to extract waveform", e)
+                        _waveformData.value = emptyList()
+                        cachedMaxAmplitude = 1
+                    }
+                }
+
+                // Extract dominant colour for theming.
+                // Uses the app-wide singleton ImageLoader (registered in LaconicalApp) so
+                // Coil's memory and disk cache are shared rather than discarded on each call.
+                val loadTarget = track.mediaUri
+                if (!loadTarget.isNullOrEmpty()) {
+                    colorJob = viewModelScope.launch {
+                        withContext(Dispatchers.Default) {
+                            try {
+                                val imageLoader = SingletonImageLoader.get(context)
+                                val request = ImageRequest.Builder(context)
+                                    .data(AudioArtData(loadTarget))
+                                    .size(100)
+                                    .build()
+
+                                val result = imageLoader.execute(request)
+                                if (result is SuccessResult) {
+                                    val bitmap = (result.image as? coil3.BitmapImage)?.bitmap
+                                    bitmap?.let { bmp ->
+                                        Palette.from(bmp).generate().dominantSwatch?.let { swatch ->
+                                            _playingTrackDominantColor.value = Color(swatch.rgb)
+                                        }
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                    }
+                } else {
+                    _playingTrackDominantColor.value = null
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
-    }
 
-    fun skipToPrevious() {
-        musicPlayer.skipToPrevious()
-    }
+        fun updateSearchQuery(query: String) { _searchQuery.value = query }
 
-    fun skipToNext() {
-        musicPlayer.skipToNext()
-    }
-
-    fun seekTo(progress: Float) {
-        val dur = musicPlayer.duration.value
-        if (dur > 0) {
-            val position = (progress * dur).toLong()
-            musicPlayer.seekTo(position)
+        fun togglePlayPause() {
+            if (isPlaying.value) musicPlayer.pause() else musicPlayer.play()
         }
-    }
+
+        fun skipToPrevious() { musicPlayer.skipToPrevious() }
+        fun skipToNext() { musicPlayer.skipToNext() }
+
+        fun seekTo(progress: Float) {
+            val dur = musicPlayer.duration.value
+            if (dur > 0) musicPlayer.seekTo((progress * dur).toLong())
+        }
+
+        override fun onCleared() {
+            super.onCleared()
+            waveformJob?.cancel()
+            colorJob?.cancel()
+            visualizerManager.destroy()
+            musicPlayer.release()
+        }
 }
