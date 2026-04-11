@@ -2,6 +2,7 @@ package com.laconical.player.core.media
 
 import android.content.ComponentName
 import android.content.Context
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -19,9 +20,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 interface MusicPlayer {
-    val isPlaying: kotlinx.coroutines.flow.StateFlow<Boolean>
-    val currentPosition: kotlinx.coroutines.flow.StateFlow<Long>
-    val duration: kotlinx.coroutines.flow.StateFlow<Long>
+    val isPlaying: StateFlow<Boolean>
+    val currentPosition: StateFlow<Long>
+    val duration: StateFlow<Long>
+    val currentMediaItemIndex: StateFlow<Int>
+    val shuffleModeEnabled: StateFlow<Boolean>
+    val repeatMode: StateFlow<Int>
 
     fun play()
     fun pause()
@@ -29,7 +33,12 @@ interface MusicPlayer {
     fun skipToPrevious()
     fun skipToNext()
     fun seekTo(position: Long)
-    fun playMediaItem(mediaItem: androidx.media3.common.MediaItem)
+
+    /** Load an entire playlist and start playing from [startIndex]. */
+    fun setPlaylist(items: List<MediaItem>, startIndex: Int)
+
+    fun toggleShuffle()
+    fun cycleRepeatMode()
 
     /** Release the MediaController IPC connection and cancel internal coroutines. */
     fun release()
@@ -43,86 +52,123 @@ class MusicPlayerImpl @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var mediaController: MediaController? = null
 
-        private val _isPlaying = MutableStateFlow(false)
-        override val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+    private val _isPlaying = MutableStateFlow(false)
+    override val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
-        private val _currentPosition = MutableStateFlow(0L)
-        override val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
+    private val _currentPosition = MutableStateFlow(0L)
+    override val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
 
-        private val _duration = MutableStateFlow(0L)
-        override val duration: StateFlow<Long> = _duration.asStateFlow()
+    private val _duration = MutableStateFlow(0L)
+    override val duration: StateFlow<Long> = _duration.asStateFlow()
 
-        init {
-            scope.launch {
-                val sessionToken = SessionToken(context, ComponentName(context, PlaybackService::class.java))
-                val controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
-                mediaController = controllerFuture.await().apply {
-                    addListener(object : Player.Listener {
-                        override fun onIsPlayingChanged(isPlaying: Boolean) {
-                            _isPlaying.value = isPlaying
-                            if (isPlaying) {
-                                startPollingProgress()
-                            }
-                        }
+    private val _currentMediaItemIndex = MutableStateFlow(0)
+    override val currentMediaItemIndex: StateFlow<Int> = _currentMediaItemIndex.asStateFlow()
 
-                        override fun onPlaybackStateChanged(playbackState: Int) {
-                            if (playbackState == Player.STATE_READY) {
-                                _duration.value = duration
-                            }
-                        }
-                    })
+    private val _shuffleModeEnabled = MutableStateFlow(false)
+    override val shuffleModeEnabled: StateFlow<Boolean> = _shuffleModeEnabled.asStateFlow()
+
+    private val _repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
+    override val repeatMode: StateFlow<Int> = _repeatMode.asStateFlow()
+
+    init {
+        scope.launch {
+            val sessionToken = SessionToken(context, ComponentName(context, PlaybackService::class.java))
+            val controller = MediaController.Builder(context, sessionToken).buildAsync().await()
+            mediaController = controller
+            controller.addListener(object : Player.Listener {
+                override fun onIsPlayingChanged(playing: Boolean) {
+                    _isPlaying.value = playing
+                    if (playing) startPollingProgress()
                 }
-            }
-        }
 
-        private var pollingJob: kotlinx.coroutines.Job? = null
-
-            private fun startPollingProgress() {
-                pollingJob?.cancel()
-                pollingJob = scope.launch {
-                    while (_isPlaying.value) {
-                        _currentPosition.value = mediaController?.currentPosition ?: 0L
-                        kotlinx.coroutines.delay(50)   // was 1000 — 20 Hz for smooth amplitude tracking
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_READY) {
+                        _duration.value = controller.duration
                     }
                 }
-            }
 
-            override fun play() {
-                try { mediaController?.play() } catch (e: Exception) { e.printStackTrace() }
-            }
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    _currentMediaItemIndex.value = controller.currentMediaItemIndex
+                    _duration.value = controller.duration
+                }
 
-            override fun pause() {
-                try { mediaController?.pause() } catch (e: Exception) { e.printStackTrace() }
-            }
+                override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+                    _shuffleModeEnabled.value = shuffleModeEnabled
+                }
 
-            override fun stop() {
-                try { mediaController?.stop() } catch (e: Exception) { e.printStackTrace() }
-            }
+                override fun onRepeatModeChanged(repeatMode: Int) {
+                    _repeatMode.value = repeatMode
+                }
+            })
+        }
+    }
 
-            override fun skipToPrevious() {
-                try { mediaController?.seekToPrevious() } catch (e: Exception) { e.printStackTrace() }
-            }
+    private var pollingJob: kotlinx.coroutines.Job? = null
 
-            override fun skipToNext() {
-                try { mediaController?.seekToNext() } catch (e: Exception) { e.printStackTrace() }
+    private fun startPollingProgress() {
+        pollingJob?.cancel()
+        pollingJob = scope.launch {
+            while (_isPlaying.value) {
+                _currentPosition.value = mediaController?.currentPosition ?: 0L
+                kotlinx.coroutines.delay(50)
             }
+        }
+    }
 
-            override fun seekTo(position: Long) {
-                try { mediaController?.seekTo(position) } catch (e: Exception) { e.printStackTrace() }
-            }
+    override fun play() {
+        try { mediaController?.play() } catch (e: Exception) { e.printStackTrace() }
+    }
 
-            override fun playMediaItem(mediaItem: androidx.media3.common.MediaItem) {
-                try {
-                    mediaController?.setMediaItem(mediaItem)
-                    mediaController?.prepare()
-                    mediaController?.play()
-                } catch (e: Exception) { e.printStackTrace() }
-            }
+    override fun pause() {
+        try { mediaController?.pause() } catch (e: Exception) { e.printStackTrace() }
+    }
 
-            override fun release() {
-                pollingJob?.cancel()
-                mediaController?.release()
-                mediaController = null
-                scope.cancel()
+    override fun stop() {
+        try { mediaController?.stop() } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    override fun skipToPrevious() {
+        try { mediaController?.seekToPrevious() } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    override fun skipToNext() {
+        try { mediaController?.seekToNext() } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    override fun seekTo(position: Long) {
+        try { mediaController?.seekTo(position) } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    override fun setPlaylist(items: List<MediaItem>, startIndex: Int) {
+        try {
+            mediaController?.setMediaItems(items, startIndex, 0L)
+            mediaController?.prepare()
+            mediaController?.play()
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    override fun toggleShuffle() {
+        try {
+            val mc = mediaController ?: return
+            mc.shuffleModeEnabled = !mc.shuffleModeEnabled
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    override fun cycleRepeatMode() {
+        try {
+            val mc = mediaController ?: return
+            mc.repeatMode = when (mc.repeatMode) {
+                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                else -> Player.REPEAT_MODE_OFF
             }
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    override fun release() {
+        pollingJob?.cancel()
+        mediaController?.release()
+        mediaController = null
+        scope.cancel()
+    }
 }

@@ -38,6 +38,12 @@ android {
     buildFeatures {
         buildConfig = true
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -53,4 +59,10 @@ dependencies {
     
     implementation(libs.kotlinx.coroutines.guava)
     implementation(libs.amplituda)
+
+    testImplementation(libs.junit4)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.media3.test.utils)
+    testImplementation(libs.androidx.media3.test.utils.robolectric)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
