@@ -2,6 +2,7 @@ package com.laconical.player.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.graphics.BlurMaskFilter
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -66,10 +67,15 @@ fun LibraryScreen(
     viewModel: MainViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    // READ_MEDIA_AUDIO was added in API 33 (TIRAMISU). On API 32 and below we need READ_EXTERNAL_STORAGE.
+    val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_AUDIO
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
     var hasPermission by remember {
         mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO)
-                    == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(context, audioPermission) == PackageManager.PERMISSION_GRANTED
         )
     }
 
@@ -505,7 +511,7 @@ fun LibraryScreen(
                         Spacer(modifier = Modifier.height(32.dp))
                         Text("Permission required to access audio files", color = Color.White)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { launcher.launch(Manifest.permission.READ_MEDIA_AUDIO) }) {
+                        Button(onClick = { launcher.launch(audioPermission) }) {
                             Text("Grant Permission")
                         }
                     }
