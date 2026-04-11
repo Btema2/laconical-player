@@ -32,11 +32,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.PaintingStyle
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -45,15 +43,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.palette.graphics.Palette
-import coil3.ImageLoader
+import coil3.SingletonImageLoader
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
-import coil3.request.Options
 import coil3.request.SuccessResult
-import coil3.asImage
 import com.laconical.player.core.model.Track
-import com.laconical.player.ui.AudioAlbumArtFetcher
-import com.laconical.player.ui.AudioAlbumArtKeyer
 import com.laconical.player.ui.AudioArtData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -73,12 +67,8 @@ fun TrackListItem(
         val loadTarget = if (!track.dataPath.isNullOrEmpty()) track.dataPath else track.mediaUri
         if (isActiveTrack && !loadTarget.isNullOrEmpty()) {
             withContext(Dispatchers.Default) {
-                val imageLoader = coil3.ImageLoader.Builder(context)
-                    .components {
-                        add(AudioAlbumArtFetcher.Factory())
-                        add(AudioAlbumArtKeyer())
-                    }
-                    .build()
+                // Reuse the app-wide singleton — shares cache with the full player
+                val imageLoader = SingletonImageLoader.get(context)
                 val request = ImageRequest.Builder(context)
                     .data(AudioArtData(loadTarget!!))
                     .size(100)
@@ -163,17 +153,11 @@ fun TrackListItem(
                         .background(Color(0xFF1E1E1E)),
                     contentAlignment = androidx.compose.ui.Alignment.Center
                 ) {
-                    val loader = remember(context) {
-                        coil3.ImageLoader.Builder(context)
-                            .components { 
-                                add(AudioAlbumArtFetcher.Factory()) 
-                                add(AudioAlbumArtKeyer())
-                            }
-                            .build()
-                    }
-                    var imageModel by remember(track.id) {
+                    // SingletonImageLoader — one shared instance for the whole app, not one per row
+                    val loader = SingletonImageLoader.get(context)
+                    val imageModel = remember(track.id) {
                         val target = if (!track.dataPath.isNullOrEmpty()) track.dataPath!! else track.mediaUri
-                        mutableStateOf<Any?>(AudioArtData(target))
+                        AudioArtData(target)
                     }
                     SubcomposeAsyncImage(
                         model = imageModel,

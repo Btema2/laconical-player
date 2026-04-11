@@ -8,6 +8,7 @@ import com.laconical.player.core.media.AudioVisualizerManager
 import com.laconical.player.core.model.Track
 import com.laconical.player.core.media.WaveformExtractor
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -23,15 +24,16 @@ import androidx.media3.common.MediaItem
 import androidx.compose.ui.graphics.Color
 import androidx.palette.graphics.Palette
 import coil3.ImageLoader
-import coil3.request.ImageRequest
+import coil3.SingletonImageLoader
 import coil3.decode.DataSource
 import coil3.fetch.FetchResult
 import coil3.fetch.Fetcher
 import coil3.fetch.ImageFetchResult
 import coil3.key.Keyer
+import coil3.request.ImageRequest
 import coil3.request.Options
-import coil3.asImage
 import coil3.request.SuccessResult
+import coil3.asImage
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
@@ -79,7 +81,7 @@ class AudioAlbumArtFetcher(
     }
 
     class Factory : Fetcher.Factory<AudioArtData> {
-        override fun create(data: AudioArtData, options: Options, imageLoader: coil3.ImageLoader): Fetcher {
+        override fun create(data: AudioArtData, options: Options, imageLoader: ImageLoader): Fetcher {
             return AudioAlbumArtFetcher(data, options)
         }
     }
@@ -139,6 +141,10 @@ class MainViewModel @Inject constructor(
         if (dur > 0) pos.toFloat() / dur.toFloat() else 0f
     }.stateIn(viewModelScope, SharingStarted.Lazily, 0f)
 
+    // Tracked so playTrack() can cancel them when the user switches tracks rapidly.
+    private var waveformJob: Job? = null
+    private var colorJob: Job? = null
+
     fun loadTracks() {
         viewModelScope.launch {
             _allTracks.value = repository.getTracks()
@@ -146,7 +152,7 @@ class MainViewModel @Inject constructor(
         startAmplitudeTicker()
     }
 
-    private var amplitudeTickerJob: kotlinx.coroutines.Job? = null
+    private var amplitudeTickerJob: Job? = null
 
         private fun startAmplitudeTicker() {
             amplitudeTickerJob?.cancel()
@@ -178,6 +184,11 @@ class MainViewModel @Inject constructor(
 
         fun playTrack(track: Track) {
             try {
+                // Cancel any in-flight extraction from the previous track so stale data
+                // from a slow decode never overwrites fresh data for the current track.
+                waveformJob?.cancel()
+                colorJob?.cancel()
+
                 _currentTrack.value = track
 
                 // Reset amplitude state so stale data from the previous track
@@ -189,9 +200,11 @@ class MainViewModel @Inject constructor(
                 val mediaItem = MediaItem.fromUri(track.mediaUri)
                 musicPlayer.playMediaItem(mediaItem)
 
-                // Extract waveform — prefer file path (Amplituda handles it best)
+                // Extract waveform — prefer file path (Amplituda handles it best).
+                // WaveformExtractor serializes concurrent calls via an internal Mutex,
+                // so rapid track switches queue rather than race.
                 val waveformSource = track.dataPath ?: track.mediaUri
-                viewModelScope.launch {
+                waveformJob = viewModelScope.launch {
                     try {
                         val wf = waveformExtractor.extractWaveform(waveformSource)
                         _waveformData.value = wf
@@ -203,23 +216,19 @@ class MainViewModel @Inject constructor(
                     }
                 }
 
-                // Extract dominant colour for theming
+                // Extract dominant colour for theming.
+                // Uses the app-wide singleton ImageLoader (registered in LaconicalApp) so
+                // Coil's memory and disk cache are shared rather than discarded on each call.
                 val loadTarget = if (!track.dataPath.isNullOrEmpty()) track.dataPath else track.mediaUri
                 if (!loadTarget.isNullOrEmpty()) {
-                    viewModelScope.launch {
+                    colorJob = viewModelScope.launch {
                         withContext(Dispatchers.Default) {
                             try {
-                                val imageLoader = ImageLoader.Builder(context)
-                                .components {
-                                    add(AudioAlbumArtFetcher.Factory())
-                                    add(AudioAlbumArtKeyer())
-                                }
-                                .build()
-
+                                val imageLoader = SingletonImageLoader.get(context)
                                 val request = ImageRequest.Builder(context)
-                                .data(AudioArtData(loadTarget))
-                                .size(100)
-                                .build()
+                                    .data(AudioArtData(loadTarget))
+                                    .size(100)
+                                    .build()
 
                                 val result = imageLoader.execute(request)
                                 if (result is SuccessResult) {
@@ -259,6 +268,8 @@ class MainViewModel @Inject constructor(
 
         override fun onCleared() {
             super.onCleared()
+            waveformJob?.cancel()
+            colorJob?.cancel()
             visualizerManager.destroy()
             musicPlayer.release()
         }
