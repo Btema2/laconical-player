@@ -242,7 +242,7 @@ fun LibraryScreen(
                     //    This single image physically moves between both positions.
                     if (currentTrack != null) {
                         val track = currentTrack!!
-                        val loadTarget = track.dataPath ?: track.mediaUri
+                        val loadTarget = track.mediaUri
                         val imageModel = remember(loadTarget) { AudioArtData(loadTarget) }
                         val dominantColor by viewModel.playingTrackDominantColor.collectAsState()
                         val themeColor = dominantColor ?: Color(0xFF1E1E1E)
