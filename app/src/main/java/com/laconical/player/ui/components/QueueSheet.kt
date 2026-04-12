@@ -14,8 +14,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -45,7 +43,6 @@ import com.laconical.player.ui.AudioArtData
 import com.laconical.player.ui.MainViewModel
 import com.laconical.player.ui.toHsl
 import kotlin.math.roundToInt
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 
@@ -53,14 +50,16 @@ private val QUEUE_ITEM_HEIGHT = 72.dp
 
 /**
  * Full-screen queue sheet. Positioned and translated by [LibraryScreen] via [modifier].
- * The [progress] value (0f = closed, 1f = open) is passed in so that:
- *  - The artist text fades in with progress
- *  - The play/pause button fades in with progress
- * Album art and title are INVISIBLE ghosts here — [LibraryScreen] renders the morphing
- * overlay on top, lerping from FullPlayer to these exact positions.
+ * The [progress] value (0f = closed, 1f = open) is reserved for future queue-body fades.
+ *
+ * Album art, title, artist, AND play/pause button are all INVISIBLE ghosts here —
+ * [LibraryScreen]'s morphing overlay renders the real versions on top, lerping from
+ * FullPlayer positions to these exact positions.
  *
  * Ghost art target position (root coords): left=20dp, top=statusBarPadding+20dp, size=56dp
  * Ghost title target position (root coords): left=88dp, top=statusBarPadding+26dp
+ * Ghost artist target position (root coords): left=88dp, top=statusBarPadding+46dp
+ * Ghost play button center (root coords): screenWidth-44dp, statusBarPadding+48dp
  */
 @Composable
 fun QueueSheet(
@@ -74,7 +73,6 @@ fun QueueSheet(
     val queue by viewModel.queue.collectAsState()
     val currentIndex by viewModel.currentQueueIndex.collectAsState()
     val currentTrack by viewModel.currentTrack.collectAsState()
-    val isPlaying by viewModel.isPlaying.collectAsState()
     val dominantColor by viewModel.playingTrackDominantColor.collectAsState()
 
     val themeColor = dominantColor ?: Color(0xFF1E1E1E)
@@ -142,8 +140,8 @@ fun QueueSheet(
                 .statusBarsPadding()
         ) {
             // ── Borderless header row ──────────────────────────────────────────
-            // Art and title are INVISIBLE ghosts (LibraryScreen morph overlay draws them).
-            // Artist + play/pause fade in with progress.
+            // ALL four elements (art, title, artist, play/pause) are INVISIBLE ghosts.
+            // LibraryScreen's morph overlay draws the real versions and handles taps.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -157,7 +155,7 @@ fun QueueSheet(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    // Ghost title text — invisible, holds layout space for morph overlay alignment
+                    // Ghost title — invisible, holds layout space for morph overlay alignment
                     Text(
                         text = currentTrack?.title ?: " ",
                         color = Color.Transparent,
@@ -166,29 +164,19 @@ fun QueueSheet(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    // Artist — fades in as queue opens
+                    // Ghost artist — invisible, morph overlay renders the real text
                     Text(
-                        text = currentTrack?.artist ?: "",
-                        color = Color(0xFFBBBBBB).copy(alpha = progress),
+                        text = currentTrack?.artist ?: " ",
+                        color = Color.Transparent,
                         fontSize = 13.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                // Play/pause — fades in as queue opens
-                Box(modifier = Modifier.graphicsLayer { alpha = progress }) {
-                    GlowIconButton(onClick = { viewModel.togglePlayPause() }) {
-                        Crossfade(targetState = isPlaying, label = "QueuePlayPause") { playing ->
-                            Icon(
-                                imageVector = if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (playing) "Pause" else "Play",
-                                tint = Color.White,
-                                modifier = Modifier.size(36.dp)
-                            )
-                        }
-                    }
-                }
+                // Ghost play/pause slot — invisible 48dp placeholder that reserves Row space.
+                // The morph overlay renders the real play button and handles taps.
+                Box(modifier = Modifier.size(48.dp))
             }
 
             Spacer(modifier = Modifier.height(20.dp))

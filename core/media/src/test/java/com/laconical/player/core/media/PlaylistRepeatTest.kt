@@ -1,5 +1,6 @@
 package com.laconical.player.core.media
 
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -45,7 +46,7 @@ class PlaylistRepeatTest {
         player.repeatMode = Player.REPEAT_MODE_ALL
 
         // Seek to the last item directly (no prepare needed for index assertions).
-        player.seekToMediaItem(items.size - 1)
+        player.seekTo(items.size - 1, C.TIME_UNSET)
 
         assertEquals("should be on last track before next", items.size - 1, player.currentMediaItemIndex)
 
@@ -67,7 +68,7 @@ class PlaylistRepeatTest {
         player.setMediaItems(items)
         player.repeatMode = Player.REPEAT_MODE_OFF
 
-        player.seekToMediaItem(items.size - 1)
+        player.seekTo(items.size - 1, C.TIME_UNSET)
         player.seekToNext()
 
         assertEquals("REPEAT_MODE_OFF should not wrap — stay on last index", items.size - 1, player.currentMediaItemIndex)
