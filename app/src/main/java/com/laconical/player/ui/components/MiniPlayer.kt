@@ -123,7 +123,7 @@ fun MiniPlayer(
                 )
                 Text(
                     text = currentTrack!!.artist,
-                    color = Color(0xFFBBBBBB),
+                    color = Color(0xFFBBBBBB).copy(alpha = if (hideArt) 0f else 1f),
                     fontSize = 13.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

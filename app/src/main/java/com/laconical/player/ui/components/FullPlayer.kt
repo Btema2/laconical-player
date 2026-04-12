@@ -52,6 +52,8 @@ fun FullPlayer(
     expandedFraction: Float,
     onCollapse: () -> Unit,
     onTitlePositioned: (Float) -> Unit = {},
+    /** Reports root-space top-left (x, y) of the artist text for the morphing overlay. */
+    onArtistPositioned: (Float, Float) -> Unit = { _, _ -> },
     /** Reports root-space center (x, y) of Prev, Play, Next buttons for the morphing overlay. */
     onPlayControlsPositioned: (prevX: Float, prevY: Float, playX: Float, playY: Float, nextX: Float, nextY: Float) -> Unit = { _, _, _, _, _, _ -> },
     onShowQueue: () -> Unit = {},
@@ -165,9 +167,9 @@ fun FullPlayer(
             Spacer(modifier = Modifier.weight(0.165f))
 
             // Track Info Row
-            // Title is an invisible layout ghost — the morphing overlay in LibraryScreen
-            // renders the actual title on top, identical to how the thumbnail is handled.
-            // onGloballyPositioned reports the exact Y so LibraryScreen can align perfectly.
+            // Title AND artist are invisible layout ghosts — the morphing overlay in
+            // LibraryScreen renders the real text on top, same pattern as the thumbnail.
+            // onGloballyPositioned reports root-space coords for pixel-perfect alignment.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -188,10 +190,14 @@ fun FullPlayer(
                     )
                     Text(
                         text = track.artist,
-                        color = Color.Gray,
+                        color = Color.Gray.copy(alpha = 0f), // invisible ghost for layout only
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        maxLines = 1
+                        maxLines = 1,
+                        modifier = Modifier.onGloballyPositioned { coords ->
+                            val p = coords.positionInRoot()
+                            onArtistPositioned(p.x, p.y)
+                        }
                     )
                 }
 
