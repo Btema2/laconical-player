@@ -603,18 +603,22 @@ private fun QueueMorphLayer(
     }
     val animatedBtnColor by animateColorAsState(buttonBgColor, tween(800), label = "MorphBtnColor")
 
-    Box(
-        modifier = Modifier
-            .offset(x = prevCX - prevNextIconSize / 2, y = prevCY - prevNextIconSize / 2)
-            .size(prevNextIconSize)
-            .graphicsLayer { alpha = prevNextAlpha },
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            Icons.Default.SkipPrevious, "Previous",
-            tint = Color.White,
-            modifier = Modifier.fillMaxSize().clickable { viewModel.skipToPrevious() }
-        )
+    // Prev/next are only rendered while visible — graphicsLayer { alpha = 0f } keeps hit-testing
+    // active, so an invisible next-button sitting on top of the play button would steal taps.
+    if (prevNextAlpha > 0.01f) {
+        Box(
+            modifier = Modifier
+                .offset(x = prevCX - prevNextIconSize / 2, y = prevCY - prevNextIconSize / 2)
+                .size(prevNextIconSize)
+                .graphicsLayer { alpha = prevNextAlpha },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.SkipPrevious, "Previous",
+                tint = Color.White,
+                modifier = Modifier.fillMaxSize().clickable { viewModel.skipToPrevious() }
+            )
+        }
     }
 
     Box(
@@ -634,17 +638,19 @@ private fun QueueMorphLayer(
         )
     }
 
-    Box(
-        modifier = Modifier
-            .offset(x = nextCX - prevNextIconSize / 2, y = nextCY - prevNextIconSize / 2)
-            .size(prevNextIconSize)
-            .graphicsLayer { alpha = prevNextAlpha },
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            Icons.Default.SkipNext, "Next",
-            tint = Color.White,
-            modifier = Modifier.fillMaxSize().clickable { viewModel.skipToNext() }
-        )
+    if (prevNextAlpha > 0.01f) {
+        Box(
+            modifier = Modifier
+                .offset(x = nextCX - prevNextIconSize / 2, y = nextCY - prevNextIconSize / 2)
+                .size(prevNextIconSize)
+                .graphicsLayer { alpha = prevNextAlpha },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.SkipNext, "Next",
+                tint = Color.White,
+                modifier = Modifier.fillMaxSize().clickable { viewModel.skipToNext() }
+            )
+        }
     }
 }
