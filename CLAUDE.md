@@ -26,7 +26,7 @@ Laconical Player is a fully open-source Android music player inspired by Namida 
 ./gradlew lint
 ```
 
-No custom test suite is wired up — only boilerplate JUnit4 dependencies are declared.
+One unit test module is wired in `:core:media` using Robolectric + Media3 test utilities. Run with `./gradlew :core:media:test`. No Compose UI test infrastructure is set up.
 
 ## Module Structure
 
@@ -52,6 +52,7 @@ Key `StateFlow`s in `MainViewModel`:
 - `currentTrack` — currently playing `Track?`
 - `playingTrackDominantColor` — extracted by Palette API on every track change
 - `isPlaying`, `currentPosition`, `duration`, `progress` — delegated from `MusicPlayerImpl`
+- `queue`, `currentQueueIndex`, `shuffleModeEnabled`, `repeatMode` — playlist state from `MusicPlayerImpl`
 - `waveform`, `beatPulse` — from `AudioVisualizerManager` (real-time)
 - `_waveformData` — static waveform from Amplituda (decoded on track change)
 - `_currentNormalizedAmplitude` — amplitude ticker scrubbing `_waveformData` by playback position at ~60 fps while playing; suspends via `isPlaying.first { it }` when paused and amplitude decays to zero (zero CPU wakeups at idle); drives album art pulse
@@ -60,7 +61,7 @@ Key `StateFlow`s in `MainViewModel`:
 
 **`PlaybackService`** — `MediaSessionService` foreground service holding a singleton `ExoPlayer` (Hilt-injected via `MediaModule`). Handles background playback and audio focus.
 
-**`MusicPlayerImpl`** — Holds a singleton `MediaController` connected to `PlaybackService` over Media3 IPC (created once in `init`, not recreated on each call — fixes the original MediaController leak). All commands (`play`, `pause`, `seekTo`, `playMediaItem`) delegate to this controller. Position is polled at 50 ms intervals.
+**`MusicPlayerImpl`** — Holds a singleton `MediaController` connected to `PlaybackService` over Media3 IPC (created once in `init`, not recreated on each call — fixes the original MediaController leak). All commands (`play`, `pause`, `seekTo`, `setPlaylist`, `toggleShuffle`, `cycleRepeatMode`, `moveQueueItem`) delegate to this controller. Position is polled at 50 ms intervals.
 
 **`AudioVisualizerManager`** — Attaches Android `Visualizer` to ExoPlayer's `audioSessionId` for real-time waveform capture. Falls back to a sine-wave fake animation if the visualizer reports silence. Uses `@Volatile` on the `isVisualizerGeneratingRealData` flag to ensure cross-thread visibility between the audio callback thread and `Dispatchers.Default`.
 
@@ -68,11 +69,17 @@ Key `StateFlow`s in `MainViewModel`:
 
 ### The Morphing Player Transition
 
-The architectural centerpiece of `LibraryScreen` is the mini→full player morph. There is **no** shared element transition API used. Instead:
+`LibraryScreen` uses a **3-phase morph** — no shared element transition API. Instead:
 
-- `BottomSheetScaffold` drives `expandedFraction` (0f = collapsed, 1f = expanded).
-- Ghost/invisible placeholder elements in `MiniPlayer` and `FullPlayer` report their `positionInRoot()` via `onGloballyPositioned` callbacks.
-- A single overlay `Box` (album art, title text, playback buttons) uses `lerp()` on `expandedFraction` to interpolate position and size between the two sets of coordinates, landing pixel-perfectly on the ghost elements.
+**Phase 1 (mini → full):** `BottomSheetScaffold.expandedFraction` (0f → 1f). Ghost elements in `MiniPlayer` and `FullPlayer` report `positionInRoot()` via `onGloballyPositioned`. A single overlay (album art, title, artist, playback buttons) `lerp()`s between the two coordinate sets.
+
+**Phase 2+3 (full → queue):** A separate `queueProgress` float (0f = full player, 1f = queue open) drives a second `lerp()` pass. The same overlay elements continue morphing from FullPlayer positions to `QueueSheet` header positions.
+
+**Ghost overlay contract:** Every element that morphs must be invisible in its "source" layout:
+- `MiniPlayer`: title, artist, controls are `alpha=0f` when `hideArt=true`
+- `FullPlayer`: title/artist text are `color=Transparent`; play button area is covered by overlay
+- `QueueSheet`: art slot is transparent Image, title/artist are `Color.Transparent`, play/pause is `Box(48.dp)`
+The overlay in `LibraryScreen` is the sole renderer of these elements and handles all taps.
 
 ### Album Art Loading
 
@@ -91,14 +98,16 @@ app/src/main/java/com/laconical/player/ui/
   components/
     FullPlayer.kt          # Expanded player, VisualizerSeekBar, ParticleSystem
     MiniPlayer.kt          # Collapsed strip, morphing GlowIconButton controls
+    QueueSheet.kt          # Full-screen queue with drag-to-reorder; all header elements are ghosts
     TrackListItem.kt       # Per-row Palette extraction + ParticlesEffectCanvas
     ParticlesEffectCanvas.kt  # Physics particles — mutations in LaunchedEffect, draw is pure
 
 core/media/.../
-  MusicPlayer.kt           # Interface + MusicPlayerImpl (singleton MediaController)
+  MusicPlayer.kt           # Interface + MusicPlayerImpl (singleton MediaController, playlist/shuffle/repeat)
   PlaybackService.kt       # MediaSessionService foreground service
   AudioVisualizerManager.kt  # Real-time Visualizer + sine-wave fallback
   WaveformExtractor.kt     # Amplituda via ContentResolver.openInputStream(Uri)
+  PlaylistRepeatTest.kt    # Robolectric unit tests for repeat-mode wrap-around behavior
 
 core/data/.../
   LocalMediaRepositoryImpl.kt  # MediaStore queries — uses content URIs, no DATA column
