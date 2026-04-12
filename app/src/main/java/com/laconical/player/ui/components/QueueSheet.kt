@@ -5,6 +5,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,28 +14,23 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -106,27 +103,6 @@ fun QueueSheet(
         }
     }
 
-    // Intercept downward scroll at list top to drag the sheet down
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y > 0f && !listState.canScrollBackward) {
-                    onDragDelta(available.y)
-                    return available
-                }
-                return Offset.Zero
-            }
-
-            override suspend fun onPreFling(available: Velocity): Velocity {
-                if (available.y > 250f) {
-                    onDragEnd(available.y)
-                    return available
-                }
-                return Velocity.Zero
-            }
-        }
-    }
-
     BackHandler(enabled = progress > 0.5f) { onDismiss() }
 
     Box(
@@ -139,92 +115,102 @@ fun QueueSheet(
                 .fillMaxSize()
                 .statusBarsPadding()
         ) {
-            // ── Borderless header row ──────────────────────────────────────────
-            // ALL four elements (art, title, artist, play/pause) are INVISIBLE ghosts.
-            // LibraryScreen's morph overlay draws the real versions and handles taps.
-            Row(
+            // ── Draggable header area ──────────────────────────────────────────
+            // Swipe down on the header dismisses the queue back to the full player.
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 0.dp)
-                    .height(56.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown()
+                            val tracker = VelocityTracker()
+                            tracker.addPosition(down.uptimeMillis, down.position)
+                            do {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull() ?: break
+                                if (!change.pressed) {
+                                    val velocity = tracker.calculateVelocity()
+                                    onDragEnd(velocity.y)
+                                    break
+                                }
+                                tracker.addPosition(change.uptimeMillis, change.position)
+                                onDragDelta(change.positionChange().y)
+                                change.consume()
+                            } while (true)
+                        }
+                    }
             ) {
-                // Ghost art placeholder — 56dp, matches morph target
-                Box(modifier = Modifier.size(56.dp))
+                // Borderless header row — all four elements are INVISIBLE ghosts.
+                // LibraryScreen's morph overlay draws the real versions and handles taps.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 0.dp)
+                        .height(56.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Ghost art placeholder — 56dp, matches morph target
+                    Box(modifier = Modifier.size(56.dp))
 
-                Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
-                    // Ghost title — invisible, holds layout space for morph overlay alignment
-                    Text(
-                        text = currentTrack?.title ?: " ",
-                        color = Color.Transparent,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    // Ghost artist — invisible, morph overlay renders the real text
-                    Text(
-                        text = currentTrack?.artist ?: " ",
-                        color = Color.Transparent,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = currentTrack?.title ?: " ",
+                            color = Color.Transparent,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = currentTrack?.artist ?: " ",
+                            color = Color.Transparent,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    // Ghost play/pause slot — invisible 48dp placeholder
+                    Box(modifier = Modifier.size(48.dp))
                 }
 
-                // Ghost play/pause slot — invisible 48dp placeholder that reserves Row space.
-                // The morph overlay renders the real play button and handles taps.
-                Box(modifier = Modifier.size(48.dp))
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // ── "UP NEXT" label ───────────────────────────────────────────
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "UP NEXT",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.5.sp
+                        )
+                        Text(
+                            text = "${queue.size} tracks",
+                            color = Color.Gray,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    thickness = 0.5.dp,
+                    color = Color.White.copy(alpha = 0.10f)
+                )
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // ── "UP NEXT" header ───────────────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = "UP NEXT",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.5.sp
-                    )
-                    Text(
-                        text = "${queue.size} tracks",
-                        color = Color.Gray,
-                        fontSize = 11.sp
-                    )
-                }
-                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close queue",
-                        tint = Color.Gray,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 20.dp),
-                thickness = 0.5.dp,
-                color = Color.White.copy(alpha = 0.10f)
-            )
 
             // ── Track list with drag-to-reorder ────────────────────────────────
             LazyColumn(
                 state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .nestedScroll(nestedScrollConnection),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(vertical = 4.dp)
             ) {
                 itemsIndexed(queue, key = { _, track -> track.id }) { index, track ->

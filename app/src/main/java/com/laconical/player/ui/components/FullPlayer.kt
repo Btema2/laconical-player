@@ -157,10 +157,25 @@ fun FullPlayer(
 
             // Album art layout spacer — the morphing overlay in LibraryScreen
             // renders the actual art on top; this just reserves the right amount of space.
+            // Vertical drag: swipe up → queue, swipe down → collapse player.
             Spacer(
                 modifier = Modifier
                     .fillMaxWidth(0.95f)
                     .aspectRatio(1f)
+                    .pointerInput(Unit) {
+                        val threshold = 80.dp.toPx()
+                        var totalDragY = 0f
+                        detectDragGestures(
+                            onDragStart = { totalDragY = 0f },
+                            onDrag = { _, dragAmount -> totalDragY += dragAmount.y },
+                            onDragEnd = {
+                                when {
+                                    totalDragY < -threshold -> onShowQueue()
+                                    totalDragY > threshold -> onCollapse()
+                                }
+                            }
+                        )
+                    }
             )
 
             // weight(0.165f) leaves 50% of the previous gap — pulls title/author closer to thumbnail
