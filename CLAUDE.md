@@ -143,6 +143,35 @@ Zero known memory leaks. Key properties:
 - `@Volatile` on `AudioVisualizerManager.isVisualizerGeneratingRealData` ensures the audio thread's writes are visible on `Dispatchers.Default`.
 - `ParticlesEffectCanvas` mutates particle state only inside `LaunchedEffect` — never inside the `Canvas` draw phase.
 
+## Animation Optimization Principles
+
+Hard-won rules from the morph overlay and queue transition work. Apply to all future animation work.
+
+### Lerp linearity
+- `lerp()` produces straight-line motion only when **both endpoints are stable** throughout the animation. Moving endpoints produce curved "hook" paths.
+- Freeze the start-point before the animation begins (e.g. capture `miniRootY` when expanded, don't recompute mid-animation from live geometry).
+- Use sheet-relative coordinates for the full player: `(fullTitleTopPx - sheetRootYPx).toDp()` keeps lerp math consistent across sheet scroll.
+
+### Spring gating
+- Spring-based `animateFloatAsState` applied as a scale on top of a `lerp()` produces compound non-linearity — visually a "jump" or "pulse" in the wrong place.
+- Gate any spring animation so it is **OFF during all overlay/morph animations** and ON only at rest. Example pattern:
+  ```kotlin
+  // WRONG — spring fires as queueProg ramps back to 0 on close:
+  val pulseIntensity = if (expandedFraction >= 0.99f) (1f - queueProg) else 0f
+  
+  // CORRECT — spring only when fully at rest with queue closed:
+  val pulseIntensity = if (expandedFraction >= 0.99f && queueProg < 0.01f) 1f else 0f
+  ```
+
+### Lazy list performance
+- **Never use `animateScrollToItem`** to position a lazy list when opening a sheet. Animated scroll traverses every intermediate item, making them visible and triggering `AsyncImage` (Coil) loads for all thumbnails.
+- Use **`scrollToItem`** (instant) triggered at `progress > 0.01f` (sheet barely visible, nearly transparent) — user never sees the jump, all items load lazily from the correct position.
+- Guard instant-scroll with a `wasQueueOpen` boolean so track changes while the user is browsing the queue don't yank the list back to the current track.
+
+### Morph overlay invariant
+- Every morphed element must be **invisible in both its source and target layouts** — only the overlay renders it. Ghost contract: transparent Box, `Color.Transparent` text, invisible size-matching placeholder for buttons.
+- The overlay handles all taps on morphed elements (art, title, artist, play/pause).
+
 ## Visual Design Principles
 
 The app is intentionally aesthetic-first, inspired by Namida Player:

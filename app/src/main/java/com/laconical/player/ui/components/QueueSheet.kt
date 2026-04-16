@@ -96,11 +96,17 @@ fun QueueSheet(
 
     val listState = rememberLazyListState()
 
-    // Auto-scroll to current track when queue becomes visible
-    LaunchedEffect(progress > 0.8f, currentIndex, queue.size) {
-        if (progress > 0.8f && currentIndex >= 0 && queue.isNotEmpty()) {
-            listState.animateScrollToItem(currentIndex.coerceIn(0, queue.lastIndex))
+    // Instant-scroll to current track only on initial open (not on track changes while browsing).
+    // Triggered at progress > 0.01f so the sheet is nearly transparent — user never sees the jump.
+    // Using scrollToItem (not animateScrollToItem) avoids traversing intermediate items,
+    // which would trigger Coil thumbnail loads for every song between 0 and currentIndex.
+    var wasQueueOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(progress > 0.01f, currentIndex, queue.size) {
+        val isOpen = progress > 0.01f
+        if (isOpen && !wasQueueOpen && currentIndex >= 0 && queue.isNotEmpty()) {
+            listState.scrollToItem(currentIndex.coerceIn(0, queue.lastIndex))
         }
+        wasQueueOpen = isOpen
     }
 
     BackHandler(enabled = progress > 0.5f) { onDismiss() }
@@ -211,7 +217,9 @@ fun QueueSheet(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(vertical = 4.dp)
+                contentPadding = WindowInsets.navigationBars
+                    .add(WindowInsets(top = 4.dp, bottom = 4.dp))
+                    .asPaddingValues()
             ) {
                 itemsIndexed(queue, key = { _, track -> track.id }) { index, track ->
                     val isCurrentTrack = index == currentIndex

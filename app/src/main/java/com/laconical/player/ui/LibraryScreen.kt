@@ -421,8 +421,10 @@ private fun QueueMorphLayer(
     val isPlaying by viewModel.isPlaying.collectAsState()
     val shapedAmplitude = currentAmplitude * currentAmplitude
 
-    // Pulse only activates when fully expanded — never during the morph transition
-    val pulseIntensity = if (expandedFraction >= 0.99f) (1f - queueProg) else 0f
+    // Pulse only activates when fully expanded AND queue is fully closed.
+    // Gating both conditions prevents the spring scale from firing during the
+    // queue open/close animation, which caused a visible jump at the top of the screen.
+    val pulseIntensity = if (expandedFraction >= 0.99f && queueProg < 0.01f) 1f else 0f
     val animatedPulse by animateFloatAsState(
         targetValue = 1f - (0.02f * pulseIntensity) + (shapedAmplitude * 0.04f * pulseIntensity),
         animationSpec = spring(dampingRatio = 0.65f, stiffness = 280f),
