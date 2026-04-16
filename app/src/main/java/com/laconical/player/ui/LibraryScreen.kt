@@ -421,12 +421,15 @@ private fun QueueMorphLayer(
     val isPlaying by viewModel.isPlaying.collectAsState()
     val shapedAmplitude = currentAmplitude * currentAmplitude
 
-    // Pulse only activates when fully expanded AND queue is fully closed.
-    // Gating both conditions prevents the spring scale from firing during the
-    // queue open/close animation, which caused a visible jump at the top of the screen.
-    val pulseIntensity = if (expandedFraction >= 0.99f && queueProg < 0.01f) 1f else 0f
+    // Pulse ramps in over the final 5% of sheet expansion and is fully off while
+    // the queue is open. The target has no constant offset — it stays at 1f when
+    // amplitude is zero, so the spring never fires on a step discontinuity when
+    // the sheet settles. The art only scales up with actual beat amplitude.
+    val pulseIntensity = if (queueProg < 0.01f) {
+        ((expandedFraction - 0.95f) / 0.05f).coerceIn(0f, 1f)
+    } else 0f
     val animatedPulse by animateFloatAsState(
-        targetValue = 1f - (0.02f * pulseIntensity) + (shapedAmplitude * 0.04f * pulseIntensity),
+        targetValue = 1f + (shapedAmplitude * 0.04f * pulseIntensity),
         animationSpec = spring(dampingRatio = 0.65f, stiffness = 280f),
         label = "MorphPulse"
     )
