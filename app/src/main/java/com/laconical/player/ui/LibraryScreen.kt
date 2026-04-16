@@ -421,8 +421,8 @@ private fun QueueMorphLayer(
     val isPlaying by viewModel.isPlaying.collectAsState()
     val shapedAmplitude = currentAmplitude * currentAmplitude
 
-    // Pulse fades in as player expands, fades out as queue opens
-    val pulseIntensity = ((expandedFraction - 0.7f) / 0.3f).coerceIn(0f, 1f) * (1f - queueProg)
+    // Pulse only activates when fully expanded — never during the morph transition
+    val pulseIntensity = if (expandedFraction >= 0.99f) (1f - queueProg) else 0f
     val animatedPulse by animateFloatAsState(
         targetValue = 1f - (0.02f * pulseIntensity) + (shapedAmplitude * 0.04f * pulseIntensity),
         animationSpec = spring(dampingRatio = 0.65f, stiffness = 280f),
