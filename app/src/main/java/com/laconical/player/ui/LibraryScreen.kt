@@ -321,6 +321,8 @@ fun LibraryScreen(
                 currentTrack = currentTrack!!,
                 expandedFraction = expandedFraction,
                 sheetRootYPx = sheetRootYPx,
+                containerHeightPx = containerHeightPx,
+                peekHeight = peekHeight,
                 fullTitleTopPx = fullTitleTopPx,
                 fullArtistLeftPx = fullArtistLeftPx,
                 fullArtistTopPx = fullArtistTopPx,
@@ -358,6 +360,8 @@ private fun QueueMorphLayer(
     currentTrack: Track,
     expandedFraction: Float,
     sheetRootYPx: Float,
+    containerHeightPx: Float,
+    peekHeight: Dp,
     fullTitleTopPx: Float,
     fullArtistLeftPx: Float,
     fullArtistTopPx: Float,
@@ -430,10 +434,13 @@ private fun QueueMorphLayer(
     )
 
     // ── Position math ──────────────────────────────────────────────────
-    val sheetRootYDp = with(density) { sheetRootYPx.toDp() }
+    // Mini positions: computed from geometry so they stay fixed at the collapsed sheet
+    // position, not live-tracking the sheet as it moves during animation.
+    val miniSheetRootYPx = containerHeightPx - with(density) { peekHeight.toPx() }
+    val miniSheetRootYDp = with(density) { miniSheetRootYPx.toDp() }
     val miniArtSizeDp = 52.dp
     val miniArtLeftDp = 24.dp
-    val miniArtTopDp  = sheetRootYDp + 11.5.dp
+    val miniArtTopDp  = miniSheetRootYDp + 11.5.dp
 
     val fullArtSizeDp = (screenWidthDp - 48.dp) * 0.95f
     val fullArtLeftDp = (screenWidthDp - fullArtSizeDp) / 2f
@@ -501,10 +508,13 @@ private fun QueueMorphLayer(
     val miniTitleLeftDp = miniArtLeftDp + miniArtSizeDp + 12.dp
     val miniTitleTopDp  = miniArtTopDp + 2.dp
     val fullTitleLeftDp = 48.dp
+    // Full player Y positions: subtract sheetRootYPx to get sheet-relative coordinates.
+    // positionInRoot() moves as the sheet scrolls, but (absY - sheetRootY) is constant
+    // regardless of sheet position, giving a stable lerp target.
     val fullTitleTopDp  = if (fullTitleTopPx >= 0f)
-        with(density) { fullTitleTopPx.toDp() }
+        with(density) { (fullTitleTopPx - sheetRootYPx).toDp() }
     else
-        fullArtTopDp + fullArtSizeDp + 200.dp
+        fullArtTopDp + fullArtSizeDp + 30.dp
 
     val queueTitleLeftDp = 88.dp
     val queueTitleTopDp  = statusBarPadding + 26.dp
@@ -539,7 +549,7 @@ private fun QueueMorphLayer(
     val miniArtistLeftDp = miniArtLeftDp + miniArtSizeDp + 12.dp
     val miniArtistTopDp  = miniArtTopDp + 20.dp
     val fullArtistLeftDp = if (fullArtistLeftPx >= 0f) with(density) { fullArtistLeftPx.toDp() } else 48.dp
-    val fullArtistTopDp  = if (fullArtistTopPx >= 0f) with(density) { fullArtistTopPx.toDp() } else fullTitleTopDp + 28.dp
+    val fullArtistTopDp  = if (fullArtistTopPx >= 0f) with(density) { (fullArtistTopPx - sheetRootYPx).toDp() } else fullTitleTopDp + 20.dp
     val queueArtistLeftDp = 88.dp
     val queueArtistTopDp  = statusBarPadding + 46.dp
 
@@ -562,17 +572,17 @@ private fun QueueMorphLayer(
     )
 
     // ── Morphing playback controls overlay ────────────────────────────
-    val miniCtrlCenterYDp = sheetRootYDp + 37.5.dp
+    val miniCtrlCenterYDp = miniSheetRootYDp + 37.5.dp
     val miniPrevCenterXDp = screenWidthDp - 144.dp
     val miniPlayCenterXDp = screenWidthDp - 96.dp
     val miniNextCenterXDp = screenWidthDp - 48.dp
 
     val fullPrevCenterXDp = if (fullPrevCenterXPx >= 0f) with(density) { fullPrevCenterXPx.toDp() } else miniPrevCenterXDp
-    val fullPrevCenterYDp = if (fullPrevCenterYPx >= 0f) with(density) { fullPrevCenterYPx.toDp() } else miniCtrlCenterYDp
+    val fullPrevCenterYDp = if (fullPrevCenterYPx >= 0f) with(density) { (fullPrevCenterYPx - sheetRootYPx).toDp() } else miniCtrlCenterYDp
     val fullPlayCenterXDp = if (fullPlayCenterXPx >= 0f) with(density) { fullPlayCenterXPx.toDp() } else miniPlayCenterXDp
-    val fullPlayCenterYDp = if (fullPlayCenterYPx >= 0f) with(density) { fullPlayCenterYPx.toDp() } else miniCtrlCenterYDp
+    val fullPlayCenterYDp = if (fullPlayCenterYPx >= 0f) with(density) { (fullPlayCenterYPx - sheetRootYPx).toDp() } else miniCtrlCenterYDp
     val fullNextCenterXDp = if (fullNextCenterXPx >= 0f) with(density) { fullNextCenterXPx.toDp() } else miniNextCenterXDp
-    val fullNextCenterYDp = if (fullNextCenterYPx >= 0f) with(density) { fullNextCenterYPx.toDp() } else miniCtrlCenterYDp
+    val fullNextCenterYDp = if (fullNextCenterYPx >= 0f) with(density) { (fullNextCenterYPx - sheetRootYPx).toDp() } else miniCtrlCenterYDp
 
     val queuePlayCenterXDp = screenWidthDp - 20.dp - 24.dp
     val queuePlayCenterYDp = statusBarPadding + 20.dp + 28.dp
