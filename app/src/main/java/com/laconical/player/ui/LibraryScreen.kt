@@ -321,8 +321,6 @@ fun LibraryScreen(
                 currentTrack = currentTrack!!,
                 expandedFraction = expandedFraction,
                 sheetRootYPx = sheetRootYPx,
-                containerHeightPx = containerHeightPx,
-                peekHeight = peekHeight,
                 fullTitleTopPx = fullTitleTopPx,
                 fullArtistLeftPx = fullArtistLeftPx,
                 fullArtistTopPx = fullArtistTopPx,
@@ -360,8 +358,6 @@ private fun QueueMorphLayer(
     currentTrack: Track,
     expandedFraction: Float,
     sheetRootYPx: Float,
-    containerHeightPx: Float,
-    peekHeight: Dp,
     fullTitleTopPx: Float,
     fullArtistLeftPx: Float,
     fullArtistTopPx: Float,
@@ -434,9 +430,19 @@ private fun QueueMorphLayer(
     )
 
     // ── Position math ──────────────────────────────────────────────────
-    // Mini positions: computed from geometry so they stay fixed at the collapsed sheet
-    // position, not live-tracking the sheet as it moves during animation.
-    val miniSheetRootYPx = containerHeightPx - with(density) { peekHeight.toPx() }
+    // Freeze the sheet root Y at the collapsed position so the mini lerp start-point
+    // is stable throughout the animation. Using a live sheetRootYPx would make both
+    // endpoints of the lerp move, producing a curved "hook" path instead of a line.
+    val frozenMiniSheetRootYPx = remember { mutableFloatStateOf(-1f) }
+    LaunchedEffect(sheetRootYPx, expandedFraction) {
+        if (expandedFraction < 0.15f && sheetRootYPx >= 0f) {
+            frozenMiniSheetRootYPx.floatValue = sheetRootYPx
+        }
+    }
+    val miniSheetRootYPx = if (frozenMiniSheetRootYPx.floatValue >= 0f)
+        frozenMiniSheetRootYPx.floatValue
+    else
+        sheetRootYPx
     val miniSheetRootYDp = with(density) { miniSheetRootYPx.toDp() }
     val miniArtSizeDp = 52.dp
     val miniArtLeftDp = 24.dp
