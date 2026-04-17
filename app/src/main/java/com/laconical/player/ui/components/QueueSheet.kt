@@ -286,6 +286,11 @@ private fun QueueTrackRow(
 ) {
     val isDraggingThis = dragFromIndexState.intValue == index
 
+    val latestOnDragStart by rememberUpdatedState(onDragStart)
+    val latestOnDragDelta by rememberUpdatedState(onDragDelta)
+    val latestOnDragEnd by rememberUpdatedState(onDragEnd)
+    val latestOnDragCancel by rememberUpdatedState(onDragCancel)
+
     val dragScale by animateFloatAsState(
         targetValue = if (isDraggingThis) 1.03f else 1f,
         animationSpec = spring(stiffness = 500f),
@@ -380,10 +385,10 @@ private fun QueueTrackRow(
                     .size(40.dp)
                     .pointerInput(track.id) {
                         detectDragGesturesAfterLongPress(
-                            onDragStart = { onDragStart() },
-                            onDrag = { _, offset -> onDragDelta(offset.y) },
-                            onDragEnd = { onDragEnd() },
-                            onDragCancel = { onDragCancel() }
+                            onDragStart = { latestOnDragStart() },
+                            onDrag = { _, offset -> latestOnDragDelta(offset.y) },
+                            onDragEnd = { latestOnDragEnd() },
+                            onDragCancel = { latestOnDragCancel() }
                         )
                     },
                 contentAlignment = Alignment.Center
