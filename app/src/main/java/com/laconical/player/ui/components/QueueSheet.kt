@@ -40,6 +40,7 @@ import com.laconical.player.ui.AudioArtData
 import com.laconical.player.ui.MainViewModel
 import com.laconical.player.ui.toHsl
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 
@@ -90,6 +91,7 @@ fun QueueSheet(
 
     val density = LocalDensity.current
     val itemHeightPx = with(density) { QUEUE_ITEM_HEIGHT.toPx() }
+    val scope = rememberCoroutineScope()
 
     val dragFromIndexState = remember { mutableIntStateOf(-1) }
     val dragOffsetYState = remember { mutableFloatStateOf(0f) }
@@ -98,13 +100,13 @@ fun QueueSheet(
 
     // Instant-scroll to current track only on initial open (not on track changes while browsing).
     // Triggered at progress > 0.01f so the sheet is nearly transparent — user never sees the jump.
-    // Using scrollToItem (not animateScrollToItem) avoids traversing intermediate items,
-    // which would trigger Coil thumbnail loads for every song between 0 and currentIndex.
+    // Scroll to currentIndex - 3 so that 3 items above the current track are already composed;
+    // this prevents the recomposition jump when the user immediately drags the current track up.
     var wasQueueOpen by remember { mutableStateOf(false) }
     LaunchedEffect(progress > 0.01f, currentIndex, queue.size) {
         val isOpen = progress > 0.01f
         if (isOpen && !wasQueueOpen && currentIndex >= 0 && queue.isNotEmpty()) {
-            listState.scrollToItem(currentIndex.coerceIn(0, queue.lastIndex))
+            listState.scrollToItem(maxOf(0, currentIndex - 3).coerceIn(0, queue.lastIndex))
         }
         wasQueueOpen = isOpen
     }
@@ -237,6 +239,13 @@ fun QueueSheet(
                         dragOffsetYState = dragOffsetYState,
                         onTrackClick = { viewModel.playTrack(track) },
                         onDragStart = {
+                            // Instantly scroll to ensure 3 items above the drag target are
+                            // already composed. This prevents LazyColumn from triggering a
+                            // recomposition burst when dragging upward past the viewport top.
+                            val preScrollTarget = maxOf(0, index - 3)
+                            if (listState.firstVisibleItemIndex > preScrollTarget) {
+                                scope.launch { listState.scrollToItem(preScrollTarget) }
+                            }
                             dragFromIndexState.intValue = index
                             dragOffsetYState.floatValue = 0f
                         },
