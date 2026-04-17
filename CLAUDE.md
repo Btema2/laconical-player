@@ -172,6 +172,26 @@ Hard-won rules from the morph overlay and queue transition work. Apply to all fu
 - Every morphed element must be **invisible in both its source and target layouts** — only the overlay renders it. Ghost contract: transparent Box, `Color.Transparent` text, invisible size-matching placeholder for buttons.
 - The overlay handles all taps on morphed elements (art, title, artist, play/pause).
 
+### Stale lambda in pointerInput — the jiggle trap
+- `pointerInput(key)` creates its coroutine **once** when the key is first seen (or changes). It captures every variable referenced inside its block, including lambda parameters, at that moment.
+- If a callback lambda passed into the composable closes over a `val` that is a snapshot (e.g. `val queueProg = animatable.value`), `pointerInput(Unit)` will hold the stale captured value for the lifetime of the gesture. Each drag frame will reset to the original value instead of accumulating, producing visible jitter/jiggle.
+- **Rule:** never read a composition snapshot inside a lambda that will be called from `pointerInput`. Instead read the live source directly:
+  ```kotlin
+  // WRONG — queueProg is a val captured at composition time:
+  onDragDelta = { dy ->
+      val newProg = (queueProg - dy / screenH).coerceIn(0f, 1f)
+      scope.launch { animatable.snapTo(newProg) }
+  }
+
+  // CORRECT — animatable.value is always the live current value:
+  onDragDelta = { dy ->
+      val newProg = (animatable.value - dy / screenH).coerceIn(0f, 1f)
+      scope.launch { animatable.snapTo(newProg) }
+  }
+  ```
+- Same trap applies to threshold checks in `onDragEnd` — always read `animatable.value > threshold`, never a captured snapshot.
+- Alternative Compose-idiomatic fix: use `rememberUpdatedState(onDragDelta)` inside the child composable so `pointerInput` always calls the latest lambda instance.
+
 ## Visual Design Principles
 
 The app is intentionally aesthetic-first, inspired by Namida Player:
