@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -93,6 +94,10 @@ class MusicPlayerImpl @Inject constructor(
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     _currentMediaItemIndex.value = controller.currentMediaItemIndex
                     _duration.value = controller.duration
+                }
+
+                override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                    _currentMediaItemIndex.value = controller.currentMediaItemIndex
                 }
 
                 override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
