@@ -393,12 +393,12 @@ private fun QueueMorphLayer(
                 }
             },
             onDragDelta = { dy ->
-                val newProg = (queueProg - dy / screenH).coerceIn(0f, 1f)
+                val newProg = (queueAnimatable.value - dy / screenH).coerceIn(0f, 1f)
                 scope.launch { queueAnimatable.snapTo(newProg) }
             },
             onDragEnd = { velocityY ->
                 scope.launch {
-                    if (queueProg > 0.5f && velocityY < 250f) {
+                    if (queueAnimatable.value > 0.5f && velocityY < 250f) {
                         queueAnimatable.animateTo(1f, tween(QUEUE_ANIM_MS, easing = FastOutSlowInEasing))
                     } else {
                         queueAnimatable.animateTo(0f, tween(QUEUE_ANIM_MS, easing = FastOutSlowInEasing))
