@@ -61,7 +61,9 @@ Key `StateFlow`s in `MainViewModel`:
 
 **`PlaybackService`** — `MediaSessionService` foreground service holding a singleton `ExoPlayer` (Hilt-injected via `MediaModule`). Handles background playback and audio focus.
 
-**`MusicPlayerImpl`** — Holds a singleton `MediaController` connected to `PlaybackService` over Media3 IPC (created once in `init`, not recreated on each call — fixes the original MediaController leak). All commands (`play`, `pause`, `seekTo`, `setPlaylist`, `toggleShuffle`, `cycleRepeatMode`, `moveQueueItem`) delegate to this controller. Position is polled at 50 ms intervals.
+**`MusicPlayerImpl`** — Holds a singleton `MediaController` connected to `PlaybackService` over Media3 IPC (created once in `init`, not recreated on each call — fixes the original MediaController leak). All commands (`play`, `pause`, `seekTo`, `setPlaylist`, `toggleShuffle`, `cycleRepeatMode`, `moveQueueItem`) delegate to this controller. Position is polled at 50 ms intervals. Listens to both `onMediaItemTransition` (track change) and `onTimelineChanged` (queue reorder) to keep `_currentMediaItemIndex` in sync — reorder does NOT fire `onMediaItemTransition`.
+
+**`MediaPreWarmer`** — Singleton called from `LaconicalApp.onCreate`. Connects a throwaway `MediaController` to `PlaybackService` so ExoPlayer is already warm before the user's first tap. The controller is immediately released; the service and ExoPlayer singleton survive for `MusicPlayerImpl` to reuse.
 
 **`AudioVisualizerManager`** — Attaches Android `Visualizer` to ExoPlayer's `audioSessionId` for real-time waveform capture. Falls back to a sine-wave fake animation if the visualizer reports silence. Uses `@Volatile` on the `isVisualizerGeneratingRealData` flag to ensure cross-thread visibility between the audio callback thread and `Dispatchers.Default`.
 
@@ -107,6 +109,7 @@ core/media/.../
   PlaybackService.kt       # MediaSessionService foreground service
   AudioVisualizerManager.kt  # Real-time Visualizer + sine-wave fallback
   WaveformExtractor.kt     # Amplituda via ContentResolver.openInputStream(Uri)
+  MediaPreWarmer.kt        # Pre-warms PlaybackService at app start to eliminate first-tap latency
   PlaylistRepeatTest.kt    # Robolectric unit tests for repeat-mode wrap-around behavior
 
 core/data/.../
@@ -167,6 +170,35 @@ Hard-won rules from the morph overlay and queue transition work. Apply to all fu
 - **Never use `animateScrollToItem`** to position a lazy list when opening a sheet. Animated scroll traverses every intermediate item, making them visible and triggering `AsyncImage` (Coil) loads for all thumbnails.
 - Use **`scrollToItem`** (instant) triggered at `progress > 0.01f` (sheet barely visible, nearly transparent) — user never sees the jump, all items load lazily from the correct position.
 - Guard instant-scroll with a `wasQueueOpen` boolean so track changes while the user is browsing the queue don't yank the list back to the current track.
+
+### Drag-to-reorder in LazyColumn — three pitfalls
+
+**1. `onTimelineChanged` required for index sync after reorder.**
+`onMediaItemTransition` only fires when the playing track changes, not when `moveMediaItem` reorders the queue. Without `onTimelineChanged`, `_currentMediaItemIndex` goes stale after every drag-drop — wrong track appears highlighted as "current" and subsequent drags report wrong source indices.
+
+**2. Index captured by `pointerInput` callbacks goes stale on reorder.**
+`pointerInput(track.id)` creates its coroutine once per track ID. The `onDragStart` lambda it captures closes over `index` from `itemsIndexed`. After a reorder the composable recomposes with a new `index`, but the coroutine still holds the old one. Fix: `rememberUpdatedState` on every gesture callback inside the drag-handle `pointerInput`:
+```kotlin
+val latestOnDragStart by rememberUpdatedState(onDragStart)
+// use latestOnDragStart() inside pointerInput, never onDragStart()
+```
+
+**3. Never `scrollToItem` during drag start to pre-compose items.**
+Calling `listState.scrollToItem(index - 3)` in `onDragStart` visually jumps the list before the finger moves, displacing the held item 3 rows down. Looks like lag.
+
+The correct fix: clamp the visual displacement range in `graphicsLayer` to `firstVisibleItemIndex`. Items above the viewport are not composed; applying `translationY = +itemHeightPx` to them would trigger LazyColumn to compose new items mid-drag. Clamping `visTarget` prevents that entirely without any scroll:
+```kotlin
+// Inside graphicsLayer { } — deferred, reads current value without recomposition:
+val firstVisible = firstVisibleIndex()  // () -> Int lambda passed from parent
+val visTarget = if (from > target) target.coerceAtLeast(firstVisible) else target
+translationY = when {
+    index == from  -> dy                                         // dragged item follows finger
+    from < visTarget && index in (from + 1)..visTarget -> -itemHeightPx
+    from > visTarget && index in visTarget until from  -> itemHeightPx
+    else -> 0f
+}
+```
+The actual drop target is still computed from raw `dy`, so items land at the correct position even when dragged above `firstVisible`.
 
 ### Morph overlay invariant
 - Every morphed element must be **invisible in both its source and target layouts** — only the overlay renders it. Ghost contract: transparent Box, `Color.Transparent` text, invisible size-matching placeholder for buttons.
