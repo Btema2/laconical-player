@@ -86,10 +86,20 @@ class AudioVisualizerManager @Inject constructor(
 
     private fun startFallbackLoop() {
         if (fallbackJob?.isActive == true) return
-        fallbackJob = scope.launch(Dispatchers.Main) {
+        // Loop runs on Dispatchers.Default (from the class scope) so sin/cos and
+        // FloatArray allocation stay off the UI thread. ExoPlayer reads must
+        // happen on its owning looper, so they hop to Main briefly.
+        fallbackJob = scope.launch {
             while (isActive) {
-                if (!isVisualizerGeneratingRealData && player.isPlaying) {
-                    val time = player.currentPosition
+                // Skip all fake-wave computation when the real Visualizer is producing data.
+                if (isVisualizerGeneratingRealData) {
+                    delay(100)
+                    continue
+                }
+                val (playing, time) = withContext(Dispatchers.Main) {
+                    player.isPlaying to player.currentPosition
+                }
+                if (playing) {
                     val fakeWave = FloatArray(64)
                     for (i in fakeWave.indices) {
                         // Generate a dynamic, aesthetic sine/perlin-like wave based on time and index
@@ -97,15 +107,15 @@ class AudioVisualizerManager @Inject constructor(
                         val value = 0.5f + 0.3f * kotlin.math.sin(phase.toDouble()).toFloat() + 0.1f * kotlin.math.cos(time * 0.01 + i * 0.5).toFloat()
                         fakeWave[i] = value.coerceIn(0f, 1f)
                     }
-                    
+
                     // Generate heartbeat pulse: (1.0f + 0.05f * sin(time)) scaled to 0..1 for UI
                     // Sine goes from -1 to 1.
                     val pulseSine = kotlin.math.sin(time * 0.004).toFloat()
                     val fakePulse = (pulseSine + 1f) / 2f * 0.8f // 0 to 0.8 range
-                    
+
                     _waveform.value = fakeWave
                     _beatPulse.value = fakePulse
-                } else if (!player.isPlaying) {
+                } else {
                     // Decay pulse smoothly when paused
                     _beatPulse.value = (_beatPulse.value * 0.8f).coerceAtLeast(0f)
                 }
@@ -116,10 +126,14 @@ class AudioVisualizerManager @Inject constructor(
 
     private fun initializeVisualizer() {
         if (visualizer != null) return
-        startFallbackLoop()
-        
+
         val sessionId = player.audioSessionId
-        if (sessionId == 0) return // Invalid session
+        if (sessionId == 0) {
+            // No audio session yet — fall back to the synthetic wave so the UI
+            // still pulses, and try Visualizer again when playback reports a session.
+            startFallbackLoop()
+            return
+        }
 
         try {
             visualizer = Visualizer(sessionId).apply {
@@ -137,9 +151,13 @@ class AudioVisualizerManager @Inject constructor(
                 }, Visualizer.getMaxCaptureRate() / 2, true, false)
                 enabled = true
             }
+            // Fallback loop stays alive but idles when real data is flowing — it
+            // takes over if the Visualizer starts reporting silence.
+            startFallbackLoop()
         } catch (e: Exception) {
             e.printStackTrace()
             isVisualizerGeneratingRealData = false
+            startFallbackLoop()
         }
     }
 
