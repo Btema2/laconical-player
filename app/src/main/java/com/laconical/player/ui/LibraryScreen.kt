@@ -218,10 +218,16 @@ fun LibraryScreen(
                         )
 
                         // ── Mini Player (artwork slot is transparent) ────────────
+                        // When the morph overlay isn't ready to render (ghosts still
+                        // measuring on first track), show the mini player's own art/controls
+                        // so there's no blank frame.
                         if (expandedFraction < 0.99f) {
+                            val overlayActive = currentTrack != null && sheetRootYPx >= 0f &&
+                                fullTitleTopPx >= 0f && fullArtistTopPx >= 0f &&
+                                fullPrevCenterYPx >= 0f && fullPlayCenterYPx >= 0f && fullNextCenterYPx >= 0f
                             MiniPlayer(
                                 viewModel = viewModel,
-                                hideArt = true,
+                                hideArt = overlayActive,
                                 modifier = Modifier
                                     .align(Alignment.TopCenter)
                                     .graphicsLayer { alpha = miniAlpha },
@@ -276,7 +282,7 @@ fun LibraryScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(bottom = peekHeight)
                             ) {
-                                items(tracks) { track ->
+                                items(tracks, key = { it.id }) { track ->
                                     val isActiveTrack = currentTrack?.id == track.id
                                     TrackListItem(
                                         track = track,
@@ -314,7 +320,17 @@ fun LibraryScreen(
         // ── Morph overlay + Queue Sheet ─────────────────────────────────────────
         // QueueMorphLayer reads queueAnimatable.value itself, scoping 60fps
         // recompositions to that small composable rather than all of LibraryScreen.
-        if (currentTrack != null && sheetRootYPx >= 0f) {
+        //
+        // Gate on every ghost position being measured. Before the overlay renders,
+        // the sheet-relative math and the -1f fallback math disagree — if we let
+        // the overlay animate with some positions still at -1f, the lerp visibly
+        // snaps to the measured value mid-drag. FullPlayer is always composed so
+        // its onGloballyPositioned callbacks fire within one frame of currentTrack
+        // being set.
+        val allGhostsReady = sheetRootYPx >= 0f &&
+            fullTitleTopPx >= 0f && fullArtistTopPx >= 0f &&
+            fullPrevCenterYPx >= 0f && fullPlayCenterYPx >= 0f && fullNextCenterYPx >= 0f
+        if (currentTrack != null && allGhostsReady) {
             QueueMorphLayer(
                 queueAnimatable = queueAnimatable,
                 viewModel = viewModel,
