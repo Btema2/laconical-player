@@ -127,9 +127,11 @@ fun LibraryScreen(
     val miniPlayerHeight = (75 + 12).dp
     val bottomInsets = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    // Sheet only needs to peek enough to show the mini player; nav bar lives outside the sheet.
-    val sheetPeekHeight = miniPlayerHeight + bottomInsets
-    val trackListBottomPadding = miniPlayerHeight + bottomNavHeight + bottomInsets
+    // Sheet peeks at mini player + nav bar height so the mini player sits above the fixed nav bar.
+    // The nav bar itself is rendered outside the sheet (so it doesn't move during drag), but the
+    // sheet still needs to reserve that space so the mini player clears the nav bar visually.
+    val sheetPeekHeight = miniPlayerHeight + bottomNavHeight + bottomInsets
+    val trackListBottomPadding = sheetPeekHeight
 
     // Hoisted so the root-level morph overlay can access them
     var containerHeightPx by remember { mutableFloatStateOf(0f) }
