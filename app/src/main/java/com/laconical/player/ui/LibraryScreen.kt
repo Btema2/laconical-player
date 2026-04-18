@@ -485,6 +485,76 @@ private fun QueueMorphLayer(
     val queueArtLeftDp = 20.dp
     val queueArtTopDp  = statusBarPadding + 20.dp
 
+    // ── Title morph overlay ────────────────────────────────────────────
+    // Rendered before art so the thumbnail draws on top during transition.
+    val miniTitleLeftDp = miniArtLeftDp + miniArtSizeDp + 12.dp
+    val miniTitleTopDp  = miniArtTopDp + 2.dp
+    val fullTitleLeftDp = 48.dp
+    // Full player Y positions: subtract sheetRootYPx to get sheet-relative coordinates.
+    // positionInRoot() moves as the sheet scrolls, but (absY - sheetRootY) is constant
+    // regardless of sheet position, giving a stable lerp target.
+    val fullTitleTopDp  = if (fullTitleTopPx >= 0f)
+        with(density) { (fullTitleTopPx - sheetRootYPx).toDp() }
+    else
+        fullArtTopDp + fullArtSizeDp + 30.dp
+
+    val queueTitleLeftDp = 88.dp
+    val queueTitleTopDp  = statusBarPadding + 26.dp
+
+    val playerTitleLeft = lerp(miniTitleLeftDp.value, fullTitleLeftDp.value, expandedFraction).dp
+    val playerTitleTop  = lerp(miniTitleTopDp.value,  fullTitleTopDp.value,  expandedFraction).dp
+    val finalTitleLeft  = lerp(playerTitleLeft.value, queueTitleLeftDp.value, queueProg).dp
+    val finalTitleTop   = lerp(playerTitleTop.value,  queueTitleTopDp.value,  queueProg).dp
+    val finalTitleSize  = lerp(lerp(15f, 20f, expandedFraction), 16f, queueProg).sp
+
+    val playerTitleMaxWidthDp = lerp(
+        (screenWidthDp - miniTitleLeftDp - 170.dp).value,
+        (screenWidthDp - fullTitleLeftDp - 86.dp).value,
+        expandedFraction
+    ).dp
+    val queueTitleMaxWidthDp  = screenWidthDp - 88.dp - 80.dp
+    val finalTitleMaxWidthDp  = lerp(playerTitleMaxWidthDp.value, queueTitleMaxWidthDp.value, queueProg).dp
+
+    Text(
+        text = currentTrack.title,
+        color = Color.White,
+        fontSize = finalTitleSize,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        modifier = Modifier
+            .offset(x = finalTitleLeft, y = finalTitleTop)
+            .widthIn(max = finalTitleMaxWidthDp)
+    )
+
+    // ── Artist morph overlay ───────────────────────────────────────────
+    val miniArtistLeftDp = miniArtLeftDp + miniArtSizeDp + 12.dp
+    val miniArtistTopDp  = miniArtTopDp + 20.dp
+    val fullArtistLeftDp = if (fullArtistLeftPx >= 0f) with(density) { fullArtistLeftPx.toDp() } else 48.dp
+    val fullArtistTopDp  = if (fullArtistTopPx >= 0f) with(density) { (fullArtistTopPx - sheetRootYPx).toDp() } else fullTitleTopDp + 20.dp
+    val queueArtistLeftDp = 88.dp
+    val queueArtistTopDp  = statusBarPadding + 46.dp
+
+    val playerArtistLeft = lerp(miniArtistLeftDp.value, fullArtistLeftDp.value, expandedFraction).dp
+    val playerArtistTop  = lerp(miniArtistTopDp.value,  fullArtistTopDp.value,  expandedFraction).dp
+    val finalArtistLeft  = lerp(playerArtistLeft.value, queueArtistLeftDp.value, queueProg).dp
+    val finalArtistTop   = lerp(playerArtistTop.value,  queueArtistTopDp.value,  queueProg).dp
+    val finalArtistSize  = lerp(lerp(13f, 14f, expandedFraction), 13f, queueProg).sp
+
+    Text(
+        text = currentTrack.artist,
+        color = Color(0xFFBBBBBB),
+        fontSize = finalArtistSize,
+        fontWeight = FontWeight.Medium,
+        maxLines = 1,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        modifier = Modifier
+            .offset(x = finalArtistLeft, y = finalArtistTop)
+            .widthIn(max = finalTitleMaxWidthDp)
+    )
+
+    // ── Album art morph overlay ────────────────────────────────────────
+    // Declared after title/artist so it draws on top of text during transition.
     val playerArtSize = lerp(miniArtSizeDp.value, fullArtSizeDp.value, expandedFraction).dp
     val playerArtLeft = lerp(miniArtLeftDp.value, fullArtLeftDp.value, expandedFraction).dp
     val playerArtTop  = lerp(miniArtTopDp.value,  fullArtTopDp.value,  expandedFraction).dp
@@ -553,73 +623,6 @@ private fun QueueMorphLayer(
             }
         )
     }
-
-    // ── Title morph overlay ────────────────────────────────────────────
-    val miniTitleLeftDp = miniArtLeftDp + miniArtSizeDp + 12.dp
-    val miniTitleTopDp  = miniArtTopDp + 2.dp
-    val fullTitleLeftDp = 48.dp
-    // Full player Y positions: subtract sheetRootYPx to get sheet-relative coordinates.
-    // positionInRoot() moves as the sheet scrolls, but (absY - sheetRootY) is constant
-    // regardless of sheet position, giving a stable lerp target.
-    val fullTitleTopDp  = if (fullTitleTopPx >= 0f)
-        with(density) { (fullTitleTopPx - sheetRootYPx).toDp() }
-    else
-        fullArtTopDp + fullArtSizeDp + 30.dp
-
-    val queueTitleLeftDp = 88.dp
-    val queueTitleTopDp  = statusBarPadding + 26.dp
-
-    val playerTitleLeft = lerp(miniTitleLeftDp.value, fullTitleLeftDp.value, expandedFraction).dp
-    val playerTitleTop  = lerp(miniTitleTopDp.value,  fullTitleTopDp.value,  expandedFraction).dp
-    val finalTitleLeft  = lerp(playerTitleLeft.value, queueTitleLeftDp.value, queueProg).dp
-    val finalTitleTop   = lerp(playerTitleTop.value,  queueTitleTopDp.value,  queueProg).dp
-    val finalTitleSize  = lerp(lerp(15f, 20f, expandedFraction), 16f, queueProg).sp
-
-    val playerTitleMaxWidthDp = lerp(
-        (screenWidthDp - miniTitleLeftDp - 170.dp).value,
-        (screenWidthDp - fullTitleLeftDp - 86.dp).value,
-        expandedFraction
-    ).dp
-    val queueTitleMaxWidthDp  = screenWidthDp - 88.dp - 80.dp
-    val finalTitleMaxWidthDp  = lerp(playerTitleMaxWidthDp.value, queueTitleMaxWidthDp.value, queueProg).dp
-
-    Text(
-        text = currentTrack.title,
-        color = Color.White,
-        fontSize = finalTitleSize,
-        fontWeight = FontWeight.Bold,
-        maxLines = 1,
-        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-        modifier = Modifier
-            .offset(x = finalTitleLeft, y = finalTitleTop)
-            .widthIn(max = finalTitleMaxWidthDp)
-    )
-
-    // ── Artist morph overlay ───────────────────────────────────────────
-    val miniArtistLeftDp = miniArtLeftDp + miniArtSizeDp + 12.dp
-    val miniArtistTopDp  = miniArtTopDp + 20.dp
-    val fullArtistLeftDp = if (fullArtistLeftPx >= 0f) with(density) { fullArtistLeftPx.toDp() } else 48.dp
-    val fullArtistTopDp  = if (fullArtistTopPx >= 0f) with(density) { (fullArtistTopPx - sheetRootYPx).toDp() } else fullTitleTopDp + 20.dp
-    val queueArtistLeftDp = 88.dp
-    val queueArtistTopDp  = statusBarPadding + 46.dp
-
-    val playerArtistLeft = lerp(miniArtistLeftDp.value, fullArtistLeftDp.value, expandedFraction).dp
-    val playerArtistTop  = lerp(miniArtistTopDp.value,  fullArtistTopDp.value,  expandedFraction).dp
-    val finalArtistLeft  = lerp(playerArtistLeft.value, queueArtistLeftDp.value, queueProg).dp
-    val finalArtistTop   = lerp(playerArtistTop.value,  queueArtistTopDp.value,  queueProg).dp
-    val finalArtistSize  = lerp(lerp(13f, 14f, expandedFraction), 13f, queueProg).sp
-
-    Text(
-        text = currentTrack.artist,
-        color = Color(0xFFBBBBBB),
-        fontSize = finalArtistSize,
-        fontWeight = FontWeight.Medium,
-        maxLines = 1,
-        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-        modifier = Modifier
-            .offset(x = finalArtistLeft, y = finalArtistTop)
-            .widthIn(max = finalTitleMaxWidthDp)
-    )
 
     // ── Morphing playback controls overlay ────────────────────────────
     val miniCtrlCenterYDp = miniSheetRootYDp + 37.5.dp
