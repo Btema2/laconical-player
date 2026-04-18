@@ -25,3 +25,6 @@ captures/
 
 # Logs
 *.log
+
+# Git worktrees
+.worktrees/

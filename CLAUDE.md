@@ -4,6 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Code quality:** Write modern, good quality code. Use context7 mcp for up-to-date documentation and leverage availbalse skills for better code quality.
 **Git:** After making and verifying changes, commit them to git repository on asociated branch.
+**Worktrees:** Use `.worktrees/` (project-local, hidden) for git worktree directories.
 
 ## Project Overview
 
