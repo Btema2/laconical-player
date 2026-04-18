@@ -9,11 +9,11 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface HistoryDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun recordPlay(history: PlayHistory)
 
     @Query("SELECT * FROM play_history ORDER BY playedAt DESC LIMIT :limit")
-    fun getRecentHistory(limit: Int = 50): Flow<List<PlayHistory>>
+    fun getRecentHistory(limit: Int): Flow<List<PlayHistory>>
 
     @Query("SELECT COUNT(*) FROM play_history WHERE trackId = :trackId")
     suspend fun getPlayCount(trackId: Long): Int
