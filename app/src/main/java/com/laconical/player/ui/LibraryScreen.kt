@@ -277,7 +277,6 @@ fun LibraryScreen(
                         ) {
                             composable(NavRoute.TRACKS) {
                                 val tracks by viewModel.tracks.collectAsState()
-                                LaunchedEffect(Unit) { viewModel.loadTracks() }
                                 val isPlaybackActive by viewModel.isPlaying.collectAsState()
 
                                 if (tracks.isEmpty()) {
@@ -340,7 +339,7 @@ fun LibraryScreen(
                 selectedRoute = navController.currentBackStackEntryAsState().value?.destination?.route ?: NavRoute.TRACKS,
                 onTabSelected = { route ->
                     navController.navigate(route) {
-                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                        popUpTo(NavRoute.TRACKS) { saveState = true }
                         launchSingleTop = true
                         restoreState = true
                     }
