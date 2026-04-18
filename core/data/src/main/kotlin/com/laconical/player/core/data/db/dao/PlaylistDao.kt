@@ -17,6 +17,9 @@ interface PlaylistDao {
     @Update
     suspend fun updatePlaylist(playlist: Playlist)
 
+    @Query("UPDATE playlists SET name = :newName WHERE id = :playlistId")
+    suspend fun renamePlaylist(playlistId: Long, newName: String)
+
     @Query("DELETE FROM playlists WHERE id = :playlistId")
     suspend fun deletePlaylist(playlistId: Long)
 
