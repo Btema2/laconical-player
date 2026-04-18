@@ -589,8 +589,9 @@ fun PlaybackControls(
 
 @Composable
 fun ParticleSystem(isPlaying: Boolean, color: Color) {
-    var time by remember { mutableLongStateOf(0L) }
-    var lastTime by remember { mutableLongStateOf(0L) }
+    var frameTime by remember { mutableLongStateOf(0L) }
+    var canvasWidth by remember { mutableFloatStateOf(0f) }
+    var canvasHeight by remember { mutableFloatStateOf(0f) }
 
     val energy by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0f,
@@ -598,22 +599,44 @@ fun ParticleSystem(isPlaying: Boolean, color: Color) {
         label = "ParticleEnergy"
     )
 
+    val particles = remember { List(25) { DriftParticle() } }
+
+    // All state mutation happens here, outside the draw phase. When playback is
+    // paused and all particles have died out, suspend on delay(100) instead of
+    // burning 60fps cycles — matters for battery when FullPlayer is composed
+    // but hidden (alpha=0) behind the mini player.
     LaunchedEffect(Unit) {
+        var lastNanos = 0L
         while (true) {
-            withFrameNanos { frameNanos ->
-                lastTime = time
-                time = frameNanos
+            if (energy < 0.005f && particles.all { it.life <= 0f }) {
+                delay(100)
+                lastNanos = 0L
+                continue
+            }
+            withFrameNanos { nanos -> frameTime = nanos }
+            val dt = if (lastNanos == 0L) 0.016f
+                     else ((frameTime - lastNanos) / 1_000_000_000f).coerceIn(0f, 0.05f)
+            lastNanos = frameTime
+
+            if (canvasWidth <= 0f || canvasHeight <= 0f) continue
+
+            particles.forEach { p ->
+                p.update(canvasWidth, canvasHeight, dt, energy)
             }
         }
     }
 
-    val particles = remember { List(25) { DriftParticle() } }
-
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val dt = if (lastTime == 0L) 0.016f else ((time - lastTime) / 1_000_000_000f).coerceIn(0f, 0.05f)
-
+    // Pure draw — reads particle state, no mutations.
+    Canvas(
+        modifier = Modifier
+            .fillMaxSize()
+            .onSizeChanged {
+                canvasWidth = it.width.toFloat()
+                canvasHeight = it.height.toFloat()
+            }
+    ) {
+        if (frameTime == 0L) return@Canvas
         particles.forEach { p ->
-            p.update(size.width, size.height, dt, energy)
             val computedAlpha = (p.life / p.maxLife.coerceAtLeast(0.1f)) * p.fadeAlpha
             if (computedAlpha > 0.01f) {
                 drawCircle(
@@ -649,7 +672,10 @@ private class DriftParticle {
         angle += (Random.nextFloat() - 0.5f) * 0.15f
         fadeAlpha = energy
         life -= dt * (0.15f + energy * 0.85f)
-        if (life <= 0f) spawn(width, height, false)
+        // Only respawn while playback has meaningful energy — prevents "TV snow"
+        // flicker on pause where new particles would briefly appear during the
+        // 1s energy tween-down before going dark.
+        if (life <= 0f && energy > 0.02f) spawn(width, height, false)
         if (x < -10f) x = width + 10f
         if (x > width + 10f) x = -10f
         if (y > height + 10f) y = -10f
