@@ -36,6 +36,8 @@ import androidx.compose.ui.util.lerp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import coil3.compose.SubcomposeAsyncImage
+import androidx.compose.material.icons.rounded.MusicNote
 import com.laconical.player.ui.components.FullPlayer
 import com.laconical.player.ui.components.LaconicalBottomNav
 import com.laconical.player.ui.components.LaconicalTopBar
@@ -522,7 +524,7 @@ private fun QueueMorphLayer(
                 }
             }
         }
-        AsyncImage(
+        SubcomposeAsyncImage(
             model = imageModel,
             contentDescription = null,
             modifier = Modifier
@@ -533,7 +535,22 @@ private fun QueueMorphLayer(
                     Color.White.copy(alpha = lerp(lerp(0.02f, 0.08f, expandedFraction), 0.06f, queueProg)),
                     RoundedCornerShape(finalArtCorner)
                 ),
-            contentScale = ContentScale.Crop
+            contentScale = ContentScale.Crop,
+            error = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF1E1E1E)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.MusicNote,
+                        contentDescription = null,
+                        tint = Color(0xFF555555),
+                        modifier = Modifier.fillMaxSize(0.45f)
+                    )
+                }
+            }
         )
     }
 

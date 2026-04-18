@@ -34,7 +34,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import coil3.compose.AsyncImage
+import coil3.compose.SubcomposeAsyncImage
+import androidx.compose.material.icons.rounded.MusicNote
 import com.laconical.player.core.model.Track
 import com.laconical.player.ui.AudioArtData
 import com.laconical.player.ui.MainViewModel
@@ -344,14 +345,27 @@ private fun QueueTrackRow(
                 .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AsyncImage(
-                model = remember(track.mediaUri) { AudioArtData(track.mediaUri) },
-                contentDescription = null,
+            Box(
                 modifier = Modifier
                     .size(44.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop
-            )
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF1E1E1E)),
+                contentAlignment = Alignment.Center
+            ) {
+                SubcomposeAsyncImage(
+                    model = remember(track.mediaUri) { AudioArtData(track.mediaUri) },
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    error = {
+                        Icon(
+                            imageVector = Icons.Rounded.MusicNote,
+                            contentDescription = null,
+                            tint = Color(0xFF555555)
+                        )
+                    }
+                )
+            }
 
             Spacer(modifier = Modifier.width(12.dp))
 
