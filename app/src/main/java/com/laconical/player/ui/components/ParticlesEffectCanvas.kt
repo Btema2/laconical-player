@@ -1,5 +1,8 @@
 package com.laconical.player.ui.components
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -7,6 +10,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -17,6 +21,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlin.random.Random
+import kotlinx.coroutines.delay
 
 data class Particle(
     var x: Float,
@@ -35,10 +40,30 @@ fun ParticlesEffectCanvas(
     isPlaybackActive: Boolean,
     modifier: Modifier = Modifier
 ) {
-    // Updated each frame inside LaunchedEffect to drive Canvas recomposition.
     var frameTime by remember { mutableLongStateOf(0L) }
-    // Set via onSizeChanged so LaunchedEffect knows the canvas bounds for mutation.
     var canvasHeight by remember { mutableFloatStateOf(0f) }
+
+    // Grace period: keep spawning for 500ms after isPlaybackActive goes false.
+    // Prevents ExoPlayer buffering/seeking state transitions from killing particles.
+    var debouncedActive by remember { mutableStateOf(isPlaybackActive) }
+    LaunchedEffect(isPlaybackActive) {
+        if (isPlaybackActive) {
+            debouncedActive = true
+        } else {
+            delay(500)
+            debouncedActive = false
+        }
+    }
+
+    // Smooth fade: fast in (350ms), slow out (900ms).
+    val canvasAlpha by animateFloatAsState(
+        targetValue = if (isPlaybackActive) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = if (isPlaybackActive) 350 else 900,
+            easing = FastOutSlowInEasing
+        ),
+        label = "particles_alpha"
+    )
 
     val density = LocalDensity.current.density
     val originX = with(LocalDensity.current) { 42.dp.toPx() }
@@ -69,7 +94,7 @@ fun ParticlesEffectCanvas(
             lastNanos = frameTime
 
             val originY = canvasHeight / 2f
-            if (originY <= 0f) continue // canvas not yet laid out
+            if (originY <= 0f) continue
 
             particles.forEach { p ->
                 if (p.y < 0f) p.y = originY
@@ -78,7 +103,7 @@ fun ParticlesEffectCanvas(
                 p.y += kotlin.math.sin(p.angle) * p.speed * dt
                 p.life -= dt * 0.8f
 
-                if (p.life <= 0f && isPlaybackActive) {
+                if (p.life <= 0f && debouncedActive) {
                     val wasWaiting = p.life < -0.05f
                     p.life = if (wasWaiting) Random.nextFloat() * p.maxLife else p.maxLife
                     p.angle = Random.nextFloat() * (2f * Math.PI.toFloat())
@@ -96,9 +121,9 @@ fun ParticlesEffectCanvas(
             .fillMaxSize()
             .onSizeChanged { canvasHeight = it.height.toFloat() }
     ) {
-        if (frameTime == 0L) return@Canvas // not yet started
+        if (frameTime == 0L) return@Canvas
         particles.forEach { p ->
-            val alpha = (p.baseAlpha * p.life).coerceIn(0f, 1f)
+            val alpha = (p.baseAlpha * p.life * canvasAlpha).coerceIn(0f, 1f)
             drawCircle(
                 color = color.copy(alpha = alpha),
                 radius = p.radius,
