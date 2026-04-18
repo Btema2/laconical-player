@@ -151,6 +151,10 @@ class MainViewModel @Inject constructor(
     private var waveformJob: Job? = null
     private var colorJob: Job? = null
 
+    init {
+        loadTracks()
+    }
+
     fun loadTracks() {
         viewModelScope.launch {
             _allTracks.value = repository.getTracks()

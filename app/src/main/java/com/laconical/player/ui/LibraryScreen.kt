@@ -54,6 +54,14 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import com.laconical.player.core.model.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.laconical.player.ui.navigation.NavRoute
+import com.laconical.player.ui.screens.AlbumsScreen
+import com.laconical.player.ui.screens.ArtistsScreen
+import com.laconical.player.ui.screens.PlaylistsScreen
 
 // Symmetric open/close duration for the queue morph (ms). Material standard easing
 // (FastOutSlowInEasing) is used in both directions so the motion feels the same in and out.
@@ -119,6 +127,7 @@ fun LibraryScreen(
     )
 
     val scope = rememberCoroutineScope()
+    val navController = rememberNavController()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val queueAnimatable = remember { Animatable(0f) }
 
@@ -261,31 +270,43 @@ fun LibraryScreen(
                         .padding(top = paddingValues.calculateTopPadding())
                 ) {
                     if (hasPermission) {
-                        val tracks by viewModel.tracks.collectAsState()
-                        LaunchedEffect(Unit) { viewModel.loadTracks() }
-                        val isPlaybackActive by viewModel.isPlaying.collectAsState()
+                        NavHost(
+                            navController = navController,
+                            startDestination = NavRoute.TRACKS,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            composable(NavRoute.TRACKS) {
+                                val tracks by viewModel.tracks.collectAsState()
+                                val isPlaybackActive by viewModel.isPlaying.collectAsState()
 
-                        if (tracks.isEmpty()) {
-                            Text(
-                                text = "No tracks found",
-                                color = Color.White,
-                                modifier = Modifier.align(Alignment.Center)
-                            )
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = trackListBottomPadding)
-                            ) {
-                                items(tracks, key = { it.id }) { track ->
-                                    val isActiveTrack = currentTrack?.id == track.id
-                                    TrackListItem(
-                                        track = track,
-                                        isActiveTrack = isActiveTrack,
-                                        isPlaybackActive = isPlaybackActive,
-                                        onClick = { viewModel.playTrack(track) }
-                                    )
+                                if (tracks.isEmpty()) {
+                                    Box(modifier = Modifier.fillMaxSize()) {
+                                        Text(
+                                            text = "No tracks found",
+                                            color = Color.White,
+                                            modifier = Modifier.align(Alignment.Center)
+                                        )
+                                    }
+                                } else {
+                                    LazyColumn(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = PaddingValues(bottom = trackListBottomPadding)
+                                    ) {
+                                        items(tracks, key = { it.id }) { track ->
+                                            val isActiveTrack = currentTrack?.id == track.id
+                                            TrackListItem(
+                                                track = track,
+                                                isActiveTrack = isActiveTrack,
+                                                isPlaybackActive = isPlaybackActive,
+                                                onClick = { viewModel.playTrack(track) }
+                                            )
+                                        }
+                                    }
                                 }
                             }
+                            composable(NavRoute.ALBUMS) { AlbumsScreen() }
+                            composable(NavRoute.ARTISTS) { ArtistsScreen() }
+                            composable(NavRoute.PLAYLISTS) { PlaylistsScreen() }
                         }
                     } else {
                         Column(
@@ -315,6 +336,14 @@ fun LibraryScreen(
         if (hasPermission && expandedFraction < 0.99f) {
             val navBarHeightPx = with(density) { (bottomNavHeight + bottomInsets).toPx() }
             LaconicalBottomNav(
+                selectedRoute = navController.currentBackStackEntryAsState().value?.destination?.route ?: NavRoute.TRACKS,
+                onTabSelected = { route ->
+                    navController.navigate(route) {
+                        popUpTo(NavRoute.TRACKS) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
                 dynamicColor = playingTrackDominantColor,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)

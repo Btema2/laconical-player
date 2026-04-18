@@ -27,24 +27,30 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.geometry.Offset
+import com.laconical.player.ui.navigation.NavRoute
+
+private data class NavItem(
+    val label: String,
+    val route: String,
+    val icon: ImageVector,
+)
 
 @Composable
 fun LaconicalBottomNav(
+    selectedRoute: String,
+    onTabSelected: (String) -> Unit,
     dynamicColor: Color? = null,
     modifier: Modifier = Modifier
 ) {
-    var selectedItem by remember { mutableIntStateOf(0) }
-
     // Much darker and more subtle dynamic color
     val navColor = if (dynamicColor != null) {
         val alpha = 0.35f // Slightly weaker (from 0.4f)
@@ -71,6 +77,13 @@ fun LaconicalBottomNav(
         Color.White
     }
 
+    val items = listOf(
+        NavItem("Tracks", NavRoute.TRACKS, Icons.Outlined.MusicNote),
+        NavItem("Albums", NavRoute.ALBUMS, Icons.Outlined.Album),
+        NavItem("Artists", NavRoute.ARTISTS, Icons.Outlined.Person),
+        NavItem("Playlists", NavRoute.PLAYLISTS, Icons.Outlined.QueueMusic),
+    )
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -82,7 +95,7 @@ fun LaconicalBottomNav(
                         Color.Black // Deep black edges
                     ),
                     center = Offset(40f, -50f), // Moved further left to match thumbnail better
-                    radius = 950f 
+                    radius = 950f
                 )
             )
     ) {
@@ -99,15 +112,8 @@ fun LaconicalBottomNav(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val items = listOf(
-                    Pair("Tracks", Icons.Outlined.MusicNote),
-                    Pair("Albums", Icons.Outlined.Album),
-                    Pair("Artists", Icons.Outlined.Person),
-                    Pair("Playlists", Icons.Outlined.QueueMusic)
-                )
-
-                items.forEachIndexed { index, pair ->
-                    val isSelected = selectedItem == index
+                items.forEach { item ->
+                    val isSelected = selectedRoute == item.route
                     val itemColor = if (isSelected) iconBaseColor else Color(0xFF666666) // Darker unselected icons
                     val itemFontWeight = FontWeight.Medium
 
@@ -123,19 +129,19 @@ fun LaconicalBottomNav(
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
-                                onClick = { selectedItem = index }
+                                onClick = { onTabSelected(item.route) }
                             ),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = pair.second,
-                            contentDescription = pair.first,
+                            imageVector = item.icon,
+                            contentDescription = item.label,
                             tint = itemColor,
                             modifier = Modifier.offset(y = yOffset)
                         )
                         Text(
-                            text = pair.first,
+                            text = item.label,
                             color = itemColor,
                             fontWeight = itemFontWeight,
                             fontSize = 11.sp

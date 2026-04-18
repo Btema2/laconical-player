@@ -10,7 +10,7 @@ amplituda = "2.3.1"
 coreKtx = "1.15.0"
 lifecycle = "2.8.7"
 activityCompose = "1.10.0"
-room = "2.6.1"
+room = "2.7.2"
 navigation = "2.8.5"
 media3 = "1.6.0"
 kotlinxCoroutines = "1.10.1"
@@ -69,6 +69,8 @@ androidx-media3-common = { group = "androidx.media3", name = "media3-common", ve
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
+androidx-test-core = { group = "androidx.test", name = "core-ktx", version = "1.6.1" }
 
 # Coil
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
