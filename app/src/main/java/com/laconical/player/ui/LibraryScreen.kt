@@ -311,11 +311,15 @@ fun LibraryScreen(
 
         // ── Bottom Navigation (fixed outside sheet so it doesn't ride up during drag) ──
         if (hasPermission && expandedFraction < 0.99f) {
+            val navBarHeightPx = with(density) { (bottomNavHeight + bottomInsets).toPx() }
             LaconicalBottomNav(
                 dynamicColor = playingTrackDominantColor,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .graphicsLayer { alpha = miniAlpha }
+                    .graphicsLayer {
+                        alpha = miniAlpha
+                        translationY = (1f - miniAlpha) * navBarHeightPx
+                    }
             )
         }
 
