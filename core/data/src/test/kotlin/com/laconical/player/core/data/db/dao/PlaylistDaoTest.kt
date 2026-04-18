@@ -28,7 +28,13 @@ class PlaylistDaoTest {
         db = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(),
             MusicDatabase::class.java
-        ).allowMainThreadQueries().build()
+        ).allowMainThreadQueries()
+            .addCallback(object : androidx.room.RoomDatabase.Callback() {
+                override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    db.execSQL("PRAGMA foreign_keys = ON")
+                }
+            })
+            .build()
         dao = db.playlistDao()
     }
 
