@@ -23,11 +23,14 @@ object DatabaseModule {
         Room.databaseBuilder(context, MusicDatabase::class.java, "music_database.db").build()
 
     @Provides
+    @Singleton
     fun provideFavoriteDao(db: MusicDatabase): FavoriteDao = db.favoriteDao()
 
     @Provides
+    @Singleton
     fun providePlaylistDao(db: MusicDatabase): PlaylistDao = db.playlistDao()
 
     @Provides
+    @Singleton
     fun provideHistoryDao(db: MusicDatabase): HistoryDao = db.historyDao()
 }

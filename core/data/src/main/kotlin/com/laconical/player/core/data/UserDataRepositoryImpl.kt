@@ -26,7 +26,7 @@ class UserDataRepositoryImpl @Inject constructor(
     override fun getAllPlaylists() = playlistDao.getAllPlaylists()
     override suspend fun createPlaylist(name: String) = playlistDao.createPlaylist(Playlist(name = name))
     override suspend fun renamePlaylist(playlistId: Long, newName: String) =
-        playlistDao.updatePlaylist(Playlist(id = playlistId, name = newName))
+        playlistDao.renamePlaylist(playlistId, newName)
     override suspend fun deletePlaylist(playlistId: Long) = playlistDao.deletePlaylist(playlistId)
     override fun getTrackIdsForPlaylist(playlistId: Long) = playlistDao.getTrackIdsForPlaylist(playlistId)
     override suspend fun addTrackToPlaylist(playlistId: Long, trackId: Long, position: Int) =
