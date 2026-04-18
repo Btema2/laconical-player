@@ -127,7 +127,9 @@ fun LibraryScreen(
     val miniPlayerHeight = (75 + 12).dp
     val bottomInsets = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val peekHeight = miniPlayerHeight + bottomNavHeight + bottomInsets
+    // Sheet only needs to peek enough to show the mini player; nav bar lives outside the sheet.
+    val sheetPeekHeight = miniPlayerHeight + bottomInsets
+    val trackListBottomPadding = miniPlayerHeight + bottomNavHeight + bottomInsets
 
     // Hoisted so the root-level morph overlay can access them
     var containerHeightPx by remember { mutableFloatStateOf(0f) }
@@ -146,7 +148,7 @@ fun LibraryScreen(
 
     // expandedFraction computed at this level so both sheetContent and outer Box can use it
     val maxOffset = if (containerHeightPx > 0f)
-        containerHeightPx - with(density) { peekHeight.toPx() }
+        containerHeightPx - with(density) { sheetPeekHeight.toPx() }
     else 1000f
 
     val currentOffset = try {
@@ -161,6 +163,7 @@ fun LibraryScreen(
 
     val isExpanded = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded ||
             scaffoldState.bottomSheetState.targetValue == SheetValue.Expanded
+    val miniAlpha = (1f - expandedFraction * 2f).coerceIn(0f, 1f)
 
     // Collapse queue automatically if player collapses while queue is open
     LaunchedEffect(expandedFraction) {
@@ -182,14 +185,11 @@ fun LibraryScreen(
             BottomSheetScaffold(
                 modifier = Modifier.onSizeChanged { containerHeightPx = it.height.toFloat() },
                 scaffoldState = scaffoldState,
-                sheetPeekHeight = peekHeight,
+                sheetPeekHeight = sheetPeekHeight,
                 sheetContainerColor = Color.Transparent,
                 sheetShadowElevation = 0.dp,
                 sheetDragHandle = null,
                 sheetContent = {
-                    // miniAlpha / fullControlAlpha for sheet elements (MiniPlayer, BottomNav fade)
-                    val miniAlpha = (1f - expandedFraction * 2f).coerceIn(0f, 1f)
-
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -239,16 +239,6 @@ fun LibraryScreen(
                             )
                         }
 
-                        // ── Bottom Navigation ────────────────────────────────────
-                        if (hasPermission && expandedFraction < 0.99f) {
-                            LaconicalBottomNav(
-                                dynamicColor = playingTrackDominantColor,
-                                modifier = Modifier
-                                    .align(Alignment.TopCenter)
-                                    .offset(y = miniPlayerHeight)
-                                    .graphicsLayer { alpha = miniAlpha }
-                            )
-                        }
                     }
                 },
                 containerColor = Color.Transparent,
@@ -280,7 +270,7 @@ fun LibraryScreen(
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = peekHeight)
+                                contentPadding = PaddingValues(bottom = trackListBottomPadding)
                             ) {
                                 items(tracks, key = { it.id }) { track ->
                                     val isActiveTrack = currentTrack?.id == track.id
@@ -315,6 +305,16 @@ fun LibraryScreen(
                     }
                 }
             }
+        }
+
+        // ── Bottom Navigation (fixed outside sheet so it doesn't ride up during drag) ──
+        if (hasPermission && expandedFraction < 0.99f) {
+            LaconicalBottomNav(
+                dynamicColor = playingTrackDominantColor,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .graphicsLayer { alpha = miniAlpha }
+            )
         }
 
         // ── Morph overlay + Queue Sheet ─────────────────────────────────────────
