@@ -40,6 +40,8 @@ class UserDataRepositoryImpl @Inject constructor(
     override suspend fun clearHistory() = historyDao.clearHistory()
 
     override suspend fun purgeStaleTrackIds(liveTrackIds: Set<Long>) {
+        // Guard: Room's NOT IN() with an empty collection produces undefined SQL behavior.
+        // An empty live set means tracks haven't loaded yet — skip purge entirely.
         if (liveTrackIds.isEmpty()) return
         favoriteDao.deleteStaleTrackIds(liveTrackIds)
         playlistDao.deleteStaleTrackIds(liveTrackIds)
