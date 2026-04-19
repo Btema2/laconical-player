@@ -64,6 +64,7 @@ import androidx.navigation.navArgument
 import com.laconical.player.ui.navigation.NavRoute
 import com.laconical.player.ui.screens.AlbumDetailScreen
 import com.laconical.player.ui.screens.AlbumsScreen
+import com.laconical.player.ui.screens.ArtistDetailScreen
 import com.laconical.player.ui.screens.ArtistsScreen
 import com.laconical.player.ui.screens.PlaylistsScreen
 
@@ -367,7 +368,33 @@ fun LibraryScreen(
                                     bottomPadding = trackListBottomPadding
                                 )
                             }
-                            composable(NavRoute.ARTISTS) { ArtistsScreen() }
+                            composable(NavRoute.ARTISTS) {
+                                ArtistsScreen(
+                                    onArtistClick = { artistName ->
+                                        navController.navigate(NavRoute.artistDetailRoute(artistName))
+                                    }
+                                )
+                            }
+                            composable(
+                                route = NavRoute.ARTIST_DETAIL,
+                                arguments = listOf(
+                                    navArgument("artistName") { type = NavType.StringType }
+                                )
+                            ) { backStackEntry ->
+                                val artistName = backStackEntry.arguments?.getString("artistName") ?: ""
+                                val isPlaybackActive by viewModel.isPlaying.collectAsState()
+                                val favoriteIds by viewModel.favoriteIds.collectAsState()
+                                ArtistDetailScreen(
+                                    artistName = artistName,
+                                    onBack = { navController.popBackStack() },
+                                    currentTrack = currentTrack,
+                                    isPlaying = isPlaybackActive,
+                                    favoriteIds = favoriteIds,
+                                    onFavoriteToggle = { viewModel.toggleFavorite(it) },
+                                    onTrackClick = { viewModel.playTrack(it) },
+                                    bottomPadding = trackListBottomPadding
+                                )
+                            }
                             composable(NavRoute.PLAYLISTS) { PlaylistsScreen() }
                         }
                     } else {
