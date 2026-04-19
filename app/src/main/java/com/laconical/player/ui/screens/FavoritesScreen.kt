@@ -18,6 +18,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,7 +41,7 @@ fun FavoritesScreen(
     bottomPadding: Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
-    val favoriteTracks = allTracks.filter { favoriteIds.contains(it.id) }
+    val favoriteTracks = remember(allTracks, favoriteIds) { allTracks.filter { favoriteIds.contains(it.id) } }
 
     Column(modifier = modifier.fillMaxSize()) {
         Row(
@@ -67,7 +68,7 @@ fun FavoritesScreen(
         if (favoriteTracks.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    "No favorites yet. Tap ♡ on any track.",
+                    "No favorites yet. Tap the heart icon on any track.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color(0xFF888888)
                 )
