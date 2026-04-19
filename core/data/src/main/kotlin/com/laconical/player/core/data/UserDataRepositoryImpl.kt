@@ -8,6 +8,7 @@ import com.laconical.player.core.data.db.entity.PlayHistory
 import com.laconical.player.core.data.db.entity.Playlist
 import com.laconical.player.core.data.db.entity.PlaylistTrack
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -31,6 +32,10 @@ class UserDataRepositoryImpl @Inject constructor(
     override fun getTrackIdsForPlaylist(playlistId: Long) = playlistDao.getTrackIdsForPlaylist(playlistId)
     override suspend fun addTrackToPlaylist(playlistId: Long, trackId: Long, position: Int) =
         playlistDao.addTrackToPlaylist(PlaylistTrack(playlistId, trackId, position))
+    override suspend fun appendTrackToPlaylist(playlistId: Long, trackId: Long) {
+        val position = playlistDao.getTrackIdsForPlaylist(playlistId).first().size
+        playlistDao.addTrackToPlaylist(PlaylistTrack(playlistId, trackId, position))
+    }
     override suspend fun removeTrackFromPlaylist(playlistId: Long, trackId: Long) =
         playlistDao.removeTrackFromPlaylist(playlistId, trackId)
 

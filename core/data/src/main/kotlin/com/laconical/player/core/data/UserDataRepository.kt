@@ -18,6 +18,7 @@ interface UserDataRepository {
     suspend fun deletePlaylist(playlistId: Long)
     fun getTrackIdsForPlaylist(playlistId: Long): Flow<List<Long>>
     suspend fun addTrackToPlaylist(playlistId: Long, trackId: Long, position: Int)
+    suspend fun appendTrackToPlaylist(playlistId: Long, trackId: Long)
     suspend fun removeTrackFromPlaylist(playlistId: Long, trackId: Long)
 
     // History
