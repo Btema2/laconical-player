@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
@@ -58,9 +60,15 @@ fun TrackListItem(
     isActiveTrack: Boolean,
     isPlaybackActive: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isFavorite: Boolean = false,
+    onFavoriteToggle: (() -> Unit)? = null,
+    onViewAlbum: (() -> Unit)? = null,
+    onViewArtist: (() -> Unit)? = null,
+    onAddToPlaylist: (() -> Unit)? = null,
 ) {
     var vibeColor by remember { mutableStateOf(Color(0xFF888888)) }
+    var menuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     LaunchedEffect(track.mediaUri, isActiveTrack) {
@@ -211,12 +219,23 @@ fun TrackListItem(
                 )
             }
 
-            IconButton(onClick = { /* TODO: Track menu */ }) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "More",
-                    tint = Color(0xFF777777)
-                )
+            if (onFavoriteToggle != null) {
+                IconButton(onClick = onFavoriteToggle) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                        tint = if (isFavorite) Color(0xFFE84B7A) else Color(0xFF777777)
+                    )
+                }
+            }
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "More",
+                        tint = Color(0xFF777777)
+                    )
+                }
             }
         }
     }

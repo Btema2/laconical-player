@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -278,28 +279,60 @@ fun LibraryScreen(
                             composable(NavRoute.TRACKS) {
                                 val tracks by viewModel.tracks.collectAsState()
                                 val isPlaybackActive by viewModel.isPlaying.collectAsState()
+                                val sortOrder by viewModel.sortOrder.collectAsState()
+                                val favoriteIds by viewModel.favoriteIds.collectAsState()
 
-                                if (tracks.isEmpty()) {
-                                    Box(modifier = Modifier.fillMaxSize()) {
-                                        Text(
-                                            text = "No tracks found",
-                                            color = Color.White,
-                                            modifier = Modifier.align(Alignment.Center)
-                                        )
-                                    }
-                                } else {
-                                    LazyColumn(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(bottom = trackListBottomPadding)
+                                Column(modifier = Modifier.fillMaxSize()) {
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        modifier = Modifier.padding(vertical = 4.dp)
                                     ) {
-                                        items(tracks, key = { it.id }) { track ->
-                                            val isActiveTrack = currentTrack?.id == track.id
-                                            TrackListItem(
-                                                track = track,
-                                                isActiveTrack = isActiveTrack,
-                                                isPlaybackActive = isPlaybackActive,
-                                                onClick = { viewModel.playTrack(track) }
+                                        items(SortOrder.entries.toTypedArray()) { order ->
+                                            FilterChip(
+                                                selected = sortOrder == order,
+                                                onClick = { viewModel.setSortOrder(order) },
+                                                label = { Text(order.label, style = MaterialTheme.typography.labelSmall) },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = (playingTrackDominantColor ?: Color(0xFF404040)).copy(alpha = 0.35f),
+                                                    selectedLabelColor = Color.White,
+                                                    containerColor = Color.Transparent,
+                                                    labelColor = Color(0xFF888888)
+                                                ),
+                                                border = FilterChipDefaults.filterChipBorder(
+                                                    enabled = true,
+                                                    selected = sortOrder == order,
+                                                    borderColor = Color(0xFF444444),
+                                                    selectedBorderColor = Color.Transparent
+                                                )
                                             )
+                                        }
+                                    }
+
+                                    if (tracks.isEmpty()) {
+                                        Box(modifier = Modifier.fillMaxSize()) {
+                                            Text(
+                                                text = "No tracks found",
+                                                color = Color.White,
+                                                modifier = Modifier.align(Alignment.Center)
+                                            )
+                                        }
+                                    } else {
+                                        LazyColumn(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentPadding = PaddingValues(bottom = trackListBottomPadding)
+                                        ) {
+                                            items(tracks, key = { it.id }) { track ->
+                                                val isActiveTrack = currentTrack?.id == track.id
+                                                TrackListItem(
+                                                    track = track,
+                                                    isActiveTrack = isActiveTrack,
+                                                    isPlaybackActive = isPlaybackActive,
+                                                    isFavorite = favoriteIds.contains(track.id),
+                                                    onFavoriteToggle = { viewModel.toggleFavorite(track.id) },
+                                                    onClick = { viewModel.playTrack(track) }
+                                                )
+                                            }
                                         }
                                     }
                                 }
