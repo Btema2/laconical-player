@@ -38,4 +38,11 @@ class UserDataRepositoryImpl @Inject constructor(
     override suspend fun recordPlay(trackId: Long) = historyDao.recordPlay(PlayHistory(trackId = trackId))
     override suspend fun getPlayCount(trackId: Long) = historyDao.getPlayCount(trackId)
     override suspend fun clearHistory() = historyDao.clearHistory()
+
+    override suspend fun purgeStaleTrackIds(liveTrackIds: Set<Long>) {
+        if (liveTrackIds.isEmpty()) return
+        favoriteDao.deleteStaleTrackIds(liveTrackIds)
+        playlistDao.deleteStaleTrackIds(liveTrackIds)
+        historyDao.deleteStaleTrackIds(liveTrackIds)
+    }
 }

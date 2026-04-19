@@ -7,6 +7,7 @@ import com.laconical.player.core.data.db.entity.FavoriteTrack
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -62,5 +63,22 @@ class FavoriteDaoTest {
         dao.addFavorite(FavoriteTrack(99L))
         val ids = dao.getAllFavoriteIds().first()
         assertTrue(ids.count { it == 99L } == 1)
+    }
+
+    @Test
+    fun `deleteStaleTrackIds removes favorites not in live set`() = runTest {
+        dao.addFavorite(FavoriteTrack(1L))
+        dao.addFavorite(FavoriteTrack(2L))
+        dao.addFavorite(FavoriteTrack(3L))
+        dao.deleteStaleTrackIds(setOf(1L, 3L))  // 2L is stale
+        val ids = dao.getAllFavoriteIds().first()
+        assertEquals(listOf(1L, 3L).sorted(), ids.sorted())
+    }
+
+    @Test
+    fun `deleteStaleTrackIds with all live tracks keeps everything`() = runTest {
+        dao.addFavorite(FavoriteTrack(10L))
+        dao.deleteStaleTrackIds(setOf(10L, 99L))
+        assertTrue(dao.isFavorite(10L).first())
     }
 }
