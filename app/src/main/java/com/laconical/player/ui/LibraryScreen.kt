@@ -288,7 +288,7 @@ fun LibraryScreen(
                                         contentPadding = PaddingValues(horizontal = 16.dp),
                                         modifier = Modifier.padding(vertical = 4.dp)
                                     ) {
-                                        items(SortOrder.entries.toTypedArray()) { order ->
+                                        items(SortOrder.entries.toTypedArray(), key = { it.name }) { order ->
                                             FilterChip(
                                                 selected = sortOrder == order,
                                                 onClick = { viewModel.setSortOrder(order) },

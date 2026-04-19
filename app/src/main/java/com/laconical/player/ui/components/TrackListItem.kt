@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
@@ -78,7 +78,7 @@ fun TrackListItem(
                 // Reuse the app-wide singleton — shares cache with the full player
                 val imageLoader = SingletonImageLoader.get(context)
                 val request = ImageRequest.Builder(context)
-                    .data(AudioArtData(loadTarget!!))
+                    .data(AudioArtData(loadTarget))
                     .size(100)
                     .build()
 
@@ -222,7 +222,7 @@ fun TrackListItem(
             if (onFavoriteToggle != null) {
                 IconButton(onClick = onFavoriteToggle) {
                     Icon(
-                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
                         contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                         tint = if (isFavorite) Color(0xFFE84B7A) else Color(0xFF777777)
                     )
