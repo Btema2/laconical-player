@@ -44,6 +44,7 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Wrapper type so Coil dispatches to OUR fetcher, not its built-in ContentUriFetcher. */
@@ -158,10 +159,12 @@ class MainViewModel @Inject constructor(
 
     fun toggleFavorite(trackId: Long) {
         viewModelScope.launch {
-            if (favoriteIds.value.contains(trackId)) {
-                userDataRepository.removeFavorite(trackId)
-            } else {
-                userDataRepository.addFavorite(trackId)
+            favoriteMutex.withLock {
+                if (favoriteIds.value.contains(trackId)) {
+                    userDataRepository.removeFavorite(trackId)
+                } else {
+                    userDataRepository.addFavorite(trackId)
+                }
             }
         }
     }
@@ -171,8 +174,7 @@ class MainViewModel @Inject constructor(
 
     fun addTrackToPlaylist(trackId: Long, playlistId: Long) {
         viewModelScope.launch {
-            val currentCount = userDataRepository.getTrackIdsForPlaylist(playlistId).first().size
-            userDataRepository.addTrackToPlaylist(playlistId, trackId, currentCount)
+            userDataRepository.appendTrackToPlaylist(playlistId, trackId)
         }
     }
 
@@ -189,6 +191,7 @@ class MainViewModel @Inject constructor(
     // Tracked so playTrack() can cancel them when the user switches tracks rapidly.
     private var waveformJob: Job? = null
     private var colorJob: Job? = null
+    private val favoriteMutex = kotlinx.coroutines.sync.Mutex()
 
     init {
         loadTracks()
