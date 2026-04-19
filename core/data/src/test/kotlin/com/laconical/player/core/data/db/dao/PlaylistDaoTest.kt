@@ -91,4 +91,23 @@ class PlaylistDaoTest {
         val tracks = dao.getTrackIdsForPlaylist(playlistId).first()
         assertEquals(listOf(10L, 20L, 30L), tracks)
     }
+
+    @Test
+    fun `deleteStaleTrackIds removes orphan playlist tracks`() = runTest {
+        val playlistId = dao.createPlaylist(Playlist(name = "Test"))
+        dao.addTrackToPlaylist(PlaylistTrack(playlistId, trackId = 1L, position = 0))
+        dao.addTrackToPlaylist(PlaylistTrack(playlistId, trackId = 2L, position = 1))
+        dao.deleteStaleTrackIds(setOf(1L))  // 2L is stale
+        val trackIds = dao.getTrackIdsForPlaylist(playlistId).first()
+        assertEquals(listOf(1L), trackIds)
+    }
+
+    @Test
+    fun `deleteStaleTrackIds with all live tracks keeps everything`() = runTest {
+        val playlistId = dao.createPlaylist(Playlist(name = "Test"))
+        dao.addTrackToPlaylist(PlaylistTrack(playlistId, trackId = 5L, position = 0))
+        dao.deleteStaleTrackIds(setOf(5L, 99L))
+        val trackIds = dao.getTrackIdsForPlaylist(playlistId).first()
+        assertEquals(listOf(5L), trackIds)
+    }
 }
