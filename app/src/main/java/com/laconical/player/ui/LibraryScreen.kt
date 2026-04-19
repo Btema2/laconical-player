@@ -55,11 +55,14 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import com.laconical.player.core.model.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.laconical.player.ui.navigation.NavRoute
+import com.laconical.player.ui.screens.AlbumDetailScreen
 import com.laconical.player.ui.screens.AlbumsScreen
 import com.laconical.player.ui.screens.ArtistsScreen
 import com.laconical.player.ui.screens.PlaylistsScreen
@@ -337,7 +340,33 @@ fun LibraryScreen(
                                     }
                                 }
                             }
-                            composable(NavRoute.ALBUMS) { AlbumsScreen() }
+                            composable(NavRoute.ALBUMS) {
+                                AlbumsScreen(
+                                    onAlbumClick = { albumName ->
+                                        navController.navigate(NavRoute.albumDetailRoute(albumName))
+                                    }
+                                )
+                            }
+                            composable(
+                                route = NavRoute.ALBUM_DETAIL,
+                                arguments = listOf(
+                                    navArgument("albumName") { type = NavType.StringType }
+                                )
+                            ) { backStackEntry ->
+                                val albumName = backStackEntry.arguments?.getString("albumName") ?: ""
+                                val isPlaybackActive by viewModel.isPlaying.collectAsState()
+                                val favoriteIds by viewModel.favoriteIds.collectAsState()
+                                AlbumDetailScreen(
+                                    albumName = albumName,
+                                    onBack = { navController.popBackStack() },
+                                    currentTrack = currentTrack,
+                                    isPlaying = isPlaybackActive,
+                                    favoriteIds = favoriteIds,
+                                    onFavoriteToggle = { viewModel.toggleFavorite(it) },
+                                    onTrackClick = { viewModel.playTrack(it) },
+                                    bottomPadding = trackListBottomPadding
+                                )
+                            }
                             composable(NavRoute.ARTISTS) { ArtistsScreen() }
                             composable(NavRoute.PLAYLISTS) { PlaylistsScreen() }
                         }
@@ -369,7 +398,15 @@ fun LibraryScreen(
         if (hasPermission && expandedFraction < 0.99f) {
             val navBarHeightPx = with(density) { (bottomNavHeight + bottomInsets).toPx() }
             LaconicalBottomNav(
-                selectedRoute = navController.currentBackStackEntryAsState().value?.destination?.route ?: NavRoute.TRACKS,
+                selectedRoute = run {
+                    val raw = navController.currentBackStackEntryAsState().value?.destination?.route
+                        ?: NavRoute.TRACKS
+                    when {
+                        raw.startsWith("album_detail") -> NavRoute.ALBUMS
+                        raw.startsWith("artist_detail") -> NavRoute.ARTISTS
+                        else -> raw
+                    }
+                },
                 onTabSelected = { route ->
                     navController.navigate(route) {
                         popUpTo(NavRoute.TRACKS) { saveState = true }
