@@ -66,6 +66,7 @@ import com.laconical.player.ui.screens.AlbumDetailScreen
 import com.laconical.player.ui.screens.AlbumsScreen
 import com.laconical.player.ui.screens.ArtistDetailScreen
 import com.laconical.player.ui.screens.ArtistsScreen
+import com.laconical.player.ui.screens.FavoritesScreen
 import com.laconical.player.ui.screens.PlaylistsScreen
 import com.laconical.player.core.data.db.entity.Playlist
 
@@ -407,7 +408,28 @@ fun LibraryScreen(
                                     bottomPadding = trackListBottomPadding
                                 )
                             }
-                            composable(NavRoute.PLAYLISTS) { PlaylistsScreen() }
+                            composable(NavRoute.PLAYLISTS) {
+                                PlaylistsScreen(
+                                    onFavoritesClick = {
+                                        navController.navigate(NavRoute.FAVORITES)
+                                    }
+                                )
+                            }
+                            composable(NavRoute.FAVORITES) {
+                                val allTracks by viewModel.tracks.collectAsState()
+                                val favoriteIds by viewModel.favoriteIds.collectAsState()
+                                val isPlaybackActive by viewModel.isPlaying.collectAsState()
+                                FavoritesScreen(
+                                    allTracks = allTracks,
+                                    favoriteIds = favoriteIds,
+                                    currentTrack = currentTrack,
+                                    isPlaying = isPlaybackActive,
+                                    onFavoriteToggle = { viewModel.toggleFavorite(it) },
+                                    onTrackClick = { viewModel.playTrack(it) },
+                                    onBack = { navController.popBackStack() },
+                                    bottomPadding = trackListBottomPadding
+                                )
+                            }
                         }
                     } else {
                         Column(
