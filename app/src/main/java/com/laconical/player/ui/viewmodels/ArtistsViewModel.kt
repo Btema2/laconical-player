@@ -40,7 +40,7 @@ class ArtistsViewModel @Inject constructor(
                     Artist(
                         name = name,
                         trackCount = artistTracks.size,
-                        albumCount = artistTracks.map { it.album }.distinct().size,
+                        albumCount = artistTracks.distinctBy { it.album }.size,
                         representativeTrackUri = artistTracks.first().mediaUri
                     )
                 }
