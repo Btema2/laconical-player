@@ -25,4 +25,7 @@ interface UserDataRepository {
     suspend fun recordPlay(trackId: Long)
     suspend fun getPlayCount(trackId: Long): Int
     suspend fun clearHistory()
+
+    // Maintenance
+    suspend fun purgeStaleTrackIds(liveTrackIds: Set<Long>)
 }
