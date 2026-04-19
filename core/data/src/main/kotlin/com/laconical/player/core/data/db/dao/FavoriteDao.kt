@@ -20,4 +20,7 @@ interface FavoriteDao {
 
     @Query("SELECT COUNT(*) > 0 FROM favorite_tracks WHERE trackId = :trackId")
     fun isFavorite(trackId: Long): Flow<Boolean>
+
+    @Query("DELETE FROM favorite_tracks WHERE trackId NOT IN (:liveIds)")
+    suspend fun deleteStaleTrackIds(liveIds: Set<Long>)
 }

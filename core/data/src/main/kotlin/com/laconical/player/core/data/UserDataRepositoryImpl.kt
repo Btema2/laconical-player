@@ -8,6 +8,7 @@ import com.laconical.player.core.data.db.entity.PlayHistory
 import com.laconical.player.core.data.db.entity.Playlist
 import com.laconical.player.core.data.db.entity.PlaylistTrack
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -31,6 +32,10 @@ class UserDataRepositoryImpl @Inject constructor(
     override fun getTrackIdsForPlaylist(playlistId: Long) = playlistDao.getTrackIdsForPlaylist(playlistId)
     override suspend fun addTrackToPlaylist(playlistId: Long, trackId: Long, position: Int) =
         playlistDao.addTrackToPlaylist(PlaylistTrack(playlistId, trackId, position))
+    override suspend fun appendTrackToPlaylist(playlistId: Long, trackId: Long) {
+        val position = playlistDao.getTrackIdsForPlaylist(playlistId).first().size
+        playlistDao.addTrackToPlaylist(PlaylistTrack(playlistId, trackId, position))
+    }
     override suspend fun removeTrackFromPlaylist(playlistId: Long, trackId: Long) =
         playlistDao.removeTrackFromPlaylist(playlistId, trackId)
 
@@ -38,4 +43,13 @@ class UserDataRepositoryImpl @Inject constructor(
     override suspend fun recordPlay(trackId: Long) = historyDao.recordPlay(PlayHistory(trackId = trackId))
     override suspend fun getPlayCount(trackId: Long) = historyDao.getPlayCount(trackId)
     override suspend fun clearHistory() = historyDao.clearHistory()
+
+    override suspend fun purgeStaleTrackIds(liveTrackIds: Set<Long>) {
+        // Guard: Room's NOT IN() with an empty collection produces undefined SQL behavior.
+        // An empty live set means tracks haven't loaded yet — skip purge entirely.
+        if (liveTrackIds.isEmpty()) return
+        favoriteDao.deleteStaleTrackIds(liveTrackIds)
+        playlistDao.deleteStaleTrackIds(liveTrackIds)
+        historyDao.deleteStaleTrackIds(liveTrackIds)
+    }
 }

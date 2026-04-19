@@ -64,4 +64,14 @@ class HistoryDaoTest {
         dao.clearHistory()
         assertEquals(0, dao.getRecentHistory(50).first().size)
     }
+
+    @Test
+    fun `deleteStaleTrackIds removes history for non-existent tracks`() = runTest {
+        dao.recordPlay(PlayHistory(trackId = 1L, playedAt = 1000L))
+        dao.recordPlay(PlayHistory(trackId = 2L, playedAt = 2000L))
+        dao.deleteStaleTrackIds(setOf(1L))  // 2L is stale
+        val history = dao.getRecentHistory(50).first()
+        assertEquals(1, history.size)
+        assertEquals(1L, history[0].trackId)
+    }
 }
