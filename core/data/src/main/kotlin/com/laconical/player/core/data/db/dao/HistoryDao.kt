@@ -20,4 +20,7 @@ interface HistoryDao {
 
     @Query("DELETE FROM play_history")
     suspend fun clearHistory()
+
+    @Query("DELETE FROM play_history WHERE trackId NOT IN (:liveIds)")
+    suspend fun deleteStaleTrackIds(liveIds: Set<Long>)
 }

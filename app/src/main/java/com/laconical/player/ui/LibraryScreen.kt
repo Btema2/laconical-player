@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -54,14 +55,20 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import com.laconical.player.core.model.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.laconical.player.ui.navigation.NavRoute
+import com.laconical.player.ui.screens.AlbumDetailScreen
 import com.laconical.player.ui.screens.AlbumsScreen
+import com.laconical.player.ui.screens.ArtistDetailScreen
 import com.laconical.player.ui.screens.ArtistsScreen
+import com.laconical.player.ui.screens.FavoritesScreen
 import com.laconical.player.ui.screens.PlaylistsScreen
+import com.laconical.player.core.data.db.entity.Playlist
 
 // Symmetric open/close duration for the queue morph (ms). Material standard easing
 // (FastOutSlowInEasing) is used in both directions so the motion feels the same in and out.
@@ -127,6 +134,8 @@ fun LibraryScreen(
     )
 
     val scope = rememberCoroutineScope()
+    var playlistPickerTrack by remember { mutableStateOf<Track?>(null) }
+    val playlists by viewModel.playlists.collectAsState()
     val navController = rememberNavController()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val queueAnimatable = remember { Animatable(0f) }
@@ -278,35 +287,149 @@ fun LibraryScreen(
                             composable(NavRoute.TRACKS) {
                                 val tracks by viewModel.tracks.collectAsState()
                                 val isPlaybackActive by viewModel.isPlaying.collectAsState()
+                                val sortOrder by viewModel.sortOrder.collectAsState()
+                                val favoriteIds by viewModel.favoriteIds.collectAsState()
 
-                                if (tracks.isEmpty()) {
-                                    Box(modifier = Modifier.fillMaxSize()) {
-                                        Text(
-                                            text = "No tracks found",
-                                            color = Color.White,
-                                            modifier = Modifier.align(Alignment.Center)
-                                        )
-                                    }
-                                } else {
-                                    LazyColumn(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(bottom = trackListBottomPadding)
+                                Column(modifier = Modifier.fillMaxSize()) {
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        modifier = Modifier.padding(vertical = 4.dp)
                                     ) {
-                                        items(tracks, key = { it.id }) { track ->
-                                            val isActiveTrack = currentTrack?.id == track.id
-                                            TrackListItem(
-                                                track = track,
-                                                isActiveTrack = isActiveTrack,
-                                                isPlaybackActive = isPlaybackActive,
-                                                onClick = { viewModel.playTrack(track) }
+                                        items(SortOrder.entries.toTypedArray(), key = { it.name }) { order ->
+                                            FilterChip(
+                                                selected = sortOrder == order,
+                                                onClick = { viewModel.setSortOrder(order) },
+                                                label = { Text(order.label, style = MaterialTheme.typography.labelSmall) },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = (playingTrackDominantColor ?: Color(0xFF404040)).copy(alpha = 0.35f),
+                                                    selectedLabelColor = Color.White,
+                                                    containerColor = Color.Transparent,
+                                                    labelColor = Color(0xFF888888)
+                                                ),
+                                                border = FilterChipDefaults.filterChipBorder(
+                                                    enabled = true,
+                                                    selected = sortOrder == order,
+                                                    borderColor = Color(0xFF444444),
+                                                    selectedBorderColor = Color.Transparent
+                                                )
                                             )
+                                        }
+                                    }
+
+                                    if (tracks.isEmpty()) {
+                                        Box(modifier = Modifier.fillMaxSize()) {
+                                            Text(
+                                                text = "No tracks found",
+                                                color = Color.White,
+                                                modifier = Modifier.align(Alignment.Center)
+                                            )
+                                        }
+                                    } else {
+                                        LazyColumn(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentPadding = PaddingValues(bottom = trackListBottomPadding)
+                                        ) {
+                                            items(tracks, key = { it.id }) { track ->
+                                                val isActiveTrack = currentTrack?.id == track.id
+                                                TrackListItem(
+                                                    track = track,
+                                                    isActiveTrack = isActiveTrack,
+                                                    isPlaybackActive = isPlaybackActive,
+                                                    isFavorite = favoriteIds.contains(track.id),
+                                                    onFavoriteToggle = { viewModel.toggleFavorite(track.id) },
+                                                    onClick = { viewModel.playTrack(track) },
+                                                    onViewAlbum = {
+                                                        navController.navigate(NavRoute.albumDetailRoute(track.album))
+                                                    },
+                                                    onViewArtist = {
+                                                        navController.navigate(NavRoute.artistDetailRoute(track.artist))
+                                                    },
+                                                    onAddToPlaylist = {
+                                                        playlistPickerTrack = track
+                                                    }
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
-                            composable(NavRoute.ALBUMS) { AlbumsScreen() }
-                            composable(NavRoute.ARTISTS) { ArtistsScreen() }
-                            composable(NavRoute.PLAYLISTS) { PlaylistsScreen() }
+                            composable(NavRoute.ALBUMS) {
+                                AlbumsScreen(
+                                    onAlbumClick = { albumName ->
+                                        navController.navigate(NavRoute.albumDetailRoute(albumName))
+                                    }
+                                )
+                            }
+                            composable(
+                                route = NavRoute.ALBUM_DETAIL,
+                                arguments = listOf(
+                                    navArgument("albumName") { type = NavType.StringType }
+                                )
+                            ) { backStackEntry ->
+                                val albumName = backStackEntry.arguments?.getString("albumName") ?: ""
+                                val isPlaybackActive by viewModel.isPlaying.collectAsState()
+                                val favoriteIds by viewModel.favoriteIds.collectAsState()
+                                AlbumDetailScreen(
+                                    albumName = albumName,
+                                    onBack = { navController.popBackStack() },
+                                    currentTrack = currentTrack,
+                                    isPlaying = isPlaybackActive,
+                                    favoriteIds = favoriteIds,
+                                    onFavoriteToggle = { viewModel.toggleFavorite(it) },
+                                    onTrackClick = { viewModel.playTrack(it) },
+                                    bottomPadding = trackListBottomPadding
+                                )
+                            }
+                            composable(NavRoute.ARTISTS) {
+                                ArtistsScreen(
+                                    onArtistClick = { artistName ->
+                                        navController.navigate(NavRoute.artistDetailRoute(artistName))
+                                    }
+                                )
+                            }
+                            composable(
+                                route = NavRoute.ARTIST_DETAIL,
+                                arguments = listOf(
+                                    navArgument("artistName") { type = NavType.StringType }
+                                )
+                            ) { backStackEntry ->
+                                val artistName = backStackEntry.arguments?.getString("artistName") ?: ""
+                                val isPlaybackActive by viewModel.isPlaying.collectAsState()
+                                val favoriteIds by viewModel.favoriteIds.collectAsState()
+                                ArtistDetailScreen(
+                                    artistName = artistName,
+                                    onBack = { navController.popBackStack() },
+                                    currentTrack = currentTrack,
+                                    isPlaying = isPlaybackActive,
+                                    favoriteIds = favoriteIds,
+                                    onFavoriteToggle = { viewModel.toggleFavorite(it) },
+                                    onTrackClick = { viewModel.playTrack(it) },
+                                    bottomPadding = trackListBottomPadding
+                                )
+                            }
+                            composable(NavRoute.PLAYLISTS) {
+                                PlaylistsScreen(
+                                    onFavoritesClick = {
+                                        navController.navigate(NavRoute.FAVORITES)
+                                    }
+                                )
+                            }
+                            composable(NavRoute.FAVORITES) {
+                                val allTracks by viewModel.tracks.collectAsState()
+                                val favoriteIds by viewModel.favoriteIds.collectAsState()
+                                val isPlaybackActive by viewModel.isPlaying.collectAsState()
+                                FavoritesScreen(
+                                    allTracks = allTracks,
+                                    favoriteIds = favoriteIds,
+                                    currentTrack = currentTrack,
+                                    isPlaying = isPlaybackActive,
+                                    onFavoriteToggle = { viewModel.toggleFavorite(it) },
+                                    onTrackClick = { viewModel.playTrack(it) },
+                                    onBack = { navController.popBackStack() },
+                                    bottomPadding = trackListBottomPadding
+                                )
+                            }
                         }
                     } else {
                         Column(
@@ -336,7 +459,15 @@ fun LibraryScreen(
         if (hasPermission && expandedFraction < 0.99f) {
             val navBarHeightPx = with(density) { (bottomNavHeight + bottomInsets).toPx() }
             LaconicalBottomNav(
-                selectedRoute = navController.currentBackStackEntryAsState().value?.destination?.route ?: NavRoute.TRACKS,
+                selectedRoute = run {
+                    val raw = navController.currentBackStackEntryAsState().value?.destination?.route
+                        ?: NavRoute.TRACKS
+                    when {
+                        raw.startsWith("album_detail") -> NavRoute.ALBUMS
+                        raw.startsWith("artist_detail") -> NavRoute.ARTISTS
+                        else -> raw
+                    }
+                },
                 onTabSelected = { route ->
                     navController.navigate(route) {
                         popUpTo(NavRoute.TRACKS) { saveState = true }
@@ -384,6 +515,38 @@ fun LibraryScreen(
                 fullNextCenterXPx = fullNextCenterXPx,
                 fullNextCenterYPx = fullNextCenterYPx,
                 scope = scope,
+            )
+        }
+        if (playlistPickerTrack != null) {
+            val track = playlistPickerTrack!!
+            AlertDialog(
+                onDismissRequest = { playlistPickerTrack = null },
+                title = { Text("Add to playlist") },
+                text = {
+                    if (playlists.isEmpty()) {
+                        Text("No playlists yet. Create one in the Playlists tab.")
+                    } else {
+                        LazyColumn {
+                            items(playlists, key = { it.id }) { playlist ->
+                                TextButton(
+                                    onClick = {
+                                        viewModel.addTrackToPlaylist(track.id, playlist.id)
+                                        playlistPickerTrack = null
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(playlist.name, modifier = Modifier.fillMaxWidth())
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { playlistPickerTrack = null }) {
+                        Text("Cancel")
+                    }
+                }
             )
         }
     } // end outer Box
