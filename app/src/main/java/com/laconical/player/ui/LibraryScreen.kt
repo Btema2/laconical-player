@@ -505,7 +505,7 @@ fun LibraryScreen(
                         Text("No playlists yet. Create one in the Playlists tab.")
                     } else {
                         LazyColumn {
-                            items(playlists) { playlist ->
+                            items(playlists, key = { it.id }) { playlist ->
                                 TextButton(
                                     onClick = {
                                         viewModel.addTrackToPlaylist(track.id, playlist.id)
