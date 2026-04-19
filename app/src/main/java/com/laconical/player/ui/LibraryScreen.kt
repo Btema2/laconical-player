@@ -67,6 +67,7 @@ import com.laconical.player.ui.screens.AlbumsScreen
 import com.laconical.player.ui.screens.ArtistDetailScreen
 import com.laconical.player.ui.screens.ArtistsScreen
 import com.laconical.player.ui.screens.PlaylistsScreen
+import com.laconical.player.core.data.db.entity.Playlist
 
 // Symmetric open/close duration for the queue morph (ms). Material standard easing
 // (FastOutSlowInEasing) is used in both directions so the motion feels the same in and out.
@@ -132,6 +133,8 @@ fun LibraryScreen(
     )
 
     val scope = rememberCoroutineScope()
+    var playlistPickerTrack by remember { mutableStateOf<Track?>(null) }
+    val playlists by viewModel.playlists.collectAsState()
     val navController = rememberNavController()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val queueAnimatable = remember { Animatable(0f) }
@@ -334,7 +337,16 @@ fun LibraryScreen(
                                                     isPlaybackActive = isPlaybackActive,
                                                     isFavorite = favoriteIds.contains(track.id),
                                                     onFavoriteToggle = { viewModel.toggleFavorite(track.id) },
-                                                    onClick = { viewModel.playTrack(track) }
+                                                    onClick = { viewModel.playTrack(track) },
+                                                    onViewAlbum = {
+                                                        navController.navigate(NavRoute.albumDetailRoute(track.album))
+                                                    },
+                                                    onViewArtist = {
+                                                        navController.navigate(NavRoute.artistDetailRoute(track.artist))
+                                                    },
+                                                    onAddToPlaylist = {
+                                                        playlistPickerTrack = track
+                                                    }
                                                 )
                                             }
                                         }
@@ -481,6 +493,38 @@ fun LibraryScreen(
                 fullNextCenterXPx = fullNextCenterXPx,
                 fullNextCenterYPx = fullNextCenterYPx,
                 scope = scope,
+            )
+        }
+        if (playlistPickerTrack != null) {
+            val track = playlistPickerTrack!!
+            AlertDialog(
+                onDismissRequest = { playlistPickerTrack = null },
+                title = { Text("Add to playlist") },
+                text = {
+                    if (playlists.isEmpty()) {
+                        Text("No playlists yet. Create one in the Playlists tab.")
+                    } else {
+                        LazyColumn {
+                            items(playlists) { playlist ->
+                                TextButton(
+                                    onClick = {
+                                        viewModel.addTrackToPlaylist(track.id, playlist.id)
+                                        playlistPickerTrack = null
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(playlist.name, modifier = Modifier.fillMaxWidth())
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { playlistPickerTrack = null }) {
+                        Text("Cancel")
+                    }
+                }
             )
         }
     } // end outer Box
