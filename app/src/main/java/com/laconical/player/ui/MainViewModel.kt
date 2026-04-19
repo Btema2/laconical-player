@@ -3,6 +3,8 @@ package com.laconical.player.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.laconical.player.core.data.MediaRepository
+import com.laconical.player.core.data.UserDataRepository
+import com.laconical.player.core.data.db.entity.Playlist
 import com.laconical.player.core.media.MusicPlayer
 import com.laconical.player.core.media.AudioVisualizerManager
 import com.laconical.player.core.model.Track
@@ -14,6 +16,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -99,9 +102,10 @@ class AudioAlbumArtKeyer : Keyer<AudioArtData> {
 class MainViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: MediaRepository,
-        private val musicPlayer: MusicPlayer,
-            private val visualizerManager: AudioVisualizerManager,
-                private val waveformExtractor: WaveformExtractor
+    private val musicPlayer: MusicPlayer,
+    private val visualizerManager: AudioVisualizerManager,
+    private val waveformExtractor: WaveformExtractor,
+    private val userDataRepository: UserDataRepository
 ) : ViewModel() {
 
     private val _allTracks = MutableStateFlow<List<Track>>(emptyList())
@@ -109,12 +113,23 @@ class MainViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    val tracks: StateFlow<List<Track>> = combine(_allTracks, _searchQuery) { tracks, query ->
-        if (query.isBlank()) tracks
-            else tracks.filter {
-                it.title.contains(query, ignoreCase = true) ||
-                it.artist.contains(query, ignoreCase = true)
-            }
+    private val _sortOrder = MutableStateFlow(SortOrder.DEFAULT)
+    val sortOrder: StateFlow<SortOrder> = _sortOrder.asStateFlow()
+
+    fun setSortOrder(order: SortOrder) { _sortOrder.value = order }
+
+    val tracks: StateFlow<List<Track>> = combine(_allTracks, _searchQuery, _sortOrder) { tracks, query, sort ->
+        val filtered = if (query.isBlank()) tracks
+        else tracks.filter {
+            it.title.contains(query, ignoreCase = true) ||
+            it.artist.contains(query, ignoreCase = true)
+        }
+        when (sort) {
+            SortOrder.DEFAULT -> filtered
+            SortOrder.TITLE -> filtered.sortedBy { it.title.lowercase() }
+            SortOrder.ARTIST -> filtered.sortedBy { it.artist.lowercase() }
+            SortOrder.DURATION -> filtered.sortedByDescending { it.durationMs }
+        }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _currentTrack = MutableStateFlow<Track?>(null)
@@ -137,6 +152,30 @@ class MainViewModel @Inject constructor(
     private val _waveformData = MutableStateFlow<List<Int>>(emptyList())
     val waveformData: StateFlow<List<Int>> = _waveformData.asStateFlow()
 
+    val favoriteIds: StateFlow<Set<Long>> = userDataRepository.getAllFavoriteIds()
+        .map { it.toSet() }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptySet())
+
+    fun toggleFavorite(trackId: Long) {
+        viewModelScope.launch {
+            if (favoriteIds.value.contains(trackId)) {
+                userDataRepository.removeFavorite(trackId)
+            } else {
+                userDataRepository.addFavorite(trackId)
+            }
+        }
+    }
+
+    val playlists: StateFlow<List<Playlist>> = userDataRepository.getAllPlaylists()
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    fun addTrackToPlaylist(trackId: Long, playlistId: Long) {
+        viewModelScope.launch {
+            val currentCount = userDataRepository.getTrackIdsForPlaylist(playlistId).first().size
+            userDataRepository.addTrackToPlaylist(playlistId, trackId, currentCount)
+        }
+    }
+
     private val _currentNormalizedAmplitude = MutableStateFlow(0f)
     val currentNormalizedAmplitude: StateFlow<Float> = _currentNormalizedAmplitude.asStateFlow()
 
@@ -157,7 +196,12 @@ class MainViewModel @Inject constructor(
 
     fun loadTracks() {
         viewModelScope.launch {
-            _allTracks.value = repository.getTracks()
+            val loaded = repository.getTracks()
+            _allTracks.value = loaded
+            val liveIds = loaded.map { it.id }.toSet()
+            if (liveIds.isNotEmpty()) {
+                userDataRepository.purgeStaleTrackIds(liveIds)
+            }
         }
         startAmplitudeTicker()
         startAutoAdvanceCollector()
