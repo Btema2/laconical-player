@@ -51,6 +51,7 @@ import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import com.laconical.player.core.model.Track
 import com.laconical.player.ui.AudioArtData
+import com.laconical.player.ui.components.TrackContextMenu
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -236,6 +237,15 @@ fun TrackListItem(
                         tint = Color(0xFF777777)
                     )
                 }
+                TrackContextMenu(
+                    expanded = menuExpanded,
+                    onDismiss = { menuExpanded = false },
+                    isFavorite = isFavorite,
+                    onFavoriteToggle = { onFavoriteToggle?.invoke() },
+                    onViewAlbum = onViewAlbum,
+                    onViewArtist = onViewArtist,
+                    onAddToPlaylist = onAddToPlaylist
+                )
             }
         }
     }
