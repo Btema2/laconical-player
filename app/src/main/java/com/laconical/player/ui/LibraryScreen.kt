@@ -44,6 +44,7 @@ import com.laconical.player.ui.components.LaconicalBottomNav
 import com.laconical.player.ui.components.LaconicalTopBar
 import com.laconical.player.ui.components.MiniPlayer
 import com.laconical.player.ui.components.TrackListItem
+import com.laconical.player.ui.components.PlaylistBottomSheet
 import com.laconical.player.ui.components.QueueSheet
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
@@ -136,6 +137,7 @@ fun LibraryScreen(
 
     val scope = rememberCoroutineScope()
     var playlistPickerTrack by remember { mutableStateOf<Track?>(null) }
+    var showCreateForPicker by remember { mutableStateOf(false) }
     val playlists by viewModel.playlists.collectAsState()
     val navController = rememberNavController()
     val scaffoldState = rememberBottomSheetScaffoldState()
@@ -479,6 +481,7 @@ fun LibraryScreen(
                     when {
                         raw.startsWith("album_detail") -> NavRoute.ALBUMS
                         raw.startsWith("artist_detail") -> NavRoute.ARTISTS
+                        raw.startsWith("playlist_detail") -> NavRoute.PLAYLISTS
                         else -> raw
                     }
                 },
@@ -537,10 +540,31 @@ fun LibraryScreen(
                 onDismissRequest = { playlistPickerTrack = null },
                 title = { Text("Add to playlist") },
                 text = {
-                    if (playlists.isEmpty()) {
-                        Text("No playlists yet. Create one in the Playlists tab.")
-                    } else {
-                        LazyColumn {
+                    LazyColumn {
+                        item {
+                            TextButton(
+                                onClick = {
+                                    playlistPickerTrack = null
+                                    showCreateForPicker = true
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    "+ New playlist",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        if (playlists.isEmpty()) {
+                            item {
+                                Text(
+                                    "No playlists yet.",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    color = Color(0xFF888888)
+                                )
+                            }
+                        } else {
                             items(playlists, key = { it.id }) { playlist ->
                                 TextButton(
                                     onClick = {
@@ -560,6 +584,20 @@ fun LibraryScreen(
                     TextButton(onClick = { playlistPickerTrack = null }) {
                         Text("Cancel")
                     }
+                }
+            )
+        }
+        if (showCreateForPicker) {
+            val pendingTrack = remember { playlistPickerTrack }
+            PlaylistBottomSheet(
+                title = "New Playlist",
+                onDismiss = { showCreateForPicker = false },
+                onConfirm = { name ->
+                    pendingTrack?.let { t ->
+                        viewModel.createPlaylistAndAdd(name, t.id)
+                    }
+                    showCreateForPicker = false
+                    playlistPickerTrack = null
                 }
             )
         }
