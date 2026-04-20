@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import com.laconical.player.core.data.db.entity.Playlist
 import com.laconical.player.core.data.db.entity.PlaylistTrack
@@ -40,4 +41,13 @@ interface PlaylistDao {
 
     @Query("DELETE FROM playlist_tracks WHERE trackId NOT IN (:liveIds)")
     suspend fun deleteStaleTrackIds(liveIds: Set<Long>)
+
+    @Transaction
+    suspend fun reorderTracks(playlistId: Long, tracks: List<PlaylistTrack>) {
+        clearPlaylist(playlistId)
+        tracks.forEach { addTrackToPlaylist(it) }
+    }
+
+    @Query("SELECT * FROM playlist_tracks ORDER BY playlistId ASC, position ASC")
+    fun getAllPlaylistTracks(): Flow<List<PlaylistTrack>>
 }

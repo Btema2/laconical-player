@@ -38,6 +38,9 @@ class UserDataRepositoryImpl @Inject constructor(
     }
     override suspend fun removeTrackFromPlaylist(playlistId: Long, trackId: Long) =
         playlistDao.removeTrackFromPlaylist(playlistId, trackId)
+    override suspend fun reorderPlaylistTracks(playlistId: Long, tracks: List<PlaylistTrack>) =
+        playlistDao.reorderTracks(playlistId, tracks)
+    override fun getAllPlaylistTracks() = playlistDao.getAllPlaylistTracks()
 
     override fun getRecentHistory(limit: Int) = historyDao.getRecentHistory(limit)
     override suspend fun recordPlay(trackId: Long) = historyDao.recordPlay(PlayHistory(trackId = trackId))
@@ -45,8 +48,6 @@ class UserDataRepositoryImpl @Inject constructor(
     override suspend fun clearHistory() = historyDao.clearHistory()
 
     override suspend fun purgeStaleTrackIds(liveTrackIds: Set<Long>) {
-        // Guard: Room's NOT IN() with an empty collection produces undefined SQL behavior.
-        // An empty live set means tracks haven't loaded yet — skip purge entirely.
         if (liveTrackIds.isEmpty()) return
         favoriteDao.deleteStaleTrackIds(liveTrackIds)
         playlistDao.deleteStaleTrackIds(liveTrackIds)
