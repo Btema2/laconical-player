@@ -178,6 +178,13 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun createPlaylistAndAdd(name: String, trackId: Long) {
+        viewModelScope.launch {
+            val playlistId = userDataRepository.createPlaylist(name.trim())
+            userDataRepository.appendTrackToPlaylist(playlistId, trackId)
+        }
+    }
+
     private val _currentNormalizedAmplitude = MutableStateFlow(0f)
     val currentNormalizedAmplitude: StateFlow<Float> = _currentNormalizedAmplitude.asStateFlow()
 
