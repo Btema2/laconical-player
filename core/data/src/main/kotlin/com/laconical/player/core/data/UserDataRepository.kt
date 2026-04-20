@@ -2,6 +2,7 @@ package com.laconical.player.core.data
 
 import com.laconical.player.core.data.db.entity.PlayHistory
 import com.laconical.player.core.data.db.entity.Playlist
+import com.laconical.player.core.data.db.entity.PlaylistTrack
 import kotlinx.coroutines.flow.Flow
 
 interface UserDataRepository {
@@ -20,6 +21,8 @@ interface UserDataRepository {
     suspend fun addTrackToPlaylist(playlistId: Long, trackId: Long, position: Int)
     suspend fun appendTrackToPlaylist(playlistId: Long, trackId: Long)
     suspend fun removeTrackFromPlaylist(playlistId: Long, trackId: Long)
+    suspend fun reorderPlaylistTracks(playlistId: Long, tracks: List<PlaylistTrack>)
+    fun getAllPlaylistTracks(): Flow<List<PlaylistTrack>>
 
     // History
     fun getRecentHistory(limit: Int = 50): Flow<List<PlayHistory>>
