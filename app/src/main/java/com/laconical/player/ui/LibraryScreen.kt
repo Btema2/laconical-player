@@ -67,6 +67,7 @@ import com.laconical.player.ui.screens.AlbumsScreen
 import com.laconical.player.ui.screens.ArtistDetailScreen
 import com.laconical.player.ui.screens.ArtistsScreen
 import com.laconical.player.ui.screens.FavoritesScreen
+import com.laconical.player.ui.screens.PlaylistDetailScreen
 import com.laconical.player.ui.screens.PlaylistsScreen
 import com.laconical.player.core.data.db.entity.Playlist
 
@@ -412,7 +413,20 @@ fun LibraryScreen(
                                 PlaylistsScreen(
                                     onFavoritesClick = {
                                         navController.navigate(NavRoute.FAVORITES)
-                                    }
+                                    },
+                                    onPlaylistClick = { playlistId ->
+                                        navController.navigate(NavRoute.playlistDetailRoute(playlistId))
+                                    },
+                                    bottomPadding = trackListBottomPadding
+                                )
+                            }
+                            composable(
+                                route = NavRoute.PLAYLIST_DETAIL,
+                                arguments = listOf(navArgument("playlistId") { type = androidx.navigation.NavType.LongType })
+                            ) {
+                                PlaylistDetailScreen(
+                                    onBack = { navController.popBackStack() },
+                                    bottomPadding = trackListBottomPadding
                                 )
                             }
                             composable(NavRoute.FAVORITES) {
