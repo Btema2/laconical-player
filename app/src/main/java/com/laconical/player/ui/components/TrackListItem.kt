@@ -34,12 +34,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -51,7 +55,6 @@ import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import com.laconical.player.core.model.Track
 import com.laconical.player.ui.AudioArtData
-import com.laconical.player.ui.components.TrackContextMenu
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -67,10 +70,14 @@ fun TrackListItem(
     onViewAlbum: (() -> Unit)? = null,
     onViewArtist: (() -> Unit)? = null,
     onAddToPlaylist: (() -> Unit)? = null,
+    /** Called with root-space top-left offset and side size (px) of the art thumbnail. */
+    onMenuOpen: ((artOffsetPx: Offset, artSizePx: Float) -> Unit)? = null,
 ) {
     var vibeColor by remember { mutableStateOf(Color(0xFF888888)) }
-    var menuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val density = LocalDensity.current
+    var artOffsetPx by remember { mutableStateOf(Offset.Zero) }
+    val artSizePx = with(density) { 52.dp.toPx() }
 
     LaunchedEffect(track.mediaUri, isActiveTrack) {
         val loadTarget = track.mediaUri
@@ -159,7 +166,10 @@ fun TrackListItem(
                     modifier = Modifier
                         .size(52.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1E1E1E)),
+                        .background(Color(0xFF1E1E1E))
+                        .onGloballyPositioned { coords ->
+                            artOffsetPx = coords.positionInRoot()
+                        },
                     contentAlignment = androidx.compose.ui.Alignment.Center
                 ) {
                     // SingletonImageLoader — one shared instance for the whole app, not one per row
@@ -229,22 +239,11 @@ fun TrackListItem(
                     )
                 }
             }
-            Box {
-                IconButton(onClick = { menuExpanded = true }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "More",
-                        tint = Color(0xFF777777)
-                    )
-                }
-                TrackContextMenu(
-                    expanded = menuExpanded,
-                    onDismiss = { menuExpanded = false },
-                    isFavorite = isFavorite,
-                    onFavoriteToggle = { onFavoriteToggle?.invoke() },
-                    onViewAlbum = onViewAlbum,
-                    onViewArtist = onViewArtist,
-                    onAddToPlaylist = onAddToPlaylist
+            IconButton(onClick = { onMenuOpen?.invoke(artOffsetPx, artSizePx) }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "More",
+                    tint = Color(0xFF777777),
                 )
             }
         }
