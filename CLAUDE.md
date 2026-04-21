@@ -1,235 +1,144 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-**Code quality:** Write modern, good quality code. Use context7 mcp for up-to-date documentation and leverage availbalse skills for better code quality.
-**Git:** After making and verifying changes, commit them to git repository on asociated branch.
-**Worktrees:** Use `.worktrees/` (project-local, hidden) for git worktree directories.
+**Code quality:** Modern Kotlin. Use context7 MCP for docs.
+**Git:** Commit after verifying changes on the associated branch.
+**Worktrees:** Use `.worktrees/` for git worktree dirs.
 
 ## Project Overview
 
-Laconical Player is a fully open-source Android music player inspired by Namida Player's aesthetic. It plays local audio files with a visually rich UI featuring morphing transitions, particle effects, waveform visualization, and dominant-color theming.
+Laconical Player — open-source Android music player (Namida-inspired). Local audio playback with morphing transitions, particle effects, waveform visualization, and dominant-color theming.
 
 ## Build Commands
 
 ```bash
-# Debug build
-./gradlew assembleDebug
-# Output: app/build/outputs/apk/debug/
-
-# Clean build
-./gradlew clean assembleDebug
-
-# Install on connected device
-./gradlew installDebug
-
-# Default AGP lint
+./gradlew assembleDebug          # debug build → app/build/outputs/apk/debug/
+./gradlew clean assembleDebug    # clean build
+./gradlew installDebug           # install on device
 ./gradlew lint
+./gradlew :core:media:test       # Robolectric + Media3 unit tests
 ```
-
-One unit test module is wired in `:core:media` using Robolectric + Media3 test utilities. Run with `./gradlew :core:media:test`. No Compose UI test infrastructure is set up.
 
 ## Module Structure
 
-Multi-module Gradle project (Kotlin DSL):
-
 | Module | Role |
 |--------|------|
-| `:app` | UI layer — single `LibraryScreen`, `MainViewModel`, `MainActivity` |
-| `:core:model` | `Track` data class only |
-| `:core:data` | `MediaRepository` interface + `LocalMediaRepositoryImpl` (MediaStore queries) |
+| `:app` | UI — `LibraryScreen`, `MainViewModel`, `MainActivity` |
+| `:core:model` | `Track` data class |
+| `:core:data` | `MediaRepository` + `LocalMediaRepositoryImpl` (MediaStore) |
 | `:core:media` | `MusicPlayer`, `PlaybackService`, `AudioVisualizerManager`, `WaveformExtractor` |
-| `:core:designsystem` | `LaconicalTheme` (Material 3), Color, Type tokens |
+| `:core:designsystem` | `LaconicalTheme` (M3), color/type tokens |
 
 ## Architecture
 
-### State Management
+**State:** Single `@HiltViewModel` — `MainViewModel`. One screen (`LibraryScreen`) in `MainActivity.setContent`. NavHost with bottom-nav routes (Tracks, Albums, Artists, Playlists, Favorites).
 
-All state lives in a single `@HiltViewModel` — `MainViewModel`. No navigation component is used; the entire app is one screen (`LibraryScreen`) in `MainActivity.setContent`.
+**Key `StateFlow`s in `MainViewModel`:** `tracks`, `currentTrack`, `playingTrackDominantColor`, `isPlaying`, `currentPosition`, `duration`, `progress`, `queue`, `currentQueueIndex`, `shuffleModeEnabled`, `repeatMode`, `waveform`, `beatPulse`, `_waveformData`, `_currentNormalizedAmplitude` (60 fps ticker, decays to zero when paused — zero CPU at idle).
 
-Key `StateFlow`s in `MainViewModel`:
+### Playback (Two Layers)
 
-- `tracks` — MediaStore audio, filtered by `searchQuery` via `combine()`
-- `currentTrack` — currently playing `Track?`
-- `playingTrackDominantColor` — extracted by Palette API on every track change
-- `isPlaying`, `currentPosition`, `duration`, `progress` — delegated from `MusicPlayerImpl`
-- `queue`, `currentQueueIndex`, `shuffleModeEnabled`, `repeatMode` — playlist state from `MusicPlayerImpl`
-- `waveform`, `beatPulse` — from `AudioVisualizerManager` (real-time)
-- `_waveformData` — static waveform from Amplituda (decoded on track change)
-- `_currentNormalizedAmplitude` — amplitude ticker scrubbing `_waveformData` by playback position at ~60 fps while playing; suspends via `isPlaying.first { it }` when paused and amplitude decays to zero (zero CPU wakeups at idle); drives album art pulse
+- **`PlaybackService`** — `MediaSessionService` foreground service; singleton `ExoPlayer` via Hilt `MediaModule`.
+- **`MusicPlayerImpl`** — singleton `MediaController` (created once in `init`). Polls position at 50 ms. Listens to `onMediaItemTransition` + `onTimelineChanged` to keep `_currentMediaItemIndex` in sync after reorder.
+- **`MediaPreWarmer`** — pre-warms `PlaybackService` at `LaconicalApp.onCreate`; controller released immediately, ExoPlayer survives.
+- **`AudioVisualizerManager`** — Android `Visualizer` on ExoPlayer's `audioSessionId`. Sine-wave fallback on silence. `@Volatile` on `isVisualizerGeneratingRealData`.
+- **`WaveformExtractor`** — Amplituda via `ContentResolver.openInputStream(uri)`. `Mutex` serializes concurrent calls.
 
-### Playback System (Two Layers)
+### Morphing Player Transition (3-Phase, No Shared Element API)
 
-**`PlaybackService`** — `MediaSessionService` foreground service holding a singleton `ExoPlayer` (Hilt-injected via `MediaModule`). Handles background playback and audio focus.
-
-**`MusicPlayerImpl`** — Holds a singleton `MediaController` connected to `PlaybackService` over Media3 IPC (created once in `init`, not recreated on each call — fixes the original MediaController leak). All commands (`play`, `pause`, `seekTo`, `setPlaylist`, `toggleShuffle`, `cycleRepeatMode`, `moveQueueItem`) delegate to this controller. Position is polled at 50 ms intervals. Listens to both `onMediaItemTransition` (track change) and `onTimelineChanged` (queue reorder) to keep `_currentMediaItemIndex` in sync — reorder does NOT fire `onMediaItemTransition`.
-
-**`MediaPreWarmer`** — Singleton called from `LaconicalApp.onCreate`. Connects a throwaway `MediaController` to `PlaybackService` so ExoPlayer is already warm before the user's first tap. The controller is immediately released; the service and ExoPlayer singleton survive for `MusicPlayerImpl` to reuse.
-
-**`AudioVisualizerManager`** — Attaches Android `Visualizer` to ExoPlayer's `audioSessionId` for real-time waveform capture. Falls back to a sine-wave fake animation if the visualizer reports silence. Uses `@Volatile` on the `isVisualizerGeneratingRealData` flag to ensure cross-thread visibility between the audio callback thread and `Dispatchers.Default`.
-
-**`WaveformExtractor`** — Uses the Amplituda library to decode the whole audio file into `List<Int>` amplitude data for the static seek-bar waveform. Accepts a content `Uri`; uses `ContentResolver.openInputStream(uri)` internally (Amplituda 2.3.1 has no `Uri` overload). A `Mutex` serializes concurrent calls so rapid track switching never corrupts state.
-
-### The Morphing Player Transition
-
-`LibraryScreen` uses a **3-phase morph** — no shared element transition API. Instead:
-
-**Phase 1 (mini → full):** `BottomSheetScaffold.expandedFraction` (0f → 1f). Ghost elements in `MiniPlayer` and `FullPlayer` report `positionInRoot()` via `onGloballyPositioned`. A single overlay (album art, title, artist, playback buttons) `lerp()`s between the two coordinate sets.
-
-**Phase 2+3 (full → queue):** A separate `queueProgress` float (0f = full player, 1f = queue open) drives a second `lerp()` pass. The same overlay elements continue morphing from FullPlayer positions to `QueueSheet` header positions.
-
-**Ghost overlay contract:** Every element that morphs must be invisible in its "source" layout:
-- `MiniPlayer`: title, artist, controls are `alpha=0f` when `hideArt=true`
-- `FullPlayer`: title/artist text are `color=Transparent`; play button area is covered by overlay
-- `QueueSheet`: art slot is transparent Image, title/artist are `Color.Transparent`, play/pause is `Box(48.dp)`
-The overlay in `LibraryScreen` is the sole renderer of these elements and handles all taps.
+- **Phase 1 (mini→full):** `BottomSheetScaffold.expandedFraction` (0→1). Ghost elements report `positionInRoot()`; overlay `lerp()`s between coordinate sets.
+- **Phase 2+3 (full→queue):** `queueProgress` float drives a second `lerp()` from FullPlayer → QueueSheet header positions.
+- **Ghost contract:** Source elements are invisible (alpha=0/Color.Transparent/placeholder Box). Overlay is the sole renderer and tap handler.
 
 ### Album Art Loading
 
-Custom Coil 3 pipeline: `AudioAlbumArtFetcher` + `AudioAlbumArtKeyer` (currently defined in `MainViewModel.kt`, logically misplaced). Uses `MediaMetadataRetriever` to extract embedded album art from audio files, bypassing Coil's default content-URI handler. The global `ImageLoader` is registered in `LaconicalApp`.
+Custom Coil 3: `AudioAlbumArtFetcher` + `AudioAlbumArtKeyer` (in `MainViewModel.kt`). Uses `MediaMetadataRetriever`. Global `ImageLoader` registered in `LaconicalApp`.
 
-## Key File Locations
+## Key Files
 
 ```
-app/src/main/kotlin/com/laconical/player/
-  LaconicalApp.kt          # @HiltAndroidApp, global Coil ImageLoader
-
-app/src/main/java/com/laconical/player/ui/
-  MainViewModel.kt         # All state + orchestration logic
-  LibraryScreen.kt         # Entire app UI, BottomSheetScaffold, morph overlay
-  ColorUtils.kt            # Shared Color.toHsl() extension (single source of truth)
-  components/
-    FullPlayer.kt          # Expanded player, VisualizerSeekBar, ParticleSystem
-    MiniPlayer.kt          # Collapsed strip, morphing GlowIconButton controls
-    QueueSheet.kt          # Full-screen queue with drag-to-reorder; all header elements are ghosts
-    TrackListItem.kt       # Per-row Palette extraction + ParticlesEffectCanvas
-    ParticlesEffectCanvas.kt  # Physics particles — mutations in LaunchedEffect, draw is pure
+app/.../
+  LaconicalApp.kt              # @HiltAndroidApp, global Coil ImageLoader
+  ui/MainViewModel.kt          # All state + orchestration
+  ui/LibraryScreen.kt          # Entire UI, BottomSheetScaffold, morph overlay
+  ui/ColorUtils.kt             # Color.toHsl() extension (single source of truth)
+  ui/SortOrder.kt              # Enum for track sort order
+  ui/navigation/NavRoute.kt    # All route strings + helper fns
+  ui/components/
+    FullPlayer.kt              # Expanded player, VisualizerSeekBar, ParticleSystem
+    MiniPlayer.kt              # Collapsed strip, morphing GlowIconButton controls
+    QueueSheet.kt              # Full-screen queue, drag-to-reorder
+    TrackListItem.kt           # Per-row Palette extraction + ParticlesEffectCanvas
+    ParticlesEffectCanvas.kt   # Physics particles — mutate in LaunchedEffect only
+    PlaylistCoverMosaic.kt     # 2×2 mosaic art (AudioArtData + Coil)
+    PlaylistBottomSheet.kt     # ModalBottomSheet for create/rename playlist
+    TrackContextMenu.kt        # DropdownMenu with track actions
+  ui/screens/
+    AlbumsScreen.kt / AlbumDetailScreen.kt
+    ArtistsScreen.kt / ArtistDetailScreen.kt
+    FavoritesScreen.kt
+    PlaylistsScreen.kt / PlaylistDetailScreen.kt
+  ui/viewmodels/
+    AlbumsViewModel.kt / ArtistsViewModel.kt
+    PlaylistsViewModel.kt / PlaylistDetailViewModel.kt
 
 core/media/.../
-  MusicPlayer.kt           # Interface + MusicPlayerImpl (singleton MediaController, playlist/shuffle/repeat)
-  PlaybackService.kt       # MediaSessionService foreground service
-  AudioVisualizerManager.kt  # Real-time Visualizer + sine-wave fallback
-  WaveformExtractor.kt     # Amplituda via ContentResolver.openInputStream(Uri)
-  MediaPreWarmer.kt        # Pre-warms PlaybackService at app start to eliminate first-tap latency
-  PlaylistRepeatTest.kt    # Robolectric unit tests for repeat-mode wrap-around behavior
+  MusicPlayer.kt               # Interface + MusicPlayerImpl
+  PlaybackService.kt           # MediaSessionService
+  AudioVisualizerManager.kt    # Real-time Visualizer + sine fallback
+  WaveformExtractor.kt         # Amplituda via ContentResolver
+  MediaPreWarmer.kt
+  PlaylistRepeatTest.kt        # Robolectric repeat-mode tests
 
 core/data/.../
-  LocalMediaRepositoryImpl.kt  # MediaStore queries — uses content URIs, no DATA column
+  LocalMediaRepositoryImpl.kt  # MediaStore (content URIs, no DATA column)
+  UserDataRepository.kt / UserDataRepositoryImpl.kt
+  db/entity/  FavoriteTrack, Playlist, PlaylistTrack, PlayHistory
+  db/dao/     FavoriteDao, PlaylistDao, HistoryDao
+  db/MusicDatabase.kt
+  di/DatabaseModule.kt / DataModule.kt
 ```
 
 ## Tech Stack
 
-- Kotlin + Jetpack Compose (Material 3)
-- Hilt (DI)
-- Media3 / ExoPlayer (playback + MediaSessionService)
-- Room (declared, not yet used)
-- Coil 3 (image loading with custom audio art fetcher)
-- Amplituda (static waveform extraction)
-- Android `Visualizer` API (real-time waveform)
-- Palette API (dominant color extraction)
-- minSdk 26, targetSdk/compileSdk 35
+Kotlin + Jetpack Compose (M3) · Hilt · Media3/ExoPlayer · Room · Coil 3 (custom audio art fetcher) · Amplituda · Android `Visualizer` API · Palette API · minSdk 26 / targetSdk 35
 
 ## Design System
 
-All UI components are built against `LaconicalTheme` from `:core:designsystem`. Design constraints:
-- Color palette is semantically driven — never hardcoded raw hex values in component code.
-- Dominant album art color tints the UI via `playingTrackDominantColor` passed through the component tree.
-- Typography and spacing come from Material 3 tokens defined in `core/designsystem`.
-- All motion uses compositor-friendly properties only (`scale`, `alpha`, `offset` via `lerp`).
-- `Color.toHsl()` is defined once in `ColorUtils.kt` (`com.laconical.player.ui`) and imported wherever HSL conversion is needed — no inline duplicates.
+- All colors semantic via `LaconicalTheme` — no raw hex in component code.
+- Dominant album art color tints UI via `playingTrackDominantColor`.
+- `Color.toHsl()` defined once in `ColorUtils.kt` — no inline duplicates.
+- All motion: compositor-only (`scale`, `alpha`, `offset` via `lerp`).
 
 ## Memory Safety
 
-Zero known memory leaks. Key properties:
-- `MusicPlayerImpl` holds one `MediaController` for the process lifetime (not recreated per-call).
-- `waveformJob` and `colorJob` in `MainViewModel` are cancelled before a new one starts on track change.
-- `WaveformExtractor.mutex` prevents concurrent Amplituda calls, which is not thread-safe.
-- `@Volatile` on `AudioVisualizerManager.isVisualizerGeneratingRealData` ensures the audio thread's writes are visible on `Dispatchers.Default`.
-- `ParticlesEffectCanvas` mutates particle state only inside `LaunchedEffect` — never inside the `Canvas` draw phase.
+- `MusicPlayerImpl`: one `MediaController` for process lifetime.
+- `waveformJob`/`colorJob` in `MainViewModel`: cancelled before new one starts.
+- `WaveformExtractor.mutex`: prevents concurrent Amplituda (not thread-safe).
+- `ParticlesEffectCanvas`: mutates state only in `LaunchedEffect`, never in `Canvas`.
 
-## Animation Optimization Principles
+## Animation Pitfalls (Hard-Won Rules)
 
-Hard-won rules from the morph overlay and queue transition work. Apply to all future animation work.
+**Lerp linearity:** Freeze start-point before animation begins. Use sheet-relative coords for full player.
 
-### Lerp linearity
-- `lerp()` produces straight-line motion only when **both endpoints are stable** throughout the animation. Moving endpoints produce curved "hook" paths.
-- Freeze the start-point before the animation begins (e.g. capture `miniRootY` when expanded, don't recompute mid-animation from live geometry).
-- Use sheet-relative coordinates for the full player: `(fullTitleTopPx - sheetRootYPx).toDp()` keeps lerp math consistent across sheet scroll.
+**Spring gating:** Spring ON only when fully at rest (expandedFraction ≥ 0.99 && queueProg < 0.01). Never apply spring during morph.
 
-### Spring gating
-- Spring-based `animateFloatAsState` applied as a scale on top of a `lerp()` produces compound non-linearity — visually a "jump" or "pulse" in the wrong place.
-- Gate any spring animation so it is **OFF during all overlay/morph animations** and ON only at rest. Example pattern:
-  ```kotlin
-  // WRONG — spring fires as queueProg ramps back to 0 on close:
-  val pulseIntensity = if (expandedFraction >= 0.99f) (1f - queueProg) else 0f
-  
-  // CORRECT — spring only when fully at rest with queue closed:
-  val pulseIntensity = if (expandedFraction >= 0.99f && queueProg < 0.01f) 1f else 0f
-  ```
+**Lazy list scroll:** Use `scrollToItem` (instant, at progress > 0.01f), never `animateScrollToItem`. Guard with `wasQueueOpen` so track changes don't yank the list.
 
-### Lazy list performance
-- **Never use `animateScrollToItem`** to position a lazy list when opening a sheet. Animated scroll traverses every intermediate item, making them visible and triggering `AsyncImage` (Coil) loads for all thumbnails.
-- Use **`scrollToItem`** (instant) triggered at `progress > 0.01f` (sheet barely visible, nearly transparent) — user never sees the jump, all items load lazily from the correct position.
-- Guard instant-scroll with a `wasQueueOpen` boolean so track changes while the user is browsing the queue don't yank the list back to the current track.
-
-### Drag-to-reorder in LazyColumn — three pitfalls
-
-**1. `onTimelineChanged` required for index sync after reorder.**
-`onMediaItemTransition` only fires when the playing track changes, not when `moveMediaItem` reorders the queue. Without `onTimelineChanged`, `_currentMediaItemIndex` goes stale after every drag-drop — wrong track appears highlighted as "current" and subsequent drags report wrong source indices.
-
-**2. Index captured by `pointerInput` callbacks goes stale on reorder.**
-`pointerInput(track.id)` creates its coroutine once per track ID. The `onDragStart` lambda it captures closes over `index` from `itemsIndexed`. After a reorder the composable recomposes with a new `index`, but the coroutine still holds the old one. Fix: `rememberUpdatedState` on every gesture callback inside the drag-handle `pointerInput`:
+**Drag-to-reorder pitfalls:**
+1. `onTimelineChanged` required for index sync after reorder (not just `onMediaItemTransition`).
+2. Use `rememberUpdatedState` for all gesture callbacks inside `pointerInput` — captured index goes stale on reorder.
+3. Never `scrollToItem` in `onDragStart`. Clamp `visTarget` to `firstVisibleItemIndex` in `graphicsLayer` instead:
 ```kotlin
-val latestOnDragStart by rememberUpdatedState(onDragStart)
-// use latestOnDragStart() inside pointerInput, never onDragStart()
-```
-
-**3. Never `scrollToItem` during drag start to pre-compose items.**
-Calling `listState.scrollToItem(index - 3)` in `onDragStart` visually jumps the list before the finger moves, displacing the held item 3 rows down. Looks like lag.
-
-The correct fix: clamp the visual displacement range in `graphicsLayer` to `firstVisibleItemIndex`. Items above the viewport are not composed; applying `translationY = +itemHeightPx` to them would trigger LazyColumn to compose new items mid-drag. Clamping `visTarget` prevents that entirely without any scroll:
-```kotlin
-// Inside graphicsLayer { } — deferred, reads current value without recomposition:
-val firstVisible = firstVisibleIndex()  // () -> Int lambda passed from parent
 val visTarget = if (from > target) target.coerceAtLeast(firstVisible) else target
 translationY = when {
-    index == from  -> dy                                         // dragged item follows finger
+    index == from  -> dy
     from < visTarget && index in (from + 1)..visTarget -> -itemHeightPx
-    from > visTarget && index in visTarget until from  -> itemHeightPx
+    from > visTarget && index in visTarget until from  ->  itemHeightPx
     else -> 0f
 }
 ```
-The actual drop target is still computed from raw `dy`, so items land at the correct position even when dragged above `firstVisible`.
 
-### Morph overlay invariant
-- Every morphed element must be **invisible in both its source and target layouts** — only the overlay renders it. Ghost contract: transparent Box, `Color.Transparent` text, invisible size-matching placeholder for buttons.
-- The overlay handles all taps on morphed elements (art, title, artist, play/pause).
+**Stale lambda in `pointerInput`:** Never read a composition snapshot inside a `pointerInput` lambda. Read live source (`animatable.value`) or use `rememberUpdatedState`.
 
-### Stale lambda in pointerInput — the jiggle trap
-- `pointerInput(key)` creates its coroutine **once** when the key is first seen (or changes). It captures every variable referenced inside its block, including lambda parameters, at that moment.
-- If a callback lambda passed into the composable closes over a `val` that is a snapshot (e.g. `val queueProg = animatable.value`), `pointerInput(Unit)` will hold the stale captured value for the lifetime of the gesture. Each drag frame will reset to the original value instead of accumulating, producing visible jitter/jiggle.
-- **Rule:** never read a composition snapshot inside a lambda that will be called from `pointerInput`. Instead read the live source directly:
-  ```kotlin
-  // WRONG — queueProg is a val captured at composition time:
-  onDragDelta = { dy ->
-      val newProg = (queueProg - dy / screenH).coerceIn(0f, 1f)
-      scope.launch { animatable.snapTo(newProg) }
-  }
+## Visual Design
 
-  // CORRECT — animatable.value is always the live current value:
-  onDragDelta = { dy ->
-      val newProg = (animatable.value - dy / screenH).coerceIn(0f, 1f)
-      scope.launch { animatable.snapTo(newProg) }
-  }
-  ```
-- Same trap applies to threshold checks in `onDragEnd` — always read `animatable.value > threshold`, never a captured snapshot.
-- Alternative Compose-idiomatic fix: use `rememberUpdatedState(onDragDelta)` inside the child composable so `pointerInput` always calls the latest lambda instance.
-
-## Visual Design Principles
-
-The app is intentionally aesthetic-first, inspired by Namida Player:
-- Dominant color extracted from album art drives background gradients and glow effects.
-- Particle effects on the active track row and full player.
-- Morphing shared-element-style transitions between mini and full player.
-- Pulsating album art driven by waveform amplitude.
-- All animations use compositor-friendly properties (transform, opacity, scale).
+Aesthetic-first (Namida-inspired): dominant-color gradients/glows · particle effects on active track · morphing mini↔full player · pulsating album art from waveform amplitude · compositor-only animations.
