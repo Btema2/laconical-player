@@ -46,6 +46,7 @@ import com.laconical.player.ui.components.MiniPlayer
 import com.laconical.player.ui.components.TrackListItem
 import com.laconical.player.ui.components.PlaylistBottomSheet
 import com.laconical.player.ui.components.QueueSheet
+import com.laconical.player.ui.components.TrackMenuOverlay
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -53,6 +54,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.ui.geometry.Offset
 import com.laconical.player.core.model.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -139,6 +141,11 @@ fun LibraryScreen(
     var playlistPickerTrack by remember { mutableStateOf<Track?>(null) }
     var showCreateForPicker by remember { mutableStateOf(false) }
     val playlists by viewModel.playlists.collectAsState()
+    val favoriteIds by viewModel.favoriteIds.collectAsState()
+    // Context menu state — hoisted here so overlay renders above all other layers
+    var contextMenuTrack by remember { mutableStateOf<Track?>(null) }
+    var contextMenuArtOffset by remember { mutableStateOf(Offset.Zero) }
+    var contextMenuArtSize by remember { mutableFloatStateOf(0f) }
     val navController = rememberNavController()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val queueAnimatable = remember { Animatable(0f) }
@@ -291,7 +298,6 @@ fun LibraryScreen(
                                 val tracks by viewModel.tracks.collectAsState()
                                 val isPlaybackActive by viewModel.isPlaying.collectAsState()
                                 val sortOrder by viewModel.sortOrder.collectAsState()
-                                val favoriteIds by viewModel.favoriteIds.collectAsState()
 
                                 Column(modifier = Modifier.fillMaxSize()) {
                                     LazyRow(
@@ -350,7 +356,12 @@ fun LibraryScreen(
                                                     },
                                                     onAddToPlaylist = {
                                                         playlistPickerTrack = track
-                                                    }
+                                                    },
+                                                    onMenuOpen = { offset, size ->
+                                                        contextMenuTrack = track
+                                                        contextMenuArtOffset = offset
+                                                        contextMenuArtSize = size
+                                                    },
                                                 )
                                             }
                                         }
@@ -599,6 +610,31 @@ fun LibraryScreen(
                     showCreateForPicker = false
                     playlistPickerTrack = null
                 }
+            )
+        }
+
+        // ── Track context menu overlay ──────────────────────────────────────
+        contextMenuTrack?.let { track ->
+            TrackMenuOverlay(
+                track = track,
+                artStartOffsetPx = contextMenuArtOffset,
+                artStartSizePx = contextMenuArtSize,
+                isFavorite = favoriteIds.contains(track.id),
+                dominantColor = playingTrackDominantColor,
+                onDismiss = { contextMenuTrack = null },
+                onFavoriteToggle = { viewModel.toggleFavorite(track.id) },
+                onViewAlbum = {
+                    contextMenuTrack = null
+                    navController.navigate(NavRoute.albumDetailRoute(track.album))
+                },
+                onViewArtist = {
+                    contextMenuTrack = null
+                    navController.navigate(NavRoute.artistDetailRoute(track.artist))
+                },
+                onAddToPlaylist = {
+                    contextMenuTrack = null
+                    playlistPickerTrack = track
+                },
             )
         }
     } // end outer Box
