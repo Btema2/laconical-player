@@ -183,14 +183,19 @@ fun TrackListItem(
                         contentDescription = "Album Art",
                         modifier = Modifier.fillMaxSize(),
                         error = {
-                            Icon(
-                                imageVector = Icons.Rounded.MusicNote,
-                                contentDescription = "Music Placeholder",
-                                tint = Color(0xFF555555)
-                            )
-                        },
-                        loading = {
-                            // Empty box
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color(0xFF1E1E1E)),
+                                contentAlignment = androidx.compose.ui.Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.MusicNote,
+                                    contentDescription = null,
+                                    tint = Color(0xFF555555),
+                                    modifier = Modifier.fillMaxSize(0.45f)
+                                )
+                            }
                         }
                     )
                 }
