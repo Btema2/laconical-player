@@ -224,12 +224,14 @@ fun QueueSheet(
             ) {
                 itemsIndexed(queue, key = { _, track -> track.id }) { index, track ->
                     val isCurrentTrack = index == currentIndex
+                    val isBefore = index < currentIndex
 
                     QueueTrackRow(
                         track = track,
                         index = index,
                         queueSize = queue.size,
                         isCurrentTrack = isCurrentTrack,
+                        isBefore = isBefore,
                         seekBarActiveColor = seekBarActiveColor,
                         itemHeightPx = itemHeightPx,
                         dragFromIndexState = dragFromIndexState,
@@ -273,6 +275,7 @@ private fun QueueTrackRow(
     index: Int,
     queueSize: Int,
     isCurrentTrack: Boolean,
+    isBefore: Boolean,
     seekBarActiveColor: Color,
     itemHeightPx: Float,
     dragFromIndexState: MutableIntState,
@@ -369,7 +372,9 @@ private fun QueueTrackRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = track.title,
-                    color = if (isCurrentTrack) seekBarActiveColor else Color.White,
+                    color = if (isCurrentTrack) seekBarActiveColor
+                            else if (isBefore) Color.White.copy(alpha = 0.5f)
+                            else Color.White,
                     fontSize = 14.sp,
                     fontWeight = if (isCurrentTrack) FontWeight.SemiBold else FontWeight.Normal,
                     maxLines = 1,
@@ -377,7 +382,8 @@ private fun QueueTrackRow(
                 )
                 Text(
                     text = track.artist,
-                    color = Color.Gray.copy(alpha = 0.75f),
+                    color = if (isBefore) Color.Gray.copy(alpha = 0.25f)
+                            else Color.Gray.copy(alpha = 0.75f),
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
