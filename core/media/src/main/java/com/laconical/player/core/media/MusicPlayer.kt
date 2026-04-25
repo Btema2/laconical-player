@@ -41,6 +41,9 @@ interface MusicPlayer {
     fun toggleShuffle()
     fun cycleRepeatMode()
 
+    /** Seek to a specific index in the current queue and start playing. */
+    fun seekToQueueIndex(index: Int)
+
     /** Move a media item in the queue from [from] to [to]. ExoPlayer adjusts currentMediaItemIndex automatically. */
     fun moveQueueItem(from: Int, to: Int)
 
@@ -171,6 +174,10 @@ class MusicPlayerImpl @Inject constructor(
                 else -> Player.REPEAT_MODE_OFF
             }
         } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    override fun seekToQueueIndex(index: Int) {
+        try { mediaController?.seekTo(index, 0L); mediaController?.play() } catch (e: Exception) { e.printStackTrace() }
     }
 
     override fun moveQueueItem(from: Int, to: Int) {

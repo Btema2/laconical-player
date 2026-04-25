@@ -144,7 +144,8 @@ class MainViewModel @Inject constructor(
     val duration: StateFlow<Long> = musicPlayer.duration
     val shuffleModeEnabled: StateFlow<Boolean> = musicPlayer.shuffleModeEnabled
     val repeatMode: StateFlow<Int> = musicPlayer.repeatMode
-    val queue: StateFlow<List<Track>> = _allTracks.asStateFlow()
+    private val _currentQueue = MutableStateFlow<List<Track>>(emptyList())
+    val queue: StateFlow<List<Track>> = _currentQueue.asStateFlow()
     val currentQueueIndex: StateFlow<Int> = musicPlayer.currentMediaItemIndex
 
     val waveform: StateFlow<FloatArray> = visualizerManager.waveform
@@ -264,7 +265,7 @@ class MainViewModel @Inject constructor(
         private fun startAutoAdvanceCollector() {
             viewModelScope.launch {
                 musicPlayer.currentMediaItemIndex.collectLatest { index ->
-                    val track = _allTracks.value.getOrNull(index) ?: return@collectLatest
+                    val track = _currentQueue.value.getOrNull(index) ?: return@collectLatest
                     // Skip if the track didn't actually change (avoids double side-effect
                     // when playTrack() already set _currentTrack before the listener fires).
                     if (_currentTrack.value?.id == track.id) return@collectLatest
@@ -276,23 +277,35 @@ class MainViewModel @Inject constructor(
             }
         }
 
-        fun playTrack(track: Track) {
+        fun playTracks(sourceTracks: List<Track>, startIndex: Int) {
+            if (sourceTracks.isEmpty()) return
             try {
-                val allTracks = _allTracks.value
-                val trackIndex = allTracks.indexOfFirst { it.id == track.id }
-                    .coerceAtLeast(0)
+                val safeIndex = startIndex.coerceIn(0, sourceTracks.lastIndex)
+                val track = sourceTracks[safeIndex]
 
+                _currentQueue.value = sourceTracks
                 _currentTrack.value = track
                 resetAmplitudeState()
 
-                val mediaItems = allTracks.map { MediaItem.fromUri(it.mediaUri) }
-                musicPlayer.setPlaylist(mediaItems, trackIndex)
+                val mediaItems = sourceTracks.map { MediaItem.fromUri(it.mediaUri) }
+                musicPlayer.setPlaylist(mediaItems, safeIndex)
 
                 launchWaveformExtraction(track)
                 launchColorExtraction(track)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+
+        fun seekToQueueIndex(index: Int) {
+            val q = _currentQueue.value
+            if (index !in q.indices) return
+            val track = q[index]
+            _currentTrack.value = track
+            resetAmplitudeState()
+            musicPlayer.seekToQueueIndex(index)
+            launchWaveformExtraction(track)
+            launchColorExtraction(track)
         }
 
         private fun resetAmplitudeState() {

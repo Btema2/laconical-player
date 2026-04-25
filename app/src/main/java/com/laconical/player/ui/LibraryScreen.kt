@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -339,7 +340,7 @@ fun LibraryScreen(
                                             modifier = Modifier.fillMaxSize(),
                                             contentPadding = PaddingValues(bottom = trackListBottomPadding)
                                         ) {
-                                            items(tracks, key = { it.id }) { track ->
+                                            itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
                                                 val isActiveTrack = currentTrack?.id == track.id
                                                 TrackListItem(
                                                     track = track,
@@ -347,7 +348,7 @@ fun LibraryScreen(
                                                     isPlaybackActive = isPlaybackActive,
                                                     isFavorite = favoriteIds.contains(track.id),
                                                     onFavoriteToggle = { viewModel.toggleFavorite(track.id) },
-                                                    onClick = { viewModel.playTrack(track) },
+                                                    onClick = { viewModel.playTracks(tracks, index) },
                                                     onViewAlbum = {
                                                         navController.navigate(NavRoute.albumDetailRoute(track.album))
                                                     },
@@ -391,7 +392,7 @@ fun LibraryScreen(
                                     isPlaying = isPlaybackActive,
                                     favoriteIds = favoriteIds,
                                     onFavoriteToggle = { viewModel.toggleFavorite(it) },
-                                    onTrackClick = { viewModel.playTrack(it) },
+                                    onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
                                     bottomPadding = trackListBottomPadding
                                 )
                             }
@@ -418,7 +419,7 @@ fun LibraryScreen(
                                     isPlaying = isPlaybackActive,
                                     favoriteIds = favoriteIds,
                                     onFavoriteToggle = { viewModel.toggleFavorite(it) },
-                                    onTrackClick = { viewModel.playTrack(it) },
+                                    onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
                                     bottomPadding = trackListBottomPadding
                                 )
                             }
@@ -439,6 +440,7 @@ fun LibraryScreen(
                             ) {
                                 PlaylistDetailScreen(
                                     onBack = { navController.popBackStack() },
+                                    onPlayTracks = { list, idx -> viewModel.playTracks(list, idx) },
                                     bottomPadding = trackListBottomPadding
                                 )
                             }
@@ -452,7 +454,7 @@ fun LibraryScreen(
                                     currentTrack = currentTrack,
                                     isPlaying = isPlaybackActive,
                                     onFavoriteToggle = { viewModel.toggleFavorite(it) },
-                                    onTrackClick = { viewModel.playTrack(it) },
+                                    onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
                                     onBack = { navController.popBackStack() },
                                     bottomPadding = trackListBottomPadding
                                 )

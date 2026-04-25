@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
@@ -39,7 +39,7 @@ fun AlbumDetailScreen(
     isPlaying: Boolean,
     favoriteIds: Set<Long>,
     onFavoriteToggle: (Long) -> Unit,
-    onTrackClick: (Track) -> Unit,
+    onTrackClick: (List<Track>, Int) -> Unit,
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
     modifier: Modifier = Modifier,
     viewModel: AlbumsViewModel = hiltViewModel()
@@ -77,14 +77,14 @@ fun AlbumDetailScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = bottomPadding)
         ) {
-            items(tracks, key = { it.id }) { track ->
+            itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
                 TrackListItem(
                     track = track,
                     isActiveTrack = currentTrack?.id == track.id,
                     isPlaybackActive = isPlaying,
                     isFavorite = favoriteIds.contains(track.id),
                     onFavoriteToggle = { onFavoriteToggle(track.id) },
-                    onClick = { onTrackClick(track) }
+                    onClick = { onTrackClick(tracks, index) }
                 )
             }
         }
