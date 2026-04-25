@@ -3,12 +3,10 @@ package com.laconical.player.ui.viewmodels
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.MediaItem
 import com.laconical.player.core.data.MediaRepository
 import com.laconical.player.core.data.UserDataRepository
 import com.laconical.player.core.data.db.entity.Playlist
 import com.laconical.player.core.data.db.entity.PlaylistTrack
-import com.laconical.player.core.media.MusicPlayer
 import com.laconical.player.core.model.Track
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,8 +22,7 @@ import javax.inject.Inject
 class PlaylistDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val userDataRepository: UserDataRepository,
-    private val mediaRepository: MediaRepository,
-    private val musicPlayer: MusicPlayer
+    private val mediaRepository: MediaRepository
 ) : ViewModel() {
 
     val playlistId: Long = checkNotNull(savedStateHandle["playlistId"])
@@ -65,15 +62,4 @@ class PlaylistDetailViewModel @Inject constructor(
         viewModelScope.launch { userDataRepository.removeTrackFromPlaylist(playlistId, trackId) }
     }
 
-    fun playAll() {
-        val list = tracks.value
-        if (list.isEmpty()) return
-        musicPlayer.setPlaylist(list.map { MediaItem.fromUri(it.mediaUri) }, 0)
-    }
-
-    fun shuffleAll() {
-        val list = tracks.value.shuffled()
-        if (list.isEmpty()) return
-        musicPlayer.setPlaylist(list.map { MediaItem.fromUri(it.mediaUri) }, 0)
-    }
 }

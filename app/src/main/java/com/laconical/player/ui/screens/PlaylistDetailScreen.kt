@@ -71,6 +71,7 @@ private val DETAIL_ITEM_HEIGHT = 72.dp
 @Composable
 fun PlaylistDetailScreen(
     onBack: () -> Unit,
+    onPlayTracks: (List<Track>, Int) -> Unit,
     bottomPadding: Dp = 0.dp,
     modifier: Modifier = Modifier,
     viewModel: PlaylistDetailViewModel = hiltViewModel()
@@ -133,7 +134,7 @@ fun PlaylistDetailScreen(
             Spacer(modifier = Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
-                    onClick = { viewModel.playAll() },
+                    onClick = { onPlayTracks(tracks, 0) },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4338CA)),
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
                 ) {
@@ -142,7 +143,7 @@ fun PlaylistDetailScreen(
                     Text("Play All")
                 }
                 OutlinedButton(
-                    onClick = { viewModel.shuffleAll() },
+                    onClick = { onPlayTracks(tracks.shuffled(), 0) },
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
                 ) {
                     Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -180,7 +181,7 @@ fun PlaylistDetailScreen(
                         dragFromIndexState = dragFromIndexState,
                         dragOffsetYState = dragOffsetYState,
                         firstVisibleIndex = { listState.firstVisibleItemIndex },
-                        onTrackClick = {},
+                        onTrackClick = { onPlayTracks(tracks, index) },
                         onDragStart = {
                             dragFromIndexState.intValue = index
                             dragOffsetYState.floatValue = 0f

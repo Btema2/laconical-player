@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
@@ -36,7 +36,7 @@ fun FavoritesScreen(
     currentTrack: Track?,
     isPlaying: Boolean,
     onFavoriteToggle: (Long) -> Unit,
-    onTrackClick: (Track) -> Unit,
+    onTrackClick: (List<Track>, Int) -> Unit,
     onBack: () -> Unit,
     bottomPadding: Dp = 0.dp,
     modifier: Modifier = Modifier
@@ -78,14 +78,14 @@ fun FavoritesScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = bottomPadding)
             ) {
-                items(favoriteTracks, key = { it.id }) { track ->
+                itemsIndexed(favoriteTracks, key = { _, track -> track.id }) { index, track ->
                     TrackListItem(
                         track = track,
                         isActiveTrack = currentTrack?.id == track.id,
                         isPlaybackActive = isPlaying,
                         isFavorite = true,
                         onFavoriteToggle = { onFavoriteToggle(track.id) },
-                        onClick = { onTrackClick(track) }
+                        onClick = { onTrackClick(favoriteTracks, index) }
                     )
                 }
             }
