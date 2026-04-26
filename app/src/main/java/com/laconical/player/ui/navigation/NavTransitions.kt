@@ -16,6 +16,8 @@ internal val TAB_ORDER = mapOf(
     NavRoute.ALBUMS    to 1,
     NavRoute.ARTISTS   to 2,
     NavRoute.PLAYLISTS to 3,
+    // NavRoute.FAVORITES omitted — it is a drill-down from Playlists, not a peer tab.
+    // isForwardNavigation defaults to true (forward push) for unrecognised routes.
 )
 
 /**
