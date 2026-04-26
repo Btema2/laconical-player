@@ -45,7 +45,6 @@ import com.laconical.player.ui.components.LaconicalBottomNav
 import com.laconical.player.ui.components.LaconicalTopBar
 import com.laconical.player.ui.components.MiniPlayer
 import com.laconical.player.ui.components.TrackListItem
-import com.laconical.player.ui.components.AddToPlaylistOverlay
 import com.laconical.player.ui.components.PlaylistBottomSheet
 import com.laconical.player.ui.components.QueueSheet
 import com.laconical.player.ui.components.TrackMenuOverlay
@@ -140,7 +139,6 @@ fun LibraryScreen(
     )
 
     val scope = rememberCoroutineScope()
-    var playlistPickerTrack by remember { mutableStateOf<Track?>(null) }
     var pendingNewPlaylistTrack by remember { mutableStateOf<Track?>(null) }
     var showCreateForPicker by remember { mutableStateOf(false) }
     val playlists by viewModel.playlists.collectAsState()
@@ -358,9 +356,6 @@ fun LibraryScreen(
                                                     onViewArtist = {
                                                         navController.navigate(NavRoute.artistDetailRoute(track.artist))
                                                     },
-                                                    onAddToPlaylist = {
-                                                        playlistPickerTrack = track
-                                                    },
                                                     onMenuOpen = { offset, size ->
                                                         contextMenuTrack = track
                                                         contextMenuArtOffset = offset
@@ -567,26 +562,6 @@ fun LibraryScreen(
             )
         }
 
-        // ── Add to playlist overlay ────────────────────────────────────────
-        playlistPickerTrack?.let { track ->
-            AddToPlaylistOverlay(
-                track = track,
-                playlists = playlists,
-                artTracks = playlistArtTracks,
-                dominantColor = playingTrackDominantColor,
-                onDismiss = { playlistPickerTrack = null },
-                onSelectPlaylist = { playlist ->
-                    viewModel.addTrackToPlaylist(track.id, playlist.id)
-                    playlistPickerTrack = null
-                },
-                onCreateNew = {
-                    pendingNewPlaylistTrack = track
-                    playlistPickerTrack = null
-                    showCreateForPicker = true
-                },
-            )
-        }
-
         // ── Track context menu overlay ──────────────────────────────────────
         contextMenuTrack?.let { track ->
             TrackMenuOverlay(
@@ -595,6 +570,8 @@ fun LibraryScreen(
                 artStartSizePx = contextMenuArtSize,
                 isFavorite = favoriteIds.contains(track.id),
                 dominantColor = playingTrackDominantColor,
+                playlists = playlists,
+                artTracks = playlistArtTracks,
                 onDismiss = { contextMenuTrack = null },
                 onFavoriteToggle = { viewModel.toggleFavorite(track.id) },
                 onViewAlbum = {
@@ -605,9 +582,14 @@ fun LibraryScreen(
                     contextMenuTrack = null
                     navController.navigate(NavRoute.artistDetailRoute(track.artist))
                 },
-                onAddToPlaylist = {
+                onSelectPlaylist = { playlist ->
+                    viewModel.addTrackToPlaylist(track.id, playlist.id)
                     contextMenuTrack = null
-                    playlistPickerTrack = track
+                },
+                onCreateNewPlaylist = {
+                    pendingNewPlaylistTrack = track
+                    contextMenuTrack = null
+                    showCreateForPicker = true
                 },
             )
         }
