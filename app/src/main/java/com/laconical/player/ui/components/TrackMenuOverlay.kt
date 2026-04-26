@@ -423,68 +423,70 @@ private fun PlaylistPickerBody(
     onSelectPlaylist: (Playlist) -> Unit,
     onCreateNew: () -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(menuBg)
-            .heightIn(max = 280.dp),
-    ) {
-        if (playlists.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 24.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "No playlists yet",
-                        color = Color(0xFF555555),
-                        fontSize = 14.sp,
+    Column {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(menuBg)
+                .heightIn(max = 280.dp),
+        ) {
+            if (playlists.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 24.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "No playlists yet",
+                            color = Color(0xFF555555),
+                            fontSize = 14.sp,
+                        )
+                    }
+                }
+            } else {
+                itemsIndexed(playlists, key = { _, p -> p.id }) { index, playlist ->
+                    if (index > 0) {
+                        HorizontalDivider(thickness = 0.5.dp, color = Color(0xFF1E1E28))
+                    }
+                    PlaylistPickerRow(
+                        playlist = playlist,
+                        artTracks = artTracks[playlist.id] ?: emptyList(),
+                        background = menuBg,
+                        onClick = { onSelectPlaylist(playlist) },
                     )
                 }
             }
-        } else {
-            itemsIndexed(playlists, key = { _, p -> p.id }) { index, playlist ->
-                if (index > 0) {
-                    HorizontalDivider(thickness = 0.5.dp, color = Color(0xFF1E1E28))
-                }
-                PlaylistPickerRow(
-                    playlist = playlist,
-                    artTracks = artTracks[playlist.id] ?: emptyList(),
-                    background = menuBg,
-                    onClick = { onSelectPlaylist(playlist) },
-                )
-            }
         }
-    }
-    HorizontalDivider(thickness = 0.5.dp, color = Color(0xFF1E1E28))
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(menuBg)
-            .clip(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(color = Color.White),
-                onClick = onCreateNew,
+        HorizontalDivider(thickness = 0.5.dp, color = Color(0xFF1E1E28))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(menuBg)
+                .clip(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(color = Color.White),
+                    onClick = onCreateNew,
+                )
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = null,
+                tint = Color(0xFF7C6FE0),
+                modifier = Modifier.size(22.dp),
             )
-            .padding(horizontal = 20.dp, vertical = 18.dp),
-    ) {
-        Icon(
-            imageVector = Icons.Default.Add,
-            contentDescription = null,
-            tint = Color(0xFF7C6FE0),
-            modifier = Modifier.size(22.dp),
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = "New Playlist",
-            color = Color(0xFF7C6FE0),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-        )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = "New Playlist",
+                color = Color(0xFF7C6FE0),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
     }
 }
 
