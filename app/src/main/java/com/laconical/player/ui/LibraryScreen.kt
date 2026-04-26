@@ -70,6 +70,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import com.laconical.player.ui.navigation.navEnterTransition
+import com.laconical.player.ui.navigation.navExitTransition
+import com.laconical.player.ui.navigation.navPopEnterTransition
+import com.laconical.player.ui.navigation.navPopExitTransition
 import com.laconical.player.ui.navigation.NavRoute
 import com.laconical.player.ui.screens.AlbumDetailScreen
 import com.laconical.player.ui.screens.AlbumsScreen
@@ -157,6 +163,8 @@ fun LibraryScreen(
     val navController = rememberNavController()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val queueAnimatable = remember { Animatable(0f) }
+    val visibleEntries by navController.visibleEntries.collectAsState()
+    val isTransitioning = visibleEntries.size > 1
 
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
@@ -297,11 +305,16 @@ fun LibraryScreen(
                         .padding(top = paddingValues.calculateTopPadding())
                 ) {
                     if (hasPermission) {
-                        NavHost(
-                            navController = navController,
-                            startDestination = NavRoute.TRACKS,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            NavHost(
+                                navController = navController,
+                                startDestination = NavRoute.TRACKS,
+                                modifier = Modifier.fillMaxSize(),
+                                enterTransition    = { navEnterTransition(initialState, targetState) },
+                                exitTransition     = { navExitTransition(initialState, targetState) },
+                                popEnterTransition = { navPopEnterTransition() },
+                                popExitTransition  = { navPopExitTransition() },
+                            ) {
                             composable(NavRoute.TRACKS) {
                                 val tracks by viewModel.tracks.collectAsState()
                                 val isPlaybackActive by viewModel.isPlaying.collectAsState()
@@ -463,6 +476,22 @@ fun LibraryScreen(
                                     bottomPadding = trackListBottomPadding
                                 )
                             }
+                        }
+
+                        if (isTransitioning) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .pointerInput(Unit) {
+                                        awaitPointerEventScope {
+                                            while (true) {
+                                                awaitPointerEvent(PointerEventPass.Initial)
+                                                    .changes.forEach { it.consume() }
+                                            }
+                                        }
+                                    }
+                            )
+                        }
                         }
                     } else {
                         Column(
