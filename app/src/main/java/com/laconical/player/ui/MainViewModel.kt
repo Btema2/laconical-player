@@ -173,6 +173,16 @@ class MainViewModel @Inject constructor(
     val playlists: StateFlow<List<Playlist>> = userDataRepository.getAllPlaylists()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    val playlistArtTracks: StateFlow<Map<Long, List<Track>>> = combine(
+        userDataRepository.getAllPlaylistTracks(),
+        _allTracks
+    ) { playlistTracks, allTracks ->
+        val trackMap = allTracks.associateBy { it.id }
+        playlistTracks
+            .groupBy { it.playlistId }
+            .mapValues { (_, pts) -> pts.take(4).mapNotNull { trackMap[it.trackId] } }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
+
     fun addTrackToPlaylist(trackId: Long, playlistId: Long) {
         viewModelScope.launch {
             userDataRepository.appendTrackToPlaylist(playlistId, trackId)

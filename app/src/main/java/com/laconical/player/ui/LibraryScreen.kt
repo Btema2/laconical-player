@@ -45,6 +45,7 @@ import com.laconical.player.ui.components.LaconicalBottomNav
 import com.laconical.player.ui.components.LaconicalTopBar
 import com.laconical.player.ui.components.MiniPlayer
 import com.laconical.player.ui.components.TrackListItem
+import com.laconical.player.ui.components.AddToPlaylistOverlay
 import com.laconical.player.ui.components.PlaylistBottomSheet
 import com.laconical.player.ui.components.QueueSheet
 import com.laconical.player.ui.components.TrackMenuOverlay
@@ -140,8 +141,10 @@ fun LibraryScreen(
 
     val scope = rememberCoroutineScope()
     var playlistPickerTrack by remember { mutableStateOf<Track?>(null) }
+    var pendingNewPlaylistTrack by remember { mutableStateOf<Track?>(null) }
     var showCreateForPicker by remember { mutableStateOf(false) }
     val playlists by viewModel.playlists.collectAsState()
+    val playlistArtTracks by viewModel.playlistArtTracks.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
     // Context menu state — hoisted here so overlay renders above all other layers
     var contextMenuTrack by remember { mutableStateOf<Track?>(null) }
@@ -547,71 +550,40 @@ fun LibraryScreen(
                 scope = scope,
             )
         }
-        if (playlistPickerTrack != null) {
-            val track = playlistPickerTrack!!
-            AlertDialog(
-                onDismissRequest = { playlistPickerTrack = null },
-                title = { Text("Add to playlist") },
-                text = {
-                    LazyColumn {
-                        item {
-                            TextButton(
-                                onClick = {
-                                    playlistPickerTrack = null
-                                    showCreateForPicker = true
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    "+ New playlist",
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                        if (playlists.isEmpty()) {
-                            item {
-                                Text(
-                                    "No playlists yet.",
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    color = Color(0xFF888888)
-                                )
-                            }
-                        } else {
-                            items(playlists, key = { it.id }) { playlist ->
-                                TextButton(
-                                    onClick = {
-                                        viewModel.addTrackToPlaylist(track.id, playlist.id)
-                                        playlistPickerTrack = null
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(playlist.name, modifier = Modifier.fillMaxWidth())
-                                }
-                            }
-                        }
-                    }
+        if (showCreateForPicker) {
+            PlaylistBottomSheet(
+                title = "New Playlist",
+                onDismiss = {
+                    pendingNewPlaylistTrack = null
+                    showCreateForPicker = false
                 },
-                confirmButton = {},
-                dismissButton = {
-                    TextButton(onClick = { playlistPickerTrack = null }) {
-                        Text("Cancel")
+                onConfirm = { name ->
+                    pendingNewPlaylistTrack?.let { t ->
+                        viewModel.createPlaylistAndAdd(name, t.id)
                     }
+                    pendingNewPlaylistTrack = null
+                    showCreateForPicker = false
                 }
             )
         }
-        if (showCreateForPicker) {
-            val pendingTrack = remember { playlistPickerTrack }
-            PlaylistBottomSheet(
-                title = "New Playlist",
-                onDismiss = { showCreateForPicker = false },
-                onConfirm = { name ->
-                    pendingTrack?.let { t ->
-                        viewModel.createPlaylistAndAdd(name, t.id)
-                    }
-                    showCreateForPicker = false
+
+        // ── Add to playlist overlay ────────────────────────────────────────
+        playlistPickerTrack?.let { track ->
+            AddToPlaylistOverlay(
+                track = track,
+                playlists = playlists,
+                artTracks = playlistArtTracks,
+                dominantColor = playingTrackDominantColor,
+                onDismiss = { playlistPickerTrack = null },
+                onSelectPlaylist = { playlist ->
+                    viewModel.addTrackToPlaylist(track.id, playlist.id)
                     playlistPickerTrack = null
-                }
+                },
+                onCreateNew = {
+                    pendingNewPlaylistTrack = track
+                    playlistPickerTrack = null
+                    showCreateForPicker = true
+                },
             )
         }
 
