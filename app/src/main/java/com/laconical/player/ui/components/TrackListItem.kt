@@ -69,7 +69,6 @@ fun TrackListItem(
     onFavoriteToggle: (() -> Unit)? = null,
     onViewAlbum: (() -> Unit)? = null,
     onViewArtist: (() -> Unit)? = null,
-    onAddToPlaylist: (() -> Unit)? = null,
     /** Called with root-space top-left offset and side size (px) of the art thumbnail. */
     onMenuOpen: ((artOffsetPx: Offset, artSizePx: Float) -> Unit)? = null,
 ) {
