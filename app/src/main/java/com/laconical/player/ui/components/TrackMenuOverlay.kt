@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -116,7 +117,7 @@ fun TrackMenuOverlay(
     BackHandler {
         if (mode == TrackMenuMode.PLAYLIST) {
             mode = TrackMenuMode.MAIN
-            scope.launch { switchProgress.animateTo(0f, tween(250, easing = FastOutSlowInEasing)) }
+            scope.launch { switchProgress.animateTo(0f, tween(220, easing = LinearOutSlowInEasing)) }
         } else {
             dismiss()
         }
@@ -302,7 +303,7 @@ fun TrackMenuOverlay(
                                 scope.launch {
                                     switchProgress.animateTo(
                                         1f,
-                                        tween(280, easing = FastOutSlowInEasing),
+                                        tween(240, easing = LinearOutSlowInEasing),
                                     )
                                 }
                             },
@@ -375,41 +376,43 @@ private fun MainMenuBody(
     onViewArtistClick: () -> Unit,
     onAddToPlaylistClick: () -> Unit,
 ) {
-    MenuRow(
-        icon = if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
-        label = if (isFavorite) "Remove from Favorites" else "Add to Favorites",
-        iconTint = if (isFavorite) Color(0xFFE84B7A) else Color.White,
-        background = menuBg,
-        onClick = onFavoriteClick,
-    )
-    if (onViewAlbum != null) {
+    Column {
+        MenuRow(
+            icon = if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
+            label = if (isFavorite) "Remove from Favorites" else "Add to Favorites",
+            iconTint = if (isFavorite) Color(0xFFE84B7A) else Color.White,
+            background = menuBg,
+            onClick = onFavoriteClick,
+        )
+        if (onViewAlbum != null) {
+            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFF1E1E28))
+            MenuRow(
+                icon = Icons.Default.Album,
+                label = "Go to Album",
+                sublabel = track.album,
+                background = menuBg,
+                onClick = onViewAlbumClick,
+            )
+        }
+        if (onViewArtist != null) {
+            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFF1E1E28))
+            MenuRow(
+                icon = Icons.Default.Person,
+                label = "Go to Artist",
+                sublabel = track.artist,
+                background = menuBg,
+                onClick = onViewArtistClick,
+            )
+        }
         HorizontalDivider(thickness = 0.5.dp, color = Color(0xFF1E1E28))
         MenuRow(
-            icon = Icons.Default.Album,
-            label = "Go to Album",
-            sublabel = track.album,
+            icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+            label = "Add to Playlist",
             background = menuBg,
-            onClick = onViewAlbumClick,
+            bottomCorner = true,
+            onClick = onAddToPlaylistClick,
         )
     }
-    if (onViewArtist != null) {
-        HorizontalDivider(thickness = 0.5.dp, color = Color(0xFF1E1E28))
-        MenuRow(
-            icon = Icons.Default.Person,
-            label = "Go to Artist",
-            sublabel = track.artist,
-            background = menuBg,
-            onClick = onViewArtistClick,
-        )
-    }
-    HorizontalDivider(thickness = 0.5.dp, color = Color(0xFF1E1E28))
-    MenuRow(
-        icon = Icons.AutoMirrored.Filled.PlaylistAdd,
-        label = "Add to Playlist",
-        background = menuBg,
-        bottomCorner = true,
-        onClick = onAddToPlaylistClick,
-    )
 }
 
 @Composable
