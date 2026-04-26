@@ -7,8 +7,13 @@ import android.graphics.BlurMaskFilter
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -141,6 +146,7 @@ fun LibraryScreen(
     val scope = rememberCoroutineScope()
     var pendingNewPlaylistTrack by remember { mutableStateOf<Track?>(null) }
     var showCreateForPicker by remember { mutableStateOf(false) }
+    var playlistToastData by remember { mutableStateOf<Pair<String, String>?>(null) }
     val playlists by viewModel.playlists.collectAsState()
     val playlistArtTracks by viewModel.playlistArtTracks.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
@@ -584,6 +590,7 @@ fun LibraryScreen(
                 },
                 onSelectPlaylist = { playlist ->
                     viewModel.addTrackToPlaylist(track.id, playlist.id)
+                    playlistToastData = Pair(track.title, playlist.name)
                     contextMenuTrack = null
                 },
                 onCreateNewPlaylist = {
@@ -593,6 +600,10 @@ fun LibraryScreen(
                 },
             )
         }
+        PlaylistAddedToast(
+            data = playlistToastData,
+            onDismiss = { playlistToastData = null },
+        )
     } // end outer Box
 }
 
@@ -950,6 +961,79 @@ private fun QueueMorphLayer(
                 tint = Color.White,
                 modifier = Modifier.fillMaxSize().clickable { viewModel.skipToNext() }
             )
+        }
+    }
+}
+
+@Composable
+private fun PlaylistAddedToast(
+    data: Pair<String, String>?,
+    onDismiss: () -> Unit,
+) {
+    val visible = data != null
+    val trackTitle = data?.first.orEmpty()
+    val playlistName = data?.second.orEmpty()
+
+    LaunchedEffect(data) {
+        if (data != null) {
+            kotlinx.coroutines.delay(2600)
+            onDismiss()
+        }
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically(
+            animationSpec = tween(300, easing = LinearOutSlowInEasing),
+            initialOffsetY = { -it },
+        ) + fadeIn(tween(200)),
+        exit = fadeOut(tween(250)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 10.dp)
+            .wrapContentHeight(Alignment.Top),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xF0181820))
+                .padding(horizontal = 16.dp, vertical = 13.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF7C6FE0).copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                    contentDescription = null,
+                    tint = Color(0xFF7C6FE0),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = trackTitle,
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "Added to $playlistName",
+                    color = Color(0xFF888888),
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
