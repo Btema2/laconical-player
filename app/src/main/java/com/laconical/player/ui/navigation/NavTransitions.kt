@@ -9,7 +9,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.navigation.NavBackStackEntry
 
-private const val SLIDE_DURATION_MS = 300
+private const val SLIDE_DURATION_MS = 250
 
 internal val TAB_ORDER = mapOf(
     NavRoute.TRACKS    to 0,
@@ -36,17 +36,9 @@ fun navEnterTransition(from: NavBackStackEntry, to: NavBackStackEntry): EnterTra
         initialOffsetX = { if (isForwardNavigation(from.destination.route, to.destination.route)) it else -it }
     )
 
-fun navExitTransition(from: NavBackStackEntry, to: NavBackStackEntry): ExitTransition =
-    slideOutHorizontally(
-        animationSpec = tween(SLIDE_DURATION_MS, easing = FastOutLinearInEasing),
-        targetOffsetX = { if (isForwardNavigation(from.destination.route, to.destination.route)) -it else it }
-    )
+fun navExitTransition(): ExitTransition = ExitTransition.None
 
-fun navPopEnterTransition(): EnterTransition =
-    slideInHorizontally(
-        animationSpec = tween(SLIDE_DURATION_MS, easing = FastOutSlowInEasing),
-        initialOffsetX = { -it }
-    )
+fun navPopEnterTransition(): EnterTransition = EnterTransition.None
 
 fun navPopExitTransition(): ExitTransition =
     slideOutHorizontally(

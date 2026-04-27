@@ -46,6 +46,7 @@ import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
 import androidx.compose.material.icons.rounded.MusicNote
 import com.laconical.player.ui.components.FullPlayer
+import com.laconical.player.ui.components.staggeredEntrance
 import com.laconical.player.ui.components.LaconicalBottomNav
 import com.laconical.player.ui.components.LaconicalTopBar
 import com.laconical.player.ui.components.MiniPlayer
@@ -169,7 +170,7 @@ fun LibraryScreen(
     LaunchedEffect(navController) {
         navController.currentBackStackEntryFlow.collectLatest {
             isTransitioning = true
-            delay(300L)
+            delay(250L)
             isTransitioning = false
         }
     }
@@ -319,7 +320,7 @@ fun LibraryScreen(
                                 startDestination = NavRoute.TRACKS,
                                 modifier = Modifier.fillMaxSize(),
                                 enterTransition    = { navEnterTransition(initialState, targetState) },
-                                exitTransition     = { navExitTransition(initialState, targetState) },
+                                exitTransition     = { navExitTransition() },
                                 popEnterTransition = { navPopEnterTransition() },
                                 popExitTransition  = { navPopExitTransition() },
                             ) {
@@ -328,7 +329,7 @@ fun LibraryScreen(
                                     val isPlaybackActive by viewModel.isPlaying.collectAsState()
                                     val sortOrder by viewModel.sortOrder.collectAsState()
     
-                                    Column(modifier = Modifier.fillMaxSize()) {
+                                    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                                         LazyRow(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                                             contentPadding = PaddingValues(horizontal = 16.dp),
@@ -377,6 +378,7 @@ fun LibraryScreen(
                                                         isFavorite = favoriteIds.contains(track.id),
                                                         onFavoriteToggle = { viewModel.toggleFavorite(track.id) },
                                                         onClick = { viewModel.playTracks(tracks, index) },
+                                                        modifier = Modifier.staggeredEntrance(index),
                                                         onViewAlbum = {
                                                             navController.navigate(NavRoute.albumDetailRoute(track.album))
                                                         },
@@ -395,11 +397,13 @@ fun LibraryScreen(
                                     }
                                 }
                                 composable(NavRoute.ALBUMS) {
-                                    AlbumsScreen(
-                                        onAlbumClick = { albumName ->
-                                            navController.navigate(NavRoute.albumDetailRoute(albumName))
-                                        }
-                                    )
+                                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                        AlbumsScreen(
+                                            onAlbumClick = { albumName ->
+                                                navController.navigate(NavRoute.albumDetailRoute(albumName))
+                                            }
+                                        )
+                                    }
                                 }
                                 composable(
                                     route = NavRoute.ALBUM_DETAIL,
@@ -410,23 +414,27 @@ fun LibraryScreen(
                                     val albumName = backStackEntry.arguments?.getString("albumName") ?: ""
                                     val isPlaybackActive by viewModel.isPlaying.collectAsState()
                                     val favoriteIds by viewModel.favoriteIds.collectAsState()
-                                    AlbumDetailScreen(
-                                        albumName = albumName,
-                                        onBack = { navController.popBackStack() },
-                                        currentTrack = currentTrack,
-                                        isPlaying = isPlaybackActive,
-                                        favoriteIds = favoriteIds,
-                                        onFavoriteToggle = { viewModel.toggleFavorite(it) },
-                                        onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
-                                        bottomPadding = trackListBottomPadding
-                                    )
+                                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                        AlbumDetailScreen(
+                                            albumName = albumName,
+                                            onBack = { navController.popBackStack() },
+                                            currentTrack = currentTrack,
+                                            isPlaying = isPlaybackActive,
+                                            favoriteIds = favoriteIds,
+                                            onFavoriteToggle = { viewModel.toggleFavorite(it) },
+                                            onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
+                                            bottomPadding = trackListBottomPadding
+                                        )
+                                    }
                                 }
                                 composable(NavRoute.ARTISTS) {
-                                    ArtistsScreen(
-                                        onArtistClick = { artistName ->
-                                            navController.navigate(NavRoute.artistDetailRoute(artistName))
-                                        }
-                                    )
+                                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                        ArtistsScreen(
+                                            onArtistClick = { artistName ->
+                                                navController.navigate(NavRoute.artistDetailRoute(artistName))
+                                            }
+                                        )
+                                    }
                                 }
                                 composable(
                                     route = NavRoute.ARTIST_DETAIL,
@@ -437,52 +445,60 @@ fun LibraryScreen(
                                     val artistName = backStackEntry.arguments?.getString("artistName") ?: ""
                                     val isPlaybackActive by viewModel.isPlaying.collectAsState()
                                     val favoriteIds by viewModel.favoriteIds.collectAsState()
-                                    ArtistDetailScreen(
-                                        artistName = artistName,
-                                        onBack = { navController.popBackStack() },
-                                        currentTrack = currentTrack,
-                                        isPlaying = isPlaybackActive,
-                                        favoriteIds = favoriteIds,
-                                        onFavoriteToggle = { viewModel.toggleFavorite(it) },
-                                        onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
-                                        bottomPadding = trackListBottomPadding
-                                    )
+                                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                        ArtistDetailScreen(
+                                            artistName = artistName,
+                                            onBack = { navController.popBackStack() },
+                                            currentTrack = currentTrack,
+                                            isPlaying = isPlaybackActive,
+                                            favoriteIds = favoriteIds,
+                                            onFavoriteToggle = { viewModel.toggleFavorite(it) },
+                                            onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
+                                            bottomPadding = trackListBottomPadding
+                                        )
+                                    }
                                 }
                                 composable(NavRoute.PLAYLISTS) {
-                                    PlaylistsScreen(
-                                        onFavoritesClick = {
-                                            navController.navigate(NavRoute.FAVORITES)
-                                        },
-                                        onPlaylistClick = { playlistId ->
-                                            navController.navigate(NavRoute.playlistDetailRoute(playlistId))
-                                        },
-                                        bottomPadding = trackListBottomPadding
-                                    )
+                                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                        PlaylistsScreen(
+                                            onFavoritesClick = {
+                                                navController.navigate(NavRoute.FAVORITES)
+                                            },
+                                            onPlaylistClick = { playlistId ->
+                                                navController.navigate(NavRoute.playlistDetailRoute(playlistId))
+                                            },
+                                            bottomPadding = trackListBottomPadding
+                                        )
+                                    }
                                 }
                                 composable(
                                     route = NavRoute.PLAYLIST_DETAIL,
                                     arguments = listOf(navArgument("playlistId") { type = androidx.navigation.NavType.LongType })
                                 ) {
-                                    PlaylistDetailScreen(
-                                        onBack = { navController.popBackStack() },
-                                        onPlayTracks = { list, idx -> viewModel.playTracks(list, idx) },
-                                        bottomPadding = trackListBottomPadding
-                                    )
+                                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                        PlaylistDetailScreen(
+                                            onBack = { navController.popBackStack() },
+                                            onPlayTracks = { list, idx -> viewModel.playTracks(list, idx) },
+                                            bottomPadding = trackListBottomPadding
+                                        )
+                                    }
                                 }
                                 composable(NavRoute.FAVORITES) {
                                     val allTracks by viewModel.tracks.collectAsState()
                                     val favoriteIds by viewModel.favoriteIds.collectAsState()
                                     val isPlaybackActive by viewModel.isPlaying.collectAsState()
-                                    FavoritesScreen(
-                                        allTracks = allTracks,
-                                        favoriteIds = favoriteIds,
-                                        currentTrack = currentTrack,
-                                        isPlaying = isPlaybackActive,
-                                        onFavoriteToggle = { viewModel.toggleFavorite(it) },
-                                        onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
-                                        onBack = { navController.popBackStack() },
-                                        bottomPadding = trackListBottomPadding
-                                    )
+                                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                        FavoritesScreen(
+                                            allTracks = allTracks,
+                                            favoriteIds = favoriteIds,
+                                            currentTrack = currentTrack,
+                                            isPlaying = isPlaybackActive,
+                                            onFavoriteToggle = { viewModel.toggleFavorite(it) },
+                                            onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
+                                            onBack = { navController.popBackStack() },
+                                            bottomPadding = trackListBottomPadding
+                                        )
+                                    }
                                 }
                             }
 
@@ -540,10 +556,12 @@ fun LibraryScreen(
                     }
                 },
                 onTabSelected = { route ->
-                    navController.navigate(route) {
-                        popUpTo(NavRoute.TRACKS) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
+                    if (!isTransitioning) {
+                        navController.navigate(route) {
+                            popUpTo(NavRoute.TRACKS) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 },
                 dynamicColor = playingTrackDominantColor,
