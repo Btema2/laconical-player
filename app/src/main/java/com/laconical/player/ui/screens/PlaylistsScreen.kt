@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.laconical.player.ui.components.staggeredEntrance
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
@@ -140,14 +142,16 @@ fun PlaylistsScreen(
                     }
                 }
             } else {
-                items(playlists, key = { it.id }) { playlist ->
-                    PlaylistRow(
-                        playlist = playlist,
-                        artTracks = artMap[playlist.id] ?: emptyList(),
-                        onClick = { onPlaylistClick(playlist.id) },
-                        onRename = { renameTarget = playlist },
-                        onDelete = { deleteTarget = playlist }
-                    )
+                itemsIndexed(playlists, key = { _, playlist -> playlist.id }) { index, playlist ->
+                    Box(modifier = Modifier.staggeredEntrance(index)) {
+                        PlaylistRow(
+                            playlist = playlist,
+                            artTracks = artMap[playlist.id] ?: emptyList(),
+                            onClick = { onPlaylistClick(playlist.id) },
+                            onRename = { renameTarget = playlist },
+                            onDelete = { deleteTarget = playlist }
+                        )
+                    }
                 }
             }
         }
