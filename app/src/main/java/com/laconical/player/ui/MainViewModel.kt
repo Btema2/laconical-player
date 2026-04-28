@@ -390,11 +390,11 @@ class MainViewModel @Inject constructor(
         fun cycleRepeatMode() { musicPlayer.cycleRepeatMode() }
 
         fun moveQueueItem(from: Int, to: Int) {
-            val current = _allTracks.value.toMutableList()
+            val current = _currentQueue.value.toMutableList()
             if (from < 0 || to < 0 || from >= current.size || to >= current.size || from == to) return
             val item = current.removeAt(from)
             current.add(to, item)
-            _allTracks.value = current
+            _currentQueue.value = current
             musicPlayer.moveQueueItem(from, to)
         }
 
