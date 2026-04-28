@@ -26,7 +26,8 @@ private const val SCROLL_IN_DURATION_MS = 90
  *   - Initial batch (index ≤ STAGGER_CAP): cascading delay + 150ms animation.
  *   - Scroll-in items (index > STAGGER_CAP): 0ms delay + 90ms animation.
  *
- * This prevents the old 360ms invisible-content window on fast scroll.
+ * This prevents the old 540ms invisible-content window on fast scroll
+ * (360ms max stagger delay + 180ms animation duration).
  */
 fun Modifier.staggeredEntrance(index: Int): Modifier = composed {
     val density = LocalDensity.current
@@ -34,7 +35,7 @@ fun Modifier.staggeredEntrance(index: Int): Modifier = composed {
     val alpha = remember { Animatable(0f) }
     val offsetY = remember { Animatable(startOffsetPx) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(index) {
         val isInitialBatch = index <= STAGGER_CAP
         val staggerDelay = if (isInitialBatch) index.toLong() * STAGGER_MS else 0L
         val duration = if (isInitialBatch) ANIM_DURATION_MS else SCROLL_IN_DURATION_MS
