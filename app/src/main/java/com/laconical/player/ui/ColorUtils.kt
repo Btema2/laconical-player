@@ -28,3 +28,13 @@ internal fun Color.toHsl(): FloatArray {
     }
     return hsl
 }
+
+internal fun Color?.deriveBarColor(): Color {
+    if (this == null) return Color(0xFF1A1A1A)
+    return Color(
+        red   = 0.034f + red   * 0.15f,
+        green = 0.034f + green * 0.15f,
+        blue  = 0.0425f + blue * 0.15f,
+        alpha = 1f
+    )
+}
