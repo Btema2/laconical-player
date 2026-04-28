@@ -182,11 +182,18 @@ fun LibraryScreen(
     val miniPlayerHeight = (75 + 12).dp
     val bottomInsets = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    // Sheet peeks at mini player + nav bar height so the mini player sits above the fixed nav bar.
-    // The nav bar itself is rendered outside the sheet (so it doesn't move during drag), but the
-    // sheet still needs to reserve that space so the mini player clears the nav bar visually.
-    val sheetPeekHeight = miniPlayerHeight + bottomNavHeight + bottomInsets
-    val trackListBottomPadding = sheetPeekHeight
+    // When a track is playing the sheet peeks at mini-player + nav-bar + insets so the
+    // mini player sits visually above the fixed nav bar.  When nothing is playing we
+    // collapse the sheet to 0 so the invisible peek area cannot intercept touches.
+    val sheetPeekHeight = if (currentTrack != null)
+        miniPlayerHeight + bottomNavHeight + bottomInsets
+    else
+        0.dp
+    // Always leave room for the bottom nav bar even when there is no mini player.
+    val trackListBottomPadding = if (currentTrack != null)
+        miniPlayerHeight + bottomNavHeight + bottomInsets
+    else
+        bottomNavHeight + bottomInsets
 
     // Hoisted so the root-level morph overlay can access them
     var containerHeightPx by remember { mutableFloatStateOf(0f) }
@@ -226,6 +233,14 @@ fun LibraryScreen(
     LaunchedEffect(expandedFraction) {
         if (expandedFraction < 0.3f && queueAnimatable.value > 0f) {
             queueAnimatable.animateTo(0f, tween(QUEUE_ANIM_MS, easing = FastOutSlowInEasing))
+        }
+    }
+
+    // Collapse the sheet when playback stops so the invisible full-player
+    // cannot block input while nothing is showing.
+    LaunchedEffect(currentTrack) {
+        if (currentTrack == null) {
+            scaffoldState.bottomSheetState.partialExpand()
         }
     }
 
