@@ -331,7 +331,6 @@ fun LibraryScreen(
                 topBar = {
                     if (hasPermission && !isOnSearch) {
                         LaconicalTopBar(
-                            dominantColor = playingTrackDominantColor,
                             onSearchClick = { navController.navigate(NavRoute.SEARCH) }
                         )
                     }
