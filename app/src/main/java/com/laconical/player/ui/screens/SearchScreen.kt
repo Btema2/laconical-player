@@ -1,7 +1,7 @@
 package com.laconical.player.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -117,6 +117,8 @@ fun SearchScreen(
     val context = LocalContext.current
     val loader = SingletonImageLoader.get(context)
 
+    val interactionSource = remember { MutableInteractionSource() }
+
     val containerColor by animateColorAsState(
         targetValue = dominantColor.deriveBarColor(),
         animationSpec = tween(400),
@@ -149,13 +151,9 @@ fun SearchScreen(
                     )
                 }
 
-                val interactionSource = remember { MutableInteractionSource() }
                 BasicTextField(
                     value = searchQuery,
-                    onValueChange = {
-                        onSearchQueryChange(it)
-                        selectedFilter = SearchFilter.ALL
-                    },
+                    onValueChange = { onSearchQueryChange(it) },
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp)
@@ -341,7 +339,12 @@ private fun AllResultsContent(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(searchedAlbums, key = { it.album }) { track ->
-                        AlbumCard(track = track, loader = loader, onClick = onAlbumClick)
+                        AlbumCard(
+                            track = track,
+                            loader = loader,
+                            onClick = onAlbumClick,
+                            modifier = Modifier.width(130.dp)
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -358,7 +361,12 @@ private fun AllResultsContent(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(searchedArtists, key = { it.artist }) { track ->
-                        ArtistCard(track = track, loader = loader, onClick = onArtistClick)
+                        ArtistCard(
+                            track = track,
+                            loader = loader,
+                            onClick = onArtistClick,
+                            modifier = Modifier.width(90.dp)
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -544,7 +552,7 @@ private fun AlbumCard(
     track: Track,
     loader: ImageLoader,
     onClick: (String) -> Unit,
-    modifier: Modifier = Modifier.width(130.dp)
+    modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier.clickable { onClick(track.album) },
@@ -592,7 +600,7 @@ private fun ArtistCard(
     track: Track,
     loader: ImageLoader,
     onClick: (String) -> Unit,
-    modifier: Modifier = Modifier.width(90.dp)
+    modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier.clickable { onClick(track.artist) },
