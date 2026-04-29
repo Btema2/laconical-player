@@ -133,6 +133,30 @@ class MainViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    val searchedAlbums: StateFlow<List<Track>> = combine(_allTracks, _searchQuery) { allTracks, query ->
+        if (query.isBlank()) emptyList()
+        else allTracks
+            .filter { it.album.contains(query, ignoreCase = true) }
+            .distinctBy { it.album.lowercase() }
+            .sortedBy { it.album.lowercase() }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val searchedArtists: StateFlow<List<Track>> = combine(_allTracks, _searchQuery) { allTracks, query ->
+        if (query.isBlank()) emptyList()
+        else allTracks
+            .filter { it.artist.contains(query, ignoreCase = true) }
+            .distinctBy { it.artist.lowercase() }
+            .sortedBy { it.artist.lowercase() }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val searchedPlaylists: StateFlow<List<Playlist>> = combine(
+        _searchQuery,
+        userDataRepository.getAllPlaylists()
+    ) { query, allPlaylists ->
+        if (query.isBlank()) emptyList()
+        else allPlaylists.filter { it.name.contains(query, ignoreCase = true) }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
     private val _currentTrack = MutableStateFlow<Track?>(null)
     val currentTrack: StateFlow<Track?> = _currentTrack.asStateFlow()
 
