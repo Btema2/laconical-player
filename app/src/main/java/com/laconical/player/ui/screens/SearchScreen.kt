@@ -322,7 +322,7 @@ private fun AllResultsContent(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(LocalAppBackground.current)
     ) {
         if (searchedAlbums.isNotEmpty()) {
             item(key = "albums_header") {
@@ -414,7 +414,7 @@ private fun TracksOnlyContent(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(LocalAppBackground.current)
     ) {
         itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
             TrackListItem(
@@ -443,7 +443,7 @@ private fun ArtistsOnlyContent(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(LocalAppBackground.current)
     ) {
         itemsIndexed(artists, key = { _, track -> track.artist }) { index, track ->
             ArtistCard(
@@ -471,7 +471,7 @@ private fun AlbumsOnlyContent(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(LocalAppBackground.current)
     ) {
         itemsIndexed(albums, key = { _, track -> track.album }) { index, track ->
             AlbumCard(
@@ -495,7 +495,7 @@ private fun PlaylistsOnlyContent(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(LocalAppBackground.current)
     ) {
         itemsIndexed(playlists, key = { _, playlist -> playlist.id }) { index, playlist ->
             SearchPlaylistRow(

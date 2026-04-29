@@ -75,6 +75,7 @@ import kotlinx.coroutines.withContext
 import com.laconical.player.ui.components.PlaylistCoverMosaic
 import com.laconical.player.ui.viewmodels.PlaylistDetailViewModel
 import kotlin.math.roundToInt
+import com.laconical.player.ui.LocalAppBackground
 
 private val DETAIL_ITEM_HEIGHT = 72.dp
 
@@ -127,7 +128,7 @@ fun PlaylistDetailScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0A0C))
+            .background(LocalAppBackground.current)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
