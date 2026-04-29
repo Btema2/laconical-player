@@ -8,9 +8,12 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
+    background = Color(0xFF141313),
+    surface = Color(0xFF212121),
     primary = Purple80,
     secondary = PurpleGrey80,
     tertiary = Pink80
@@ -25,7 +28,7 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun LaconicalTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

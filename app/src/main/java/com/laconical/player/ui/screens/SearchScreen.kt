@@ -1,7 +1,6 @@
 package com.laconical.player.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -79,7 +78,7 @@ import com.laconical.player.ui.AudioArtData
 import com.laconical.player.ui.components.PlaylistCoverMosaic
 import com.laconical.player.ui.components.TrackListItem
 import com.laconical.player.ui.components.staggeredEntrance
-import com.laconical.player.ui.deriveBarColor
+import com.laconical.player.ui.LocalAppBackground
 
 enum class SearchFilter(val label: String) {
     ALL("All"),
@@ -119,11 +118,7 @@ fun SearchScreen(
 
     val interactionSource = remember { MutableInteractionSource() }
 
-    val containerColor by animateColorAsState(
-        targetValue = dominantColor.deriveBarColor(),
-        animationSpec = tween(400),
-        label = "SearchBarColor"
-    )
+    val containerColor = LocalAppBackground.current
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
