@@ -90,6 +90,8 @@ import com.laconical.player.ui.screens.PlaylistDetailScreen
 import com.laconical.player.ui.screens.PlaylistsScreen
 import com.laconical.player.ui.screens.SearchScreen
 import com.laconical.player.core.data.db.entity.Playlist
+import com.laconical.player.ui.LocalAppBackground
+import com.laconical.player.ui.LocalAppSurface
 
 // Symmetric open/close duration for the queue morph (ms). Material standard easing
 // (FastOutSlowInEasing) is used in both directions so the motion feels the same in and out.
@@ -139,22 +141,36 @@ fun LibraryScreen(
     val playingTrackDominantColor by viewModel.playingTrackDominantColor.collectAsState()
     val currentTrack by viewModel.currentTrack.collectAsState()
 
-    val targetColor = if (playingTrackDominantColor != null) {
-        val vibe = playingTrackDominantColor!!
+    val targetBgColor = if (playingTrackDominantColor != null) {
+        val d = playingTrackDominantColor!!
         Color(
-            red = (0.04f * 0.92f) + (vibe.red * 0.08f),
-            green = (0.04f * 0.92f) + (vibe.green * 0.08f),
-            blue = (0.05f * 0.92f) + (vibe.blue * 0.08f),
+            red   = 0.0784f * 0.93f + d.red   * 0.07f,
+            green = 0.0745f * 0.93f + d.green * 0.07f,
+            blue  = 0.0745f * 0.93f + d.blue  * 0.07f,
             alpha = 1f
         )
-    } else {
-        Color(0xFF0A0A0C)
-    }
+    } else Color(0xFF141313)
 
-    val animatedColor by animateColorAsState(
-        targetValue = targetColor,
+    val targetSurfaceColor = if (playingTrackDominantColor != null) {
+        val d = playingTrackDominantColor!!
+        Color(
+            red   = 0.1294f * 0.94f + d.red   * 0.06f,
+            green = 0.1294f * 0.94f + d.green * 0.06f,
+            blue  = 0.1294f * 0.94f + d.blue  * 0.06f,
+            alpha = 1f
+        )
+    } else Color(0xFF212121)
+
+    val animatedBgColor by animateColorAsState(
+        targetValue = targetBgColor,
         animationSpec = tween(1000),
         label = "BgColorAnim"
+    )
+
+    val animatedSurfaceColor by animateColorAsState(
+        targetValue = targetSurfaceColor,
+        animationSpec = tween(1000),
+        label = "SurfaceColorAnim"
     )
 
     val scope = rememberCoroutineScope()
@@ -263,9 +279,13 @@ fun LibraryScreen(
         scope.launch { scaffoldState.bottomSheetState.partialExpand() }
     }
 
+    CompositionLocalProvider(
+        LocalAppBackground provides animatedBgColor,
+        LocalAppSurface    provides animatedSurfaceColor
+    ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Surface(
-            color = animatedColor,
+            color = animatedBgColor,
             modifier = Modifier.fillMaxSize()
         ) {
             BottomSheetScaffold(
@@ -357,7 +377,7 @@ fun LibraryScreen(
                                     val isPlaybackActive by viewModel.isPlaying.collectAsState()
                                     val sortOrder by viewModel.sortOrder.collectAsState()
     
-                                    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                    Column(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
                                         LazyRow(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                                             contentPadding = PaddingValues(horizontal = 16.dp),
@@ -425,7 +445,7 @@ fun LibraryScreen(
                                     }
                                 }
                                 composable(NavRoute.ALBUMS) {
-                                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
                                         AlbumsScreen(
                                             onAlbumClick = { albumName ->
                                                 navController.navigate(NavRoute.albumDetailRoute(albumName))
@@ -442,7 +462,7 @@ fun LibraryScreen(
                                     val albumName = backStackEntry.arguments?.getString("albumName") ?: ""
                                     val isPlaybackActive by viewModel.isPlaying.collectAsState()
                                     val favoriteIds by viewModel.favoriteIds.collectAsState()
-                                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
                                         AlbumDetailScreen(
                                             albumName = albumName,
                                             onBack = { navController.popBackStack() },
@@ -456,7 +476,7 @@ fun LibraryScreen(
                                     }
                                 }
                                 composable(NavRoute.ARTISTS) {
-                                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
                                         ArtistsScreen(
                                             onArtistClick = { artistName ->
                                                 navController.navigate(NavRoute.artistDetailRoute(artistName))
@@ -473,7 +493,7 @@ fun LibraryScreen(
                                     val artistName = backStackEntry.arguments?.getString("artistName") ?: ""
                                     val isPlaybackActive by viewModel.isPlaying.collectAsState()
                                     val favoriteIds by viewModel.favoriteIds.collectAsState()
-                                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
                                         ArtistDetailScreen(
                                             artistName = artistName,
                                             onBack = { navController.popBackStack() },
@@ -487,7 +507,7 @@ fun LibraryScreen(
                                     }
                                 }
                                 composable(NavRoute.PLAYLISTS) {
-                                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
                                         PlaylistsScreen(
                                             onFavoritesClick = {
                                                 navController.navigate(NavRoute.FAVORITES)
@@ -503,7 +523,7 @@ fun LibraryScreen(
                                     route = NavRoute.PLAYLIST_DETAIL,
                                     arguments = listOf(navArgument("playlistId") { type = androidx.navigation.NavType.LongType })
                                 ) {
-                                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
                                         PlaylistDetailScreen(
                                             onBack = { navController.popBackStack() },
                                             onPlayTracks = { list, idx -> viewModel.playTracks(list, idx) },
@@ -557,7 +577,7 @@ fun LibraryScreen(
                                     val allTracks by viewModel.tracks.collectAsState()
                                     val favoriteIds by viewModel.favoriteIds.collectAsState()
                                     val isPlaybackActive by viewModel.isPlaying.collectAsState()
-                                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
                                         FavoritesScreen(
                                             allTracks = allTracks,
                                             favoriteIds = favoriteIds,
@@ -726,6 +746,7 @@ fun LibraryScreen(
             onDismiss = { playlistToastData = null },
         )
     } // end outer Box
+    } // end CompositionLocalProvider
 }
 
 /**
