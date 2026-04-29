@@ -13,6 +13,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -87,6 +88,7 @@ import com.laconical.player.ui.screens.ArtistsScreen
 import com.laconical.player.ui.screens.FavoritesScreen
 import com.laconical.player.ui.screens.PlaylistDetailScreen
 import com.laconical.player.ui.screens.PlaylistsScreen
+import com.laconical.player.ui.screens.SearchScreen
 import com.laconical.player.core.data.db.entity.Playlist
 
 // Symmetric open/close duration for the queue morph (ms). Material standard easing
@@ -131,6 +133,9 @@ fun LibraryScreen(
     }
 
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val searchedAlbums by viewModel.searchedAlbums.collectAsState()
+    val searchedArtists by viewModel.searchedArtists.collectAsState()
+    val searchedPlaylists by viewModel.searchedPlaylists.collectAsState()
     val playingTrackDominantColor by viewModel.playingTrackDominantColor.collectAsState()
     val currentTrack by viewModel.currentTrack.collectAsState()
 
@@ -175,6 +180,10 @@ fun LibraryScreen(
         }
     }
 
+    val rawRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+        ?: NavRoute.TRACKS
+    val isOnSearch = rawRoute == NavRoute.SEARCH
+
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp.dp
@@ -182,13 +191,18 @@ fun LibraryScreen(
     val miniPlayerHeight = (75 + 12).dp
     val bottomInsets = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    // When a track is playing the sheet peeks at mini-player + nav-bar + insets so the
-    // mini player sits visually above the fixed nav bar.  When nothing is playing we
-    // collapse the sheet to 0 so the invisible peek area cannot intercept touches.
-    val sheetPeekHeight = if (currentTrack != null)
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
+    // logicalPeekHeight drives maxOffset (must stay stable during IME animation).
+    // sheetPeekHeight is the animated value passed to BottomSheetScaffold.
+    val logicalPeekHeight = if (currentTrack != null)
         miniPlayerHeight + bottomNavHeight + bottomInsets
     else
         0.dp
+    val sheetPeekHeight by animateDpAsState(
+        targetValue = if (isOnSearch && imeVisible) 0.dp else logicalPeekHeight,
+        animationSpec = tween(200),
+        label = "SheetPeekHeight"
+    )
     // Always leave room for the bottom nav bar even when there is no mini player.
     val trackListBottomPadding = if (currentTrack != null)
         miniPlayerHeight + bottomNavHeight + bottomInsets
@@ -212,7 +226,7 @@ fun LibraryScreen(
 
     // expandedFraction computed at this level so both sheetContent and outer Box can use it
     val maxOffset = if (containerHeightPx > 0f)
-        containerHeightPx - with(density) { sheetPeekHeight.toPx() }
+        containerHeightPx - with(density) { logicalPeekHeight.toPx() }
     else 1000f
 
     val currentOffset = try {
@@ -315,10 +329,10 @@ fun LibraryScreen(
                 },
                 containerColor = Color.Transparent,
                 topBar = {
-                    if (hasPermission) {
+                    if (hasPermission && !isOnSearch) {
                         LaconicalTopBar(
-                            searchQuery = searchQuery,
-                            onSearchQueryChange = viewModel::updateSearchQuery
+                            dominantColor = playingTrackDominantColor,
+                            onSearchClick = { navController.navigate(NavRoute.SEARCH) }
                         )
                     }
                 }
@@ -498,6 +512,48 @@ fun LibraryScreen(
                                         )
                                     }
                                 }
+                                composable(
+                                    route = NavRoute.SEARCH,
+                                    enterTransition = { slideInVertically { -it } + fadeIn(tween(200)) },
+                                    exitTransition = { fadeOut(tween(150)) },
+                                    popEnterTransition = { fadeIn(tween(150)) },
+                                    popExitTransition = { slideOutVertically { -it } + fadeOut(tween(200)) }
+                                ) {
+                                    val tracks by viewModel.tracks.collectAsState()
+                                    val isPlaybackActive by viewModel.isPlaying.collectAsState()
+                                    BackHandler {
+                                        viewModel.updateSearchQuery("")
+                                        navController.popBackStack()
+                                    }
+                                    SearchScreen(
+                                        searchQuery = searchQuery,
+                                        onSearchQueryChange = viewModel::updateSearchQuery,
+                                        tracks = tracks,
+                                        searchedAlbums = searchedAlbums,
+                                        searchedArtists = searchedArtists,
+                                        searchedPlaylists = searchedPlaylists,
+                                        playlistArtTracks = playlistArtTracks,
+                                        dominantColor = playingTrackDominantColor,
+                                        currentTrack = currentTrack,
+                                        isPlaying = isPlaybackActive,
+                                        favoriteIds = favoriteIds,
+                                        onNavigateBack = {
+                                            viewModel.updateSearchQuery("")
+                                            navController.popBackStack()
+                                        },
+                                        onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
+                                        onFavoriteToggle = { viewModel.toggleFavorite(it) },
+                                        onAlbumClick = { albumName ->
+                                            navController.navigate(NavRoute.albumDetailRoute(albumName))
+                                        },
+                                        onArtistClick = { artistName ->
+                                            navController.navigate(NavRoute.artistDetailRoute(artistName))
+                                        },
+                                        onPlaylistClick = { playlistId ->
+                                            navController.navigate(NavRoute.playlistDetailRoute(playlistId))
+                                        }
+                                    )
+                                }
                                 composable(NavRoute.FAVORITES) {
                                     val allTracks by viewModel.tracks.collectAsState()
                                     val favoriteIds by viewModel.favoriteIds.collectAsState()
@@ -557,18 +613,14 @@ fun LibraryScreen(
         }
 
         // ── Bottom Navigation (fixed outside sheet so it doesn't ride up during drag) ──
-        if (hasPermission && expandedFraction < 0.99f) {
+        if (hasPermission && expandedFraction < 0.99f && !isOnSearch) {
             val navBarHeightPx = with(density) { (bottomNavHeight + bottomInsets).toPx() }
             LaconicalBottomNav(
-                selectedRoute = run {
-                    val raw = navController.currentBackStackEntryAsState().value?.destination?.route
-                        ?: NavRoute.TRACKS
-                    when {
-                        raw.startsWith("album_detail") -> NavRoute.ALBUMS
-                        raw.startsWith("artist_detail") -> NavRoute.ARTISTS
-                        raw.startsWith("playlist_detail") -> NavRoute.PLAYLISTS
-                        else -> raw
-                    }
+                selectedRoute = when {
+                    rawRoute.startsWith("album_detail") -> NavRoute.ALBUMS
+                    rawRoute.startsWith("artist_detail") -> NavRoute.ARTISTS
+                    rawRoute.startsWith("playlist_detail") -> NavRoute.PLAYLISTS
+                    else -> rawRoute
                 },
                 onTabSelected = { route ->
                     if (!isTransitioning) {
