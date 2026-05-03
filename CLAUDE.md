@@ -32,7 +32,7 @@ Laconical Player — open-source Android music player (Namida-inspired). Local a
 
 **State:** Single `@HiltViewModel` — `MainViewModel`. One screen (`LibraryScreen`) in `MainActivity.setContent`. NavHost with bottom-nav routes (Tracks, Albums, Artists, Playlists, Favorites).
 
-**Key `StateFlow`s in `MainViewModel`:** `tracks`, `currentTrack`, `playingTrackDominantColor`, `isPlaying`, `currentPosition`, `duration`, `progress`, `queue`, `currentQueueIndex`, `shuffleModeEnabled`, `repeatMode`, `waveform`, `beatPulse`, `_waveformData`, `_currentNormalizedAmplitude` (60 fps ticker, decays to zero when paused — zero CPU at idle).
+**Key `StateFlow`s in `MainViewModel`:** `tracks`, `currentTrack`, `playingTrackDominantColor`, `isPlaying`, `currentPosition`, `duration`, `progress`, `queue` (backed by `_currentQueue` — context-specific, not global `_allTracks`), `currentQueueIndex`, `shuffleModeEnabled`, `repeatMode`, `waveform`, `beatPulse`, `_waveformData`, `_currentNormalizedAmplitude` (60 fps ticker, decays to zero when paused — zero CPU at idle), `searchedAlbums`, `searchedArtists`, `searchedPlaylists`, `playlistArtTracks`.
 
 ### Playback (Two Layers)
 
@@ -50,7 +50,7 @@ Laconical Player — open-source Android music player (Namida-inspired). Local a
 
 ### Album Art Loading
 
-Custom Coil 3: `AudioAlbumArtFetcher` + `AudioAlbumArtKeyer` (in `MainViewModel.kt`). Uses `MediaMetadataRetriever`. Global `ImageLoader` registered in `LaconicalApp`.
+Custom Coil 3: `AudioAlbumArtFetcher` + `AudioAlbumArtKeyer` (in `MainViewModel.kt`). `AudioArtData` carries both `uri` (audio file) and `albumArtUri` (MediaStore `content://media/external/audio/albumart/<albumId>`). Keyer uses `albumArtUri` when present — all tracks in same album share one cache entry. Fetcher fast path: `ContentResolver.openInputStream(albumArtUri)` before falling back to `MediaMetadataRetriever`. Global `ImageLoader` has 50 MB disk cache + 15% memory cache, registered in `LaconicalApp`.
 
 ## Key Files
 
@@ -70,12 +70,16 @@ app/.../
     ParticlesEffectCanvas.kt   # Physics particles — mutate in LaunchedEffect only
     PlaylistCoverMosaic.kt     # 2×2 mosaic art (AudioArtData + Coil)
     PlaylistBottomSheet.kt     # ModalBottomSheet for create/rename playlist
-    TrackContextMenu.kt        # DropdownMenu with track actions
+    TrackMenuOverlay.kt        # Unified track menu — morphs to playlist picker in-place
+    LaconicalBottomNav.kt      # Bottom nav with selection indicator pill
+    NavTransitions.kt          # Directional slide transition specs
+    StaggeredEntrance.kt       # Staggered list-item entrance modifier
   ui/screens/
     AlbumsScreen.kt / AlbumDetailScreen.kt
     ArtistsScreen.kt / ArtistDetailScreen.kt
     FavoritesScreen.kt
     PlaylistsScreen.kt / PlaylistDetailScreen.kt
+    SearchScreen.kt            # Search results overlay (inline in LibraryScreen)
   ui/viewmodels/
     AlbumsViewModel.kt / ArtistsViewModel.kt
     PlaylistsViewModel.kt / PlaylistDetailViewModel.kt
