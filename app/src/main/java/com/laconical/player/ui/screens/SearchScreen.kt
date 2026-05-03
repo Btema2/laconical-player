@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,7 +68,6 @@ enum class SearchFilter(val label: String) {
 @Composable
 fun SearchResultsPanel(
     searchQuery: String,
-    onSearchQueryChange: (String) -> Unit,
     tracks: List<Track>,
     searchedAlbums: List<Track>,
     searchedArtists: List<Track>,
@@ -85,6 +85,9 @@ fun SearchResultsPanel(
     modifier: Modifier = Modifier
 ) {
     var selectedFilter by remember { mutableStateOf(SearchFilter.ALL) }
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isEmpty()) selectedFilter = SearchFilter.ALL
+    }
     val context = LocalContext.current
     val loader = SingletonImageLoader.get(context)
     val containerColor = LocalAppBackground.current
