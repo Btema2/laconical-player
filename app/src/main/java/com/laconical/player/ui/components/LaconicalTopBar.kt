@@ -37,15 +37,14 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
+import com.laconical.player.ui.toHsl
 
 @Composable
 fun LaconicalTopBar(
@@ -54,6 +53,7 @@ fun LaconicalTopBar(
     onSearchOpen: () -> Unit,
     onSearchClose: () -> Unit,
     onQueryChange: (String) -> Unit,
+    dominantColor: Color? = null,
     modifier: Modifier = Modifier
 ) {
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -62,22 +62,33 @@ fun LaconicalTopBar(
     val expandProgress = remember { Animatable(0f) }
     val focusRequester = remember { FocusRequester() }
 
-    // Animate bar open/close
     LaunchedEffect(isSearchOpen) {
         if (isSearchOpen) {
-            focusRequester.requestFocus()
+            try { focusRequester.requestFocus() } catch (_: Exception) {}
             expandProgress.animateTo(1f, tween(380, easing = FastOutSlowInEasing))
         } else {
             expandProgress.animateTo(0f, tween(220, easing = FastOutSlowInEasing))
         }
     }
 
-    // Track search icon position in root coords so the bar can start from there
-    var searchIconRootX by remember { mutableStateOf(0f) }
     var topBarWidthPx by remember { mutableStateOf(0f) }
 
-    // Inner alpha for back arrow and placeholder: only fades in in last 35% of progress
+    // Arrow + text field fade in during last 35% of expand
     val innerAlpha = ((expandProgress.value - 0.65f) / 0.35f).coerceIn(0f, 1f)
+
+    // Bar fill: dominant hue, heavily desaturated (gray with color hint), dark
+    val barFillColor = remember(dominantColor) {
+        dominantColor?.let {
+            val hsl = it.toHsl()
+            Color(android.graphics.Color.HSVToColor(floatArrayOf(hsl[0] * 360f, 0.18f, 0.22f)))
+        } ?: Color(0xFF2A2A2A)
+    }
+    val barBorderColor = remember(dominantColor) {
+        dominantColor?.let {
+            val hsl = it.toHsl()
+            Color(android.graphics.Color.HSVToColor(floatArrayOf(hsl[0] * 360f, 0.22f, 0.36f)))
+        } ?: Color(0xFF3E3E3E)
+    }
 
     Box(
         modifier = modifier
@@ -106,7 +117,6 @@ fun LaconicalTopBar(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.align(Alignment.CenterEnd)
         ) {
-            // Settings icon — fades + scales out
             IconButton(
                 onClick = { /* TODO: Settings */ },
                 modifier = Modifier.graphicsLayer {
@@ -119,98 +129,86 @@ fun LaconicalTopBar(
                 Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
             }
 
-            // Search icon — fades out quickly
             IconButton(
                 onClick = onSearchOpen,
                 enabled = expandProgress.value < 0.4f,
-                modifier = Modifier
-                    .onGloballyPositioned { coords ->
-                        searchIconRootX = coords.positionInRoot().x
-                    }
-                    .graphicsLayer {
-                        alpha = lerp(1f, 0f, (expandProgress.value / 0.4f).coerceIn(0f, 1f))
-                    }
+                modifier = Modifier.graphicsLayer {
+                    alpha = lerp(1f, 0f, (expandProgress.value / 0.4f).coerceIn(0f, 1f))
+                }
             ) {
                 Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
             }
         }
 
+        // ── Back arrow — outside and to the left of the bar ─────────
+        IconButton(
+            onClick = { onQueryChange(""); onSearchClose() },
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .graphicsLayer { alpha = innerAlpha }
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Close search",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
         // ── Expanding search bar ────────────────────────────────────
-        // Grows from the search icon position to fill the bar minus 8dp left margin
+        // Always composed so focusRequester has a node; invisible when progress = 0.
+        // Full width reserves 40dp (arrow) + 8dp (gap) + 8dp (right padding) = 56dp.
         val barAlpha = (expandProgress.value / 0.2f).coerceIn(0f, 1f)
-        if (expandProgress.value > 0.01f && topBarWidthPx > 0f) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp)
-                    .graphicsLayer { alpha = barAlpha }
-                    .width(
-                        with(density) {
-                            lerp(
-                                start = 36f,
-                                stop = topBarWidthPx - 8.dp.toPx(),
-                                fraction = expandProgress.value
-                            ).toDp()
-                        }
+        val barWidthDp = if (topBarWidthPx > 0f) {
+            with(density) {
+                lerp(36f, topBarWidthPx - 56.dp.toPx(), expandProgress.value).toDp()
+            }
+        } else 36.dp
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 8.dp)
+                .graphicsLayer { alpha = barAlpha }
+                .width(barWidthDp)
+                .height(48.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .drawBehind {
+                    drawRoundRect(
+                        color = barFillColor,
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(14.dp.toPx())
                     )
-                    .height(40.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .drawBehind {
-                        drawRoundRect(
-                            color = Color(0xFF1E1E28),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx())
-                        )
-                        drawRoundRect(
-                            color = Color(0xFF3A3A4A),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx()),
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
-                        )
-                    }
-                    .padding(horizontal = 4.dp)
-            ) {
-                // Back arrow
-                IconButton(
-                    onClick = {
-                        onQueryChange("")
-                        onSearchClose()
-                    },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .graphicsLayer { alpha = innerAlpha }
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Close search",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                    drawRoundRect(
+                        color = barBorderColor,
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(14.dp.toPx()),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
                     )
                 }
-
-                // Text field
-                BasicTextField(
-                    value = searchQuery,
-                    onValueChange = onQueryChange,
-                    modifier = Modifier
-                        .weight(1f)
-                        .graphicsLayer { alpha = innerAlpha }
-                        .focusRequester(focusRequester),
-                    singleLine = true,
-                    textStyle = TextStyle(color = Color.White, fontSize = 15.sp),
-                    cursorBrush = SolidColor(Color.White),
-                    decorationBox = { inner ->
-                        Box {
-                            if (searchQuery.isEmpty()) {
-                                Text(
-                                    text = "Search tracks, albums…",
-                                    style = TextStyle(color = Color(0xFF666666), fontSize = 15.sp)
-                                )
-                            }
-                            inner()
+                .padding(horizontal = 12.dp)
+        ) {
+            BasicTextField(
+                value = searchQuery,
+                onValueChange = onQueryChange,
+                modifier = Modifier
+                    .weight(1f)
+                    .graphicsLayer { alpha = innerAlpha }
+                    .focusRequester(focusRequester),
+                singleLine = true,
+                textStyle = TextStyle(color = Color.White, fontSize = 15.sp),
+                cursorBrush = SolidColor(Color.White),
+                decorationBox = { inner ->
+                    Box {
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                text = "Search tracks, albums…",
+                                style = TextStyle(color = Color(0xFF888888), fontSize = 15.sp)
+                            )
                         }
+                        inner()
                     }
-                )
-            }
+                }
+            )
         }
     }
 }

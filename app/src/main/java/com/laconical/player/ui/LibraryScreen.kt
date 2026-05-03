@@ -376,7 +376,8 @@ fun LibraryScreen(
                                 viewModel.updateSearchQuery("")
                                 isSearchOpen = false
                             },
-                            onQueryChange = viewModel::updateSearchQuery
+                            onQueryChange = viewModel::updateSearchQuery,
+                            dominantColor = playingTrackDominantColor
                         )
                     }
                 }
@@ -664,7 +665,6 @@ fun LibraryScreen(
                     .fillMaxSize()
                     .padding(top = statusBarPadding + 4.dp + 56.dp)
                     .background(LocalAppBackground.current)
-                    .pointerInput(Unit) { awaitPointerEventScope { while (true) { awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() } } } }
             ) {
                 SearchResultsPanel(
                     searchQuery = searchQuery,

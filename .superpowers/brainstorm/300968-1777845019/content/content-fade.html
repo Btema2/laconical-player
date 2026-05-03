@@ -1,0 +1,19 @@
+<h2>How should library content exit?</h2>
+<p class="subtitle">When search opens, the track list / albums grid below the top bar fades away. Which exit feels better?</p>
+
+<div class="options">
+  <div class="option" data-choice="fade-only" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>Pure fade</h3>
+      <p>Opacity 1 → 0. Clean, minimal. Content just disappears.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="fade-scale" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>Fade + scale down <span style="font-size:10px;background:#2d2b52;color:#9d8fff;padding:2px 6px;border-radius:4px;margin-left:4px;vertical-align:middle">REC</span></h3>
+      <p>Opacity 1 → 0 while scale 1.0 → 0.96. Feels like content recedes into the background. Adds depth without being dramatic.</p>
+    </div>
+  </div>
+</div>

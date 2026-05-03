@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search Animation Approaches</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d0d0f; color: #fff; font-family: system-ui, sans-serif; padding: 24px 16px 48px; }
+  h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; color: #fff; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 28px; }
+
+  .option-card {
+    background: #1a1a1f;
+    border: 2px solid #2a2a35;
+    border-radius: 16px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .option-card:hover { border-color: #555; transform: translateY(-1px); }
+  .option-card.selected { border-color: #7c6af7; }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px 10px;
+  }
+  .badge {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: #2d2b52; color: #9d8fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; flex-shrink: 0;
+  }
+  .option-card.selected .badge { background: #7c6af7; color: #fff; }
+  .card-title { font-size: 15px; font-weight: 600; }
+  .card-desc { font-size: 12px; color: #888; margin-top: 2px; }
+
+  /* Demo phone frame */
+  .demo-wrap {
+    padding: 0 16px 16px;
+  }
+  .phone {
+    background: #0a0a0c;
+    border-radius: 12px;
+    overflow: hidden;
+    width: 100%;
+    height: 72px;
+    position: relative;
+    border: 1px solid #2a2a35;
+  }
+
+  /* === OPTION A: Expand from Icon === */
+  .demo-a .topbar {
+    display: flex;
+    align-items: center;
+    height: 72px;
+    padding: 0 8px 0 16px;
+    position: relative;
+  }
+  .demo-a .title-text {
+    flex: 1;
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    font-family: Georgia, serif;
+    animation: a-title-out 0.35s ease-in-out forwards;
+    animation-play-state: paused;
+  }
+  .demo-a .icon-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+    z-index: 2;
+  }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: none; cursor: pointer;
+    color: #fff; font-size: 16px;
+    flex-shrink: 0;
+  }
+  .demo-a .search-bar-expand {
+    position: absolute;
+    right: 8px; top: 50%; transform: translateY(-50%);
+    height: 40px;
+    background: #1e1e26;
+    border: 1px solid #444;
+    border-radius: 24px;
+    display: flex; align-items: center;
+    padding: 0 14px;
+    width: 40px;
+    overflow: hidden;
+    opacity: 0;
+    animation: a-bar-expand 0.38s cubic-bezier(0.4,0,0.2,1) forwards;
+    animation-play-state: paused;
+    white-space: nowrap;
+  }
+  .demo-a .bar-placeholder { font-size: 13px; color: #666; opacity: 0; animation: a-text-in 0.2s 0.28s forwards; animation-play-state: paused; }
+  .demo-a .back-icon { font-size: 15px; margin-right: 8px; opacity: 0; animation: a-text-in 0.2s 0.25s forwards; animation-play-state: paused; flex-shrink: 0; }
+
+  @keyframes a-title-out { 0% { opacity:1; transform: translateX(0); } 100% { opacity:0; transform: translateX(-12px); } }
+  @keyframes a-bar-expand { 0% { width:40px; opacity:0.6; } 60% { opacity:1; } 100% { width: calc(100% - 56px); opacity:1; left:8px; } }
+  @keyframes a-text-in { 0% { opacity:0; } 100% { opacity:1; } }
+
+  /* === OPTION B: Morph Overlay (like TrackMenu) === */
+  .demo-b .topbar {
+    display: flex; align-items: center;
+    height: 72px; padding: 0 8px 0 16px;
+    position: relative; overflow: hidden;
+  }
+  .demo-b .title-text {
+    flex: 1; font-size: 20px; font-weight: 700; color: #fff; font-family: Georgia, serif;
+    animation: b-title-out 0.28s ease-in forwards; animation-play-state: paused;
+  }
+  .demo-b .settings-icon {
+    animation: b-icon-out 0.2s ease-in forwards; animation-play-state: paused;
+  }
+  .demo-b .morph-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; padding: 0 8px;
+    opacity: 0;
+    animation: b-overlay-in 0.35s cubic-bezier(0.4,0,0.2,1) forwards;
+    animation-play-state: paused;
+  }
+  .demo-b .search-field {
+    flex: 1; height: 40px;
+    background: #1e1e26; border: 1px solid #444; border-radius: 24px;
+    display: flex; align-items: center; padding: 0 14px;
+    margin-left: 8px;
+    transform: scaleX(0.7); transform-origin: right;
+    animation: b-field-expand 0.38s cubic-bezier(0.34,1.56,0.64,1) 0.06s forwards;
+    animation-play-state: paused;
+  }
+  .demo-b .field-text { font-size: 13px; color: #666; }
+  @keyframes b-title-out { 0% { opacity:1; } 100% { opacity:0; } }
+  @keyframes b-icon-out { 0% { opacity:1; } 100% { opacity:0; transform: scale(0.7); } }
+  @keyframes b-overlay-in { 0% { opacity:0; } 100% { opacity:1; } }
+  @keyframes b-field-expand { 0% { transform:scaleX(0.7); } 100% { transform:scaleX(1); } }
+
+  /* === OPTION C: Title Morph + Bar Slide === */
+  .demo-c .topbar {
+    display: flex; align-items: center;
+    height: 72px; padding: 0 8px 0 16px;
+    position: relative; overflow: hidden;
+  }
+  .demo-c .title-text {
+    flex: 1; font-size: 20px; font-weight: 700; color: #fff; font-family: Georgia, serif;
+    animation: c-title-morph 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+    animation-play-state: paused;
+  }
+  .demo-c .settings-icon {
+    animation: c-settings-out 0.22s ease-in forwards; animation-play-state: paused;
+  }
+  .demo-c .search-icon-anim {
+    animation: c-search-out 0.15s ease-in forwards; animation-play-state: paused;
+  }
+  .demo-c .bar-slide {
+    position: absolute;
+    top: 50%; transform: translateY(-50%) translateX(40px);
+    right: 8px; left: 8px; height: 40px;
+    background: #1e1e26; border: 1px solid #444; border-radius: 10px;
+    display: flex; align-items: center; padding: 0 14px;
+    opacity: 0;
+    animation: c-bar-in 0.38s cubic-bezier(0.34,1.1,0.64,1) 0.1s forwards;
+    animation-play-state: paused;
+  }
+  .demo-c .bar-label { font-size: 13px; color: #666; }
+  @keyframes c-title-morph { 0% { opacity:1; font-size:20px; } 50% { opacity:0.3; } 100% { opacity:0; font-size:13px; transform: translateX(-8px); } }
+  @keyframes c-settings-out { 0% { opacity:1; transform:translateX(0); } 100% { opacity:0; transform:translateX(16px); } }
+  @keyframes c-search-out { 0% { opacity:1; transform:scale(1); } 100% { opacity:0; transform:scale(1.3); } }
+  @keyframes c-bar-in { 0% { opacity:0; transform:translateY(-50%) translateX(30px) scaleX(0.85); } 100% { opacity:1; transform:translateY(-50%) translateX(0) scaleX(1); } }
+
+  /* Play button */
+  .play-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #2a2a35; border: none; border-radius: 8px;
+    color: #aaa; font-size: 12px; padding: 6px 12px;
+    cursor: pointer; margin: 8px 16px 0;
+    transition: background 0.15s;
+  }
+  .play-btn:hover { background: #3a3a4a; color: #fff; }
+
+  .playing .title-text,
+  .playing .settings-icon,
+  .playing .search-icon-anim,
+  .playing .search-bar-expand,
+  .playing .bar-placeholder,
+  .playing .back-icon,
+  .playing .morph-overlay,
+  .playing .search-field,
+  .playing .bar-slide {
+    animation-play-state: running !important;
+  }
+
+  .tradeoffs {
+    display: flex; gap: 8px; padding: 0 16px 14px; flex-wrap: wrap;
+  }
+  .tag {
+    font-size: 11px; padding: 3px 8px; border-radius: 6px;
+    background: #1f2030; color: #aaa;
+  }
+  .tag.good { background: #1a2a1a; color: #6db86d; }
+  .tag.warn { background: #2a1f0a; color: #c89c50; }
+
+  .rec-badge {
+    display: inline-block; font-size: 10px; padding: 2px 6px;
+    background: #7c6af7; color: #fff; border-radius: 4px; margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .sel-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #1a1a25; border-top: 1px solid #2a2a35;
+    padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px; color: #666;
+  }
+  .sel-bar span { color: #9d8fff; font-weight: 600; }
+  .sel-bar button {
+    background: #7c6af7; color: #fff; border: none; border-radius: 8px;
+    padding: 8px 18px; font-size: 13px; cursor: pointer;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .sel-bar button.visible { opacity: 1; }
+</style>
+</head>
+<body>
+
+<h1>Search Animation — 3 Approaches</h1>
+<p class="subtitle">Hit ▶ to preview each animation. Pick the one that feels right.</p>
+
+<!-- ── Option A ── -->
+<div class="option-card" id="card-a" onclick="selectCard('a')">
+  <div class="card-header">
+    <div class="badge">A</div>
+    <div>
+      <div class="card-title">Expand from icon <span class="rec-badge">REC</span></div>
+      <div class="card-desc">Search bar grows from the icon's position, title fades left</div>
+    </div>
+  </div>
+  <div class="demo-wrap">
+    <div class="phone demo-a" id="phone-a">
+      <div class="topbar">
+        <div class="title-text">Laconical Library</div>
+        <div class="icon-row">
+          <div class="icon-btn">⚙</div>
+          <div class="icon-btn">🔍</div>
+        </div>
+        <div class="search-bar-expand">
+          <span class="back-icon">←</span>
+          <span class="bar-placeholder">Search tracks, albums…</span>
+        </div>
+      </div>
+    </div>
+    <button class="play-btn" onclick="play('a'); event.stopPropagation()">▶ Preview</button>
+  </div>
+  <div class="tradeoffs">
+    <span class="tag good">Spatially grounded — bar comes from icon</span>
+    <span class="tag good">Crisp, focused</span>
+    <span class="tag warn">Settings icon just fades — not morphed</span>
+  </div>
+</div>
+
+<!-- ── Option B ── -->
+<div class="option-card" id="card-b" onclick="selectCard('b')">
+  <div class="card-header">
+    <div class="badge">B</div>
+    <div>
+      <div class="card-title">Morph overlay — TrackMenu style</div>
+      <div class="card-desc">Full top-bar replaced by overlay; field springs in from right</div>
+    </div>
+  </div>
+  <div class="demo-wrap">
+    <div class="phone demo-b" id="phone-b">
+      <div class="topbar">
+        <div class="title-text">Laconical Library</div>
+        <div class="icon-row">
+          <div class="icon-btn settings-icon">⚙</div>
+          <div class="icon-btn">🔍</div>
+        </div>
+        <div class="morph-overlay">
+          <div class="icon-btn">←</div>
+          <div class="search-field">
+            <span class="field-text">Search…</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="play-btn" onclick="play('b'); event.stopPropagation()">▶ Preview</button>
+  </div>
+  <div class="tradeoffs">
+    <span class="tag good">Matches existing morph system</span>
+    <span class="tag good">Consistent with TrackMenuOverlay</span>
+    <span class="tag warn">Requires separate overlay layer in LibraryScreen</span>
+  </div>
+</div>
+
+<!-- ── Option C ── -->
+<div class="option-card" id="card-c" onclick="selectCard('c')">
+  <div class="card-header">
+    <div class="badge">C</div>
+    <div>
+      <div class="card-title">Title morphs + bar slides in</div>
+      <div class="card-desc">Title shrinks & fades, rounded bar slides from right edge</div>
+    </div>
+  </div>
+  <div class="demo-wrap">
+    <div class="phone demo-c" id="phone-c">
+      <div class="topbar">
+        <div class="title-text">Laconical Library</div>
+        <div class="icon-row">
+          <div class="icon-btn settings-icon">⚙</div>
+          <div class="icon-btn search-icon-anim">🔍</div>
+        </div>
+        <div class="bar-slide">
+          <span class="bar-label">Search…</span>
+        </div>
+      </div>
+    </div>
+    <button class="play-btn" onclick="play('c'); event.stopPropagation()">▶ Preview</button>
+  </div>
+  <div class="tradeoffs">
+    <span class="tag good">Most editorial — title actively participates</span>
+    <span class="tag warn">Less spatially grounded than A</span>
+    <span class="tag warn">Title animation risks feeling gimmicky</span>
+  </div>
+</div>
+
+<div class="sel-bar" id="sel-bar">
+  <div>Selected: <span id="sel-label">none</span></div>
+  <button id="confirm-btn" onclick="confirm()">Confirm →</button>
+</div>
+
+<script>
+let selected = null;
+
+function play(id) {
+  const phone = document.getElementById('phone-' + id);
+  phone.classList.remove('playing');
+  // force reflow
+  void phone.offsetWidth;
+  phone.classList.add('playing');
+  setTimeout(() => phone.classList.remove('playing'), 1800);
+}
+
+function selectCard(id) {
+  document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('card-' + id).classList.add('selected');
+  selected = id;
+  const labels = { a: 'A — Expand from icon', b: 'B — Morph overlay', c: 'C — Title morph + slide' };
+  document.getElementById('sel-label').textContent = labels[id];
+  document.getElementById('confirm-btn').classList.add('visible');
+  // record
+  if (window.__recordChoice) window.__recordChoice(id, labels[id]);
+}
+
+function confirm() {
+  if (!selected) return;
+  const labels = { a: 'A — Expand from icon', b: 'B — Morph overlay', c: 'C — Title morph + slide' };
+  if (window.__recordChoice) window.__recordChoice('confirm-' + selected, 'Confirmed: ' + labels[selected]);
+  document.getElementById('confirm-btn').textContent = '✓ Confirmed';
+  document.getElementById('confirm-btn').style.background = '#3a8a3a';
+}
+</script>
+
+<script src="/helper.js"></script>
+</body>
+</html>

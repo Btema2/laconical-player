@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search Animation Design</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0d0d0f; color: #fff; font-family: system-ui, sans-serif; padding: 24px 16px 48px; max-width: 520px; margin: 0 auto; }
+h1 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.sub { font-size: 12px; color: #666; margin-bottom: 24px; }
+
+.section { margin-bottom: 28px; }
+.section-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #7c6af7; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+}
+.section-title::after { content: ''; flex: 1; height: 1px; background: #2a2a35; }
+
+/* Live demo */
+.phone-wrap { display: flex; gap: 14px; align-items: flex-start; }
+.phone {
+  width: 200px; flex-shrink: 0; background: #0a0a0c;
+  border: 1px solid #2a2a35; border-radius: 14px; overflow: hidden;
+  height: 340px; position: relative;
+}
+.phone-topbar {
+  height: 60px; padding: 0 8px; display: flex; align-items: center;
+  background: #111117; position: relative; border-bottom: 1px solid #1a1a22;
+  overflow: hidden;
+}
+/* Normal state elements */
+.t-title {
+  flex: 1; font-size: 16px; font-weight: 700; font-family: Georgia, serif;
+  color: #fff; transition: opacity 0.32s ease, transform 0.32s ease;
+}
+.t-icons { display: flex; gap: 2px; z-index: 2; }
+.t-icon {
+  width: 36px; height: 36px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; font-size: 14px; color: #ccc;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  cursor: pointer;
+}
+/* Search bar (expands from icon) */
+.t-searchbar {
+  position: absolute;
+  right: 8px; top: 50%; transform: translateY(-50%);
+  height: 36px; width: 36px;
+  background: #1e1e28; border: 1px solid #3a3a4a; border-radius: 20px;
+  display: flex; align-items: center; overflow: hidden;
+  transition: width 0.38s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease;
+  opacity: 0; pointer-events: none;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+.t-back { font-size: 14px; color: #ccc; opacity: 0; transition: opacity 0.18s 0.25s; flex-shrink: 0; margin-right: 6px; }
+.t-placeholder { font-size: 12px; color: #555; opacity: 0; transition: opacity 0.18s 0.3s; }
+.t-cursor { width: 1.5px; height: 14px; background: #9d8fff; margin-left: 2px; opacity: 0; animation: blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:0} 50%{opacity:1} }
+
+/* Content area */
+.phone-content {
+  flex: 1; background: #0d0d10; padding: 8px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform-origin: top center;
+}
+.track-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 4px; border-bottom: 1px solid #1a1a22;
+}
+.track-thumb { width: 32px; height: 32px; border-radius: 5px; background: #2a2a35; flex-shrink: 0; }
+.track-thumb.c1 { background: #3a2a4a; }
+.track-thumb.c2 { background: #2a3a4a; }
+.track-thumb.c3 { background: #4a3a2a; }
+.track-thumb.c4 { background: #2a4a2a; }
+.track-info { flex: 1; }
+.track-name { font-size: 11px; color: #ddd; }
+.track-artist { font-size: 10px; color: #555; }
+
+/* Search results overlay */
+.search-overlay {
+  position: absolute; top: 60px; left: 0; right: 0; bottom: 0;
+  background: #0d0d10; padding: 8px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s 0.1s ease;
+}
+.result-chip-row { display: flex; gap: 5px; margin-bottom: 8px; }
+.chip {
+  font-size: 9px; padding: 3px 8px; border-radius: 10px;
+  border: 1px solid #333; color: #777;
+}
+.chip.active { background: rgba(124,106,247,0.2); border-color: transparent; color: #bbb; }
+.result-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 4px; border-bottom: 1px solid #1a1a22;
+  opacity: 0; transform: translateY(4px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+/* Open state */
+.phone.open .t-title { opacity: 0; transform: translateX(-10px); }
+.phone.open .t-icon.settings { opacity: 0; transform: scale(0.75); }
+.phone.open .t-icon.search { opacity: 0; }
+.phone.open .t-searchbar {
+  width: calc(100% - 16px); opacity: 1; pointer-events: auto;
+  left: 8px; right: 8px;
+}
+.phone.open .t-back { opacity: 1; }
+.phone.open .t-placeholder { opacity: 1; }
+.phone.open .t-cursor { opacity: 1; }
+.phone.open .phone-content { opacity: 0; transform: scale(0.962); }
+.phone.open .search-overlay { opacity: 1; pointer-events: auto; }
+.phone.open .result-row { opacity: 1; transform: translateY(0); }
+.phone.open .result-row:nth-child(2) { transition-delay: 0.12s; }
+.phone.open .result-row:nth-child(3) { transition-delay: 0.18s; }
+.phone.open .result-row:nth-child(4) { transition-delay: 0.24s; }
+
+/* Controls */
+.ctrl { margin-top: 10px; display: flex; gap: 8px; }
+.btn {
+  flex: 1; padding: 8px; border-radius: 8px; border: none;
+  font-size: 12px; cursor: pointer; transition: all 0.15s;
+}
+.btn-open { background: #7c6af7; color: #fff; }
+.btn-close { background: #2a2a35; color: #aaa; }
+.btn:hover { filter: brightness(1.15); }
+
+/* Spec panel */
+.spec-panel { flex: 1; }
+.spec-row {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 8px 0; border-bottom: 1px solid #1a1a22; font-size: 12px;
+}
+.spec-label { color: #7c6af7; font-weight: 600; width: 70px; flex-shrink: 0; padding-top: 1px; }
+.spec-val { color: #ccc; line-height: 1.5; }
+.spec-val code { background: #1a1a28; color: #9d8fff; padding: 1px 4px; border-radius: 3px; font-size: 10px; }
+
+/* Architecture */
+.arch-row { display: flex; gap: 6px; align-items: flex-start; margin-bottom: 8px; font-size: 12px; }
+.arch-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.arch-desc { color: #bbb; line-height: 1.5; }
+.arch-desc strong { color: #fff; }
+.tag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-top: 3px; }
+.tag-add { background: #1a3a1a; color: #6db86d; }
+.tag-rm { background: #3a1a1a; color: #c06060; }
+.tag-mod { background: #2a1f0a; color: #c89c50; }
+</style>
+</head>
+<body>
+
+<h1>Search Animation — Design Spec</h1>
+<p class="sub">Tap "Open Search" to see the full animation sequence</p>
+
+<!-- LIVE DEMO -->
+<div class="section">
+  <div class="section-title">Live Preview</div>
+  <div class="phone-wrap">
+    <div>
+      <div class="phone" id="phone">
+        <div class="phone-topbar">
+          <div class="t-title">Laconical Library</div>
+          <div class="t-icons">
+            <div class="t-icon settings">⚙</div>
+            <div class="t-icon search">🔍</div>
+          </div>
+          <div class="t-searchbar">
+            <span class="t-back">←</span>
+            <span class="t-placeholder">Search…</span>
+            <span class="t-cursor"></span>
+          </div>
+        </div>
+        <div class="phone-content">
+          <div class="track-row"><div class="track-thumb c1"></div><div class="track-info"><div class="track-name">Bohemian Rhapsody</div><div class="track-artist">Queen</div></div></div>
+          <div class="track-row"><div class="track-thumb c2"></div><div class="track-info"><div class="track-name">Hotel California</div><div class="track-artist">Eagles</div></div></div>
+          <div class="track-row"><div class="track-thumb c3"></div><div class="track-info"><div class="track-name">Stairway to Heaven</div><div class="track-artist">Led Zeppelin</div></div></div>
+          <div class="track-row"><div class="track-thumb c4"></div><div class="track-info"><div class="track-name">Imagine</div><div class="track-artist">John Lennon</div></div></div>
+        </div>
+        <div class="search-overlay">
+          <div class="result-chip-row">
+            <span class="chip active">All</span><span class="chip">Tracks</span><span class="chip">Albums</span><span class="chip">Artists</span>
+          </div>
+          <div class="result-row"><div class="track-thumb c1"></div><div class="track-info"><div class="track-name">Bohemian Rhapsody</div><div class="track-artist">Queen</div></div></div>
+          <div class="result-row"><div class="track-thumb c2"></div><div class="track-info"><div class="track-name">Hotel California</div><div class="track-artist">Eagles</div></div></div>
+          <div class="result-row"><div class="track-thumb c3"></div><div class="track-info"><div class="track-name">Stairway to Heaven</div><div class="track-artist">Led Zeppelin</div></div></div>
+        </div>
+      </div>
+      <div class="ctrl">
+        <button class="btn btn-open" onclick="openSearch()">▶ Open Search</button>
+        <button class="btn btn-close" onclick="closeSearch()">✕ Close</button>
+      </div>
+    </div>
+
+    <div class="spec-panel">
+      <div class="spec-row"><div class="spec-label">Bar expand</div><div class="spec-val">380ms <code>FastOutSlowInEasing</code> — grows left from icon</div></div>
+      <div class="spec-row"><div class="spec-label">Title out</div><div class="spec-val">300ms fade + <code>translateX(-24px)</code></div></div>
+      <div class="spec-row"><div class="spec-label">Settings</div><div class="spec-val">220ms fade + <code>scale(0.7)</code></div></div>
+      <div class="spec-row"><div class="spec-label">Back arrow</div><div class="spec-val">Fade in after 240ms delay</div></div>
+      <div class="spec-row"><div class="spec-label">Content out</div><div class="spec-val">300ms fade + <code>scale(0.96)</code></div></div>
+      <div class="spec-row"><div class="spec-label">Results in</div><div class="spec-val">250ms fade, 100ms delay. Rows stagger +60ms</div></div>
+      <div class="spec-row"><div class="spec-label">Reverse</div><div class="spec-val">All reversed, 220ms faster</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ARCHITECTURE -->
+<div class="section">
+  <div class="section-title">Architecture Changes</div>
+  <div class="arch-row"><div class="arch-icon">🗑</div><div class="arch-desc"><strong>Remove</strong> <code>NavRoute.SEARCH</code> composable from NavHost. No more navigation push for search. <span class="tag tag-rm">delete</span></div></div>
+  <div class="arch-row"><div class="arch-icon">✏️</div><div class="arch-desc"><strong>LaconicalTopBar</strong> — add <code>isSearchOpen</code>, <code>searchQuery</code>, <code>onSearchOpen</code>, <code>onSearchClose</code>, <code>onQueryChange</code>. Bar expand animation lives here via <code>Animatable</code>. <span class="tag tag-mod">modify</span></div></div>
+  <div class="arch-row"><div class="arch-icon">✏️</div><div class="arch-desc"><strong>LibraryScreen</strong> — add <code>var isSearchOpen</code> state. Apply <code>graphicsLayer</code> fade+scale to NavHost content. Add <code>BackHandler</code> for search close. <span class="tag tag-mod">modify</span></div></div>
+  <div class="arch-row"><div class="arch-icon">✏️</div><div class="arch-desc"><strong>SearchScreen</strong> — strip header (back arrow + search field). Becomes results-only composable. Wrapped in <code>AnimatedVisibility(fadeIn/fadeOut)</code>. <span class="tag tag-mod">modify</span></div></div>
+  <div class="arch-row"><div class="arch-icon">🔑</div><div class="arch-desc"><strong>Focus</strong> — <code>FocusRequester.requestFocus()</code> called in <code>LaunchedEffect(isSearchOpen)</code> inside TopBar when opening. Keyboard shows automatically. <span class="tag tag-add">new</span></div></div>
+</div>
+
+<script>
+function openSearch() {
+  document.getElementById('phone').classList.add('open');
+}
+function closeSearch() {
+  document.getElementById('phone').classList.remove('open');
+}
+</script>
+<script src="/helper.js"></script>
+</body>
+</html>
