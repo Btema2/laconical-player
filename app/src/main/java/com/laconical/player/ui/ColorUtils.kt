@@ -1,13 +1,8 @@
 package com.laconical.player.ui
 
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-/**
- * Converts a [Color] to an HSL float array.
- * Returns [hue ∈ 0..1, saturation ∈ 0..1, lightness ∈ 0..1].
- *
- * Single source of truth — used by both LibraryScreen and FullPlayer.
- */
 internal fun Color.toHsl(): FloatArray {
     val hsl = FloatArray(3)
     val r = red; val g = green; val b = blue
@@ -28,3 +23,6 @@ internal fun Color.toHsl(): FloatArray {
     }
     return hsl
 }
+
+val LocalAppBackground = compositionLocalOf { Color(0xFF141313) }
+val LocalAppSurface    = compositionLocalOf { Color(0xFF212121) }

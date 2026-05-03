@@ -5,7 +5,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -33,17 +33,19 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,24 +62,63 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil3.compose.SubcomposeAsyncImage
+import androidx.palette.graphics.Palette
+import coil3.BitmapImage
+import coil3.SingletonImageLoader
+import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
 import com.laconical.player.core.model.Track
 import com.laconical.player.ui.AudioArtData
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.laconical.player.ui.components.PlaylistCoverMosaic
 import com.laconical.player.ui.viewmodels.PlaylistDetailViewModel
 import kotlin.math.roundToInt
+import com.laconical.player.ui.LocalAppBackground
 
 private val DETAIL_ITEM_HEIGHT = 72.dp
 
 @Composable
 fun PlaylistDetailScreen(
     onBack: () -> Unit,
+    onPlayTracks: (List<Track>, Int) -> Unit,
     bottomPadding: Dp = 0.dp,
     modifier: Modifier = Modifier,
     viewModel: PlaylistDetailViewModel = hiltViewModel()
 ) {
     val playlist by viewModel.playlist.collectAsState()
     val tracks by viewModel.tracks.collectAsState()
+
+    val context = LocalContext.current
+    var accentColor by remember { mutableStateOf(Color(0xFF4338CA)) }
+    var onAccentColor by remember { mutableStateOf(Color.White) }
+
+    LaunchedEffect(tracks) {
+        val firstTrack = tracks.firstOrNull() ?: return@LaunchedEffect
+        withContext(Dispatchers.Default) {
+            runCatching {
+                val loader = SingletonImageLoader.get(context)
+                val req = ImageRequest.Builder(context)
+                    .data(AudioArtData(firstTrack.mediaUri, firstTrack.albumArtUri))
+                    .size(64)
+                    .build()
+                val result = loader.execute(req)
+                if (result is SuccessResult) {
+                    val bmp = (result.image as? BitmapImage)?.bitmap
+                    bmp?.let {
+                        Palette.from(it).generate().dominantSwatch?.let { swatch ->
+                            val c = Color(swatch.rgb)
+                            accentColor = c
+                            val lum = 0.299f * c.red + 0.587f * c.green + 0.114f * c.blue
+                            onAccentColor = if (lum > 0.45f) Color.Black else Color.White
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     val dragFromIndexState = remember { mutableIntStateOf(-1) }
     val dragOffsetYState = remember { mutableFloatStateOf(0f) }
@@ -87,7 +129,7 @@ fun PlaylistDetailScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0A0C))
+            .background(LocalAppBackground.current)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -102,53 +144,70 @@ fun PlaylistDetailScreen(
                     tint = Color.White
                 )
             }
-            Text(
-                text = playlist?.name ?: "",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
         }
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
+        val totalDurationMs = tracks.sumOf { it.durationMs }
+        Row(
+            verticalAlignment = Alignment.Top,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 20.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             PlaylistCoverMosaic(
                 tracks = tracks.take(4),
-                size = 120.dp,
+                size = 132.dp,
                 cornerRadius = 12.dp
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "${tracks.size} tracks",
-                fontSize = 13.sp,
-                color = Color(0xFF888888)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = playlist?.name ?: "",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(CircleShape)
+                            .background(accentColor)
+                            .clickable { onPlayTracks(tracks, 0) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Play All",
+                            tint = onAccentColor,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
                 Button(
-                    onClick = { viewModel.playAll() },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4338CA)),
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
+                    onClick = { onPlayTracks(tracks.shuffled(), 0) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(
+                        Icons.Default.Shuffle,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = onAccentColor
+                    )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Play All")
+                    Text("Shuffle", color = onAccentColor)
                 }
-                OutlinedButton(
-                    onClick = { viewModel.shuffleAll() },
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
-                ) {
-                    Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Shuffle")
-                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "${tracks.size} tracks · ${formatTotalDuration(totalDurationMs)}",
+                    fontSize = 12.sp,
+                    color = Color(0xFF888888)
+                )
             }
         }
 
@@ -180,7 +239,7 @@ fun PlaylistDetailScreen(
                         dragFromIndexState = dragFromIndexState,
                         dragOffsetYState = dragOffsetYState,
                         firstVisibleIndex = { listState.firstVisibleItemIndex },
-                        onTrackClick = {},
+                        onTrackClick = { onPlayTracks(tracks, index) },
                         onDragStart = {
                             dragFromIndexState.intValue = index
                             dragOffsetYState.floatValue = 0f
@@ -209,6 +268,13 @@ fun PlaylistDetailScreen(
     }
 }
 
+private fun formatTotalDuration(ms: Long): String {
+    val totalMin = ms / 60_000
+    val h = totalMin / 60
+    val m = totalMin % 60
+    return if (h > 0) "${h}h ${m}m" else "${m}m"
+}
+
 @Composable
 private fun PlaylistDetailTrackRow(
     track: Track,
@@ -226,6 +292,7 @@ private fun PlaylistDetailTrackRow(
     onRemove: () -> Unit
 ) {
     val isDraggingThis = dragFromIndexState.intValue == index
+    var artLoadFailed by remember { mutableStateOf(false) }
 
     val latestOnDragStart by rememberUpdatedState(onDragStart)
     val latestOnDragDelta by rememberUpdatedState(onDragDelta)
@@ -279,19 +346,21 @@ private fun PlaylistDetailTrackRow(
                     .background(Color(0xFF1E1E1E)),
                 contentAlignment = Alignment.Center
             ) {
-                SubcomposeAsyncImage(
-                    model = remember(track.mediaUri) { AudioArtData(track.mediaUri) },
+                AsyncImage(
+                    model = remember(track.albumArtUri ?: track.mediaUri) { AudioArtData(track.mediaUri, track.albumArtUri) },
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
-                    error = {
-                        Icon(
-                            imageVector = Icons.Rounded.MusicNote,
-                            contentDescription = null,
-                            tint = Color(0xFF555555)
-                        )
-                    }
+                    onState = { artLoadFailed = it is AsyncImagePainter.State.Error },
                 )
+                if (artLoadFailed) {
+                    Icon(
+                        imageVector = Icons.Rounded.MusicNote,
+                        contentDescription = null,
+                        tint = Color(0xFF555555),
+                        modifier = Modifier.fillMaxSize(0.45f)
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {

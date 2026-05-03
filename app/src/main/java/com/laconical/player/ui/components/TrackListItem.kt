@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import coil3.compose.AsyncImagePainter
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -50,7 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.palette.graphics.Palette
 import coil3.SingletonImageLoader
-import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import com.laconical.player.core.model.Track
@@ -69,11 +70,11 @@ fun TrackListItem(
     onFavoriteToggle: (() -> Unit)? = null,
     onViewAlbum: (() -> Unit)? = null,
     onViewArtist: (() -> Unit)? = null,
-    onAddToPlaylist: (() -> Unit)? = null,
     /** Called with root-space top-left offset and side size (px) of the art thumbnail. */
     onMenuOpen: ((artOffsetPx: Offset, artSizePx: Float) -> Unit)? = null,
 ) {
     var vibeColor by remember { mutableStateOf(Color(0xFF888888)) }
+    var artLoadFailed by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val density = LocalDensity.current
     var artOffsetPx by remember { mutableStateOf(Offset.Zero) }
@@ -86,7 +87,7 @@ fun TrackListItem(
                 // Reuse the app-wide singleton — shares cache with the full player
                 val imageLoader = SingletonImageLoader.get(context)
                 val request = ImageRequest.Builder(context)
-                    .data(AudioArtData(loadTarget))
+                    .data(AudioArtData(loadTarget, track.albumArtUri))
                     .size(100)
                     .build()
 
@@ -174,25 +175,24 @@ fun TrackListItem(
                 ) {
                     // SingletonImageLoader — one shared instance for the whole app, not one per row
                     val loader = SingletonImageLoader.get(context)
-                    val imageModel = remember(track.id) {
-                        AudioArtData(track.mediaUri)
+                    val imageModel = remember(track.albumArtUri ?: track.mediaUri) {
+                        AudioArtData(track.mediaUri, track.albumArtUri)
                     }
-                    SubcomposeAsyncImage(
+                    AsyncImage(
                         model = imageModel,
                         imageLoader = loader,
                         contentDescription = "Album Art",
                         modifier = Modifier.fillMaxSize(),
-                        error = {
-                            Icon(
-                                imageVector = Icons.Rounded.MusicNote,
-                                contentDescription = "Music Placeholder",
-                                tint = Color(0xFF555555)
-                            )
-                        },
-                        loading = {
-                            // Empty box
-                        }
+                        onState = { artLoadFailed = it is AsyncImagePainter.State.Error },
                     )
+                    if (artLoadFailed) {
+                        Icon(
+                            imageVector = Icons.Rounded.MusicNote,
+                            contentDescription = null,
+                            tint = Color(0xFF555555),
+                            modifier = Modifier.fillMaxSize(0.45f)
+                        )
+                    }
                 }
             }
 

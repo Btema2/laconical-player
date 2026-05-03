@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.laconical.player.ui.components.staggeredEntrance
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
@@ -61,10 +63,11 @@ fun ArtistsScreen(
         contentPadding = PaddingValues(vertical = 8.dp),
         modifier = modifier.fillMaxSize()
     ) {
-        items(artists, key = { it.name }) { artist ->
+        itemsIndexed(artists, key = { _, artist -> artist.name }) { index, artist ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
+                    .staggeredEntrance(index)
                     .fillMaxWidth()
                     .clickable { onArtistClick(artist.name) }
                     .padding(horizontal = 16.dp, vertical = 8.dp)

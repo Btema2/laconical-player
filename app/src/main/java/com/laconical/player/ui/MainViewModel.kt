@@ -48,13 +48,38 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Wrapper type so Coil dispatches to OUR fetcher, not its built-in ContentUriFetcher. */
-data class AudioArtData(val uri: String)
+data class AudioArtData(
+    val uri: String,
+    /** MediaStore albumart URI — `content://media/external/audio/albumart/<albumId>`.
+     *  When present, all tracks in the same album share this key, collapsing 20 cache
+     *  misses into 1 fetch instead of opening MediaMetadataRetriever per track. */
+    val albumArtUri: String? = null,
+)
 
 class AudioAlbumArtFetcher(
     private val artData: AudioArtData,
-        private val options: Options
+    private val options: Options
 ) : Fetcher {
     override suspend fun fetch(): FetchResult? {
+        // Fast path: use the pre-built MediaStore albumart URI (same across all tracks
+        // in an album). One content resolver open vs. MediaMetadataRetriever per track.
+        artData.albumArtUri?.let { artUri ->
+            try {
+                val stream = options.context.contentResolver.openInputStream(Uri.parse(artUri))
+                if (stream != null) {
+                    val bitmap = stream.use { android.graphics.BitmapFactory.decodeStream(it) }
+                    if (bitmap != null) {
+                        return ImageFetchResult(
+                            image = bitmap.asImage(),
+                            isSampled = false,
+                            dataSource = DataSource.DISK
+                        )
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        // Slow path: parse embedded art tag from audio file header.
         val retriever = MediaMetadataRetriever()
         try {
             if (artData.uri.startsWith("/")) {
@@ -68,8 +93,8 @@ class AudioAlbumArtFetcher(
                 if (bitmap != null) {
                     return ImageFetchResult(
                         image = bitmap.asImage(),
-                                            isSampled = false,
-                                            dataSource = DataSource.DISK
+                        isSampled = false,
+                        dataSource = DataSource.DISK
                     )
                 }
             }
@@ -95,7 +120,10 @@ class AudioAlbumArtFetcher(
 
 class AudioAlbumArtKeyer : Keyer<AudioArtData> {
     override fun key(data: AudioArtData, options: Options): String {
-        return "audio_art_${data.uri}"
+        // Key on albumArtUri when available — all tracks in the same album share it,
+        // so the cache entry is reused instead of fetched once per track.
+        return if (data.albumArtUri != null) "audio_art_${data.albumArtUri}"
+        else "audio_art_${data.uri}"
     }
 }
 
@@ -133,6 +161,30 @@ class MainViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    val searchedAlbums: StateFlow<List<Track>> = combine(_allTracks, _searchQuery) { allTracks, query ->
+        if (query.isBlank()) emptyList()
+        else allTracks
+            .filter { it.album.contains(query, ignoreCase = true) }
+            .distinctBy { it.album.lowercase() }
+            .sortedBy { it.album.lowercase() }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val searchedArtists: StateFlow<List<Track>> = combine(_allTracks, _searchQuery) { allTracks, query ->
+        if (query.isBlank()) emptyList()
+        else allTracks
+            .filter { it.artist.contains(query, ignoreCase = true) }
+            .distinctBy { it.artist.lowercase() }
+            .sortedBy { it.artist.lowercase() }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val searchedPlaylists: StateFlow<List<Playlist>> = combine(
+        _searchQuery,
+        userDataRepository.getAllPlaylists()
+    ) { query, allPlaylists ->
+        if (query.isBlank()) emptyList()
+        else allPlaylists.filter { it.name.contains(query, ignoreCase = true) }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
     private val _currentTrack = MutableStateFlow<Track?>(null)
     val currentTrack: StateFlow<Track?> = _currentTrack.asStateFlow()
 
@@ -144,7 +196,8 @@ class MainViewModel @Inject constructor(
     val duration: StateFlow<Long> = musicPlayer.duration
     val shuffleModeEnabled: StateFlow<Boolean> = musicPlayer.shuffleModeEnabled
     val repeatMode: StateFlow<Int> = musicPlayer.repeatMode
-    val queue: StateFlow<List<Track>> = _allTracks.asStateFlow()
+    private val _currentQueue = MutableStateFlow<List<Track>>(emptyList())
+    val queue: StateFlow<List<Track>> = _currentQueue.asStateFlow()
     val currentQueueIndex: StateFlow<Int> = musicPlayer.currentMediaItemIndex
 
     val waveform: StateFlow<FloatArray> = visualizerManager.waveform
@@ -171,6 +224,16 @@ class MainViewModel @Inject constructor(
 
     val playlists: StateFlow<List<Playlist>> = userDataRepository.getAllPlaylists()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val playlistArtTracks: StateFlow<Map<Long, List<Track>>> = combine(
+        userDataRepository.getAllPlaylistTracks(),
+        _allTracks
+    ) { playlistTracks, allTracks ->
+        val trackMap = allTracks.associateBy { it.id }
+        playlistTracks
+            .groupBy { it.playlistId }
+            .mapValues { (_, pts) -> pts.take(4).mapNotNull { trackMap[it.trackId] } }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
 
     fun addTrackToPlaylist(trackId: Long, playlistId: Long) {
         viewModelScope.launch {
@@ -264,7 +327,7 @@ class MainViewModel @Inject constructor(
         private fun startAutoAdvanceCollector() {
             viewModelScope.launch {
                 musicPlayer.currentMediaItemIndex.collectLatest { index ->
-                    val track = _allTracks.value.getOrNull(index) ?: return@collectLatest
+                    val track = _currentQueue.value.getOrNull(index) ?: return@collectLatest
                     // Skip if the track didn't actually change (avoids double side-effect
                     // when playTrack() already set _currentTrack before the listener fires).
                     if (_currentTrack.value?.id == track.id) return@collectLatest
@@ -276,23 +339,35 @@ class MainViewModel @Inject constructor(
             }
         }
 
-        fun playTrack(track: Track) {
+        fun playTracks(sourceTracks: List<Track>, startIndex: Int) {
+            if (sourceTracks.isEmpty()) return
             try {
-                val allTracks = _allTracks.value
-                val trackIndex = allTracks.indexOfFirst { it.id == track.id }
-                    .coerceAtLeast(0)
+                val safeIndex = startIndex.coerceIn(0, sourceTracks.lastIndex)
+                val track = sourceTracks[safeIndex]
 
+                _currentQueue.value = sourceTracks
                 _currentTrack.value = track
                 resetAmplitudeState()
 
-                val mediaItems = allTracks.map { MediaItem.fromUri(it.mediaUri) }
-                musicPlayer.setPlaylist(mediaItems, trackIndex)
+                val mediaItems = sourceTracks.map { MediaItem.fromUri(it.mediaUri) }
+                musicPlayer.setPlaylist(mediaItems, safeIndex)
 
                 launchWaveformExtraction(track)
                 launchColorExtraction(track)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+
+        fun seekToQueueIndex(index: Int) {
+            val q = _currentQueue.value
+            if (index !in q.indices) return
+            val track = q[index]
+            _currentTrack.value = track
+            resetAmplitudeState()
+            musicPlayer.seekToQueueIndex(index)
+            launchWaveformExtraction(track)
+            launchColorExtraction(track)
         }
 
         private fun resetAmplitudeState() {
@@ -329,7 +404,7 @@ class MainViewModel @Inject constructor(
                     try {
                         val imageLoader = SingletonImageLoader.get(context)
                         val request = ImageRequest.Builder(context)
-                            .data(AudioArtData(loadTarget))
+                            .data(AudioArtData(loadTarget, track.albumArtUri))
                             .size(100)
                             .build()
 
@@ -367,11 +442,11 @@ class MainViewModel @Inject constructor(
         fun cycleRepeatMode() { musicPlayer.cycleRepeatMode() }
 
         fun moveQueueItem(from: Int, to: Int) {
-            val current = _allTracks.value.toMutableList()
+            val current = _currentQueue.value.toMutableList()
             if (from < 0 || to < 0 || from >= current.size || to >= current.size || from == to) return
             val item = current.removeAt(from)
             current.add(to, item)
-            _allTracks.value = current
+            _currentQueue.value = current
             musicPlayer.moveQueueItem(from, to)
         }
 

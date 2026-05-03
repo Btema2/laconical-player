@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.laconical.player.ui.LocalAppSurface
 import com.laconical.player.ui.MainViewModel
 
 @Composable
@@ -46,16 +47,17 @@ fun MiniPlayer(
 
     if (currentTrack == null) return
 
+    val surfaceColor = LocalAppSurface.current
+
     val baseColor = if (vibeColor != null) {
-        val alpha = 0.6f
         Color(
-            red = vibeColor!!.red * alpha,
-            green = vibeColor!!.green * alpha,
-            blue = vibeColor!!.blue * alpha,
+            red   = vibeColor!!.red   * 0.3f,
+            green = vibeColor!!.green * 0.3f,
+            blue  = vibeColor!!.blue  * 0.3f,
             alpha = 1f
         )
     } else {
-        Color(0xFF1E1E1E)
+        surfaceColor
     }
 
     Box(
@@ -65,13 +67,13 @@ fun MiniPlayer(
             .fillMaxWidth()
             .height(75.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF0D0D10))
+            .background(surfaceColor)
             .background(
                 brush = Brush.horizontalGradient(
                     colors = listOf(
-                        baseColor.copy(alpha = 0.5f),
+                        baseColor.copy(alpha = 0.45f),
                         baseColor.copy(alpha = 0.15f),
-                        Color(0xF00D0D10),
+                        Color.Transparent,
                     )
                 )
             )
@@ -103,7 +105,7 @@ fun MiniPlayer(
                 modifier = Modifier
                     .size(52.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (hideArt) Color.Transparent else Color(0xFF1E1E1E)),
+                    .background(if (hideArt) Color.Transparent else Color(0xFF2A2A2E)),
             )
 
             Spacer(modifier = Modifier.width(12.dp))

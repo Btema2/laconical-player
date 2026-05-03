@@ -237,7 +237,7 @@ fun QueueSheet(
                         dragFromIndexState = dragFromIndexState,
                         dragOffsetYState = dragOffsetYState,
                         firstVisibleIndex = { listState.firstVisibleItemIndex },
-                        onTrackClick = { viewModel.playTrack(track) },
+                        onTrackClick = { viewModel.seekToQueueIndex(index) },
                         onDragStart = {
                             dragFromIndexState.intValue = index
                             dragOffsetYState.floatValue = 0f
@@ -372,11 +372,9 @@ private fun QueueTrackRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = track.title,
-                    color = when {
-                        isCurrentTrack -> seekBarActiveColor
-                        isBefore -> Color.Gray.copy(alpha = 0.65f)
-                        else -> Color.White
-                    },
+                    color = if (isCurrentTrack) seekBarActiveColor
+                            else if (isBefore) Color.White.copy(alpha = 0.5f)
+                            else Color.White,
                     fontSize = 14.sp,
                     fontWeight = if (isCurrentTrack) FontWeight.SemiBold else FontWeight.Normal,
                     maxLines = 1,
@@ -384,7 +382,8 @@ private fun QueueTrackRow(
                 )
                 Text(
                     text = track.artist,
-                    color = Color.Gray.copy(alpha = if (isBefore) 0.45f else 0.75f),
+                    color = if (isBefore) Color.Gray.copy(alpha = 0.25f)
+                            else Color.Gray.copy(alpha = 0.75f),
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

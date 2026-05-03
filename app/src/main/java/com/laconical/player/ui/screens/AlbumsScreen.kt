@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import com.laconical.player.ui.components.staggeredEntrance
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
@@ -64,9 +66,10 @@ fun AlbumsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = modifier.fillMaxSize()
     ) {
-        items(albums, key = { it.name }) { album ->
+        itemsIndexed(albums, key = { _, album -> album.name }) { index, album ->
             Column(
                 modifier = Modifier
+                    .staggeredEntrance(index)
                     .clip(RoundedCornerShape(12.dp))
                     .clickable { onAlbumClick(album.name) }
                     .padding(bottom = 4.dp)
