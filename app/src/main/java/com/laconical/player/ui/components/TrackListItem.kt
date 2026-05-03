@@ -175,11 +175,14 @@ fun TrackListItem(
                 ) {
                     // SingletonImageLoader — one shared instance for the whole app, not one per row
                     val loader = SingletonImageLoader.get(context)
-                    val imageModel = remember(track.albumArtUri ?: track.mediaUri) {
-                        AudioArtData(track.mediaUri, track.albumArtUri)
+                    val imageRequest = remember(track.albumArtUri ?: track.mediaUri) {
+                        ImageRequest.Builder(context)
+                            .data(AudioArtData(track.mediaUri, track.albumArtUri))
+                            .size(144, 144)
+                            .build()
                     }
                     AsyncImage(
-                        model = imageModel,
+                        model = imageRequest,
                         imageLoader = loader,
                         contentDescription = "Album Art",
                         modifier = Modifier.fillMaxSize(),

@@ -35,7 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil3.compose.SubcomposeAsyncImage
+import coil3.request.ImageRequest
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.ui.platform.LocalContext
 import com.laconical.player.core.model.Track
 import com.laconical.player.ui.AudioArtData
 import com.laconical.player.ui.MainViewModel
@@ -352,8 +354,14 @@ private fun QueueTrackRow(
                     .background(Color(0xFF1E1E1E)),
                 contentAlignment = Alignment.Center
             ) {
+                val context = LocalContext.current
                 SubcomposeAsyncImage(
-                    model = remember(track.mediaUri) { AudioArtData(track.mediaUri) },
+                    model = remember(track.albumArtUri ?: track.mediaUri) {
+                        ImageRequest.Builder(context)
+                            .data(AudioArtData(track.mediaUri, track.albumArtUri))
+                            .size(144, 144)
+                            .build()
+                    },
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,

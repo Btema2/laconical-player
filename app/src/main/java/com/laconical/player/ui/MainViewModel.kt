@@ -61,25 +61,14 @@ class AudioAlbumArtFetcher(
     private val options: Options
 ) : Fetcher {
     override suspend fun fetch(): FetchResult? {
-        // Fast path: use the pre-built MediaStore albumart URI (same across all tracks
-        // in an album). One content resolver open vs. MediaMetadataRetriever per track.
-        artData.albumArtUri?.let { artUri ->
-            try {
-                val stream = options.context.contentResolver.openInputStream(Uri.parse(artUri))
-                if (stream != null) {
-                    val bitmap = stream.use { android.graphics.BitmapFactory.decodeStream(it) }
-                    if (bitmap != null) {
-                        return ImageFetchResult(
-                            image = bitmap.asImage(),
-                            isSampled = false,
-                            dataSource = DataSource.DISK
-                        )
-                    }
-                }
-            } catch (_: Exception) {}
+        val (reqW, reqH) = targetPixels()
+
+        when (embeddedArtCache[artData.uri]) {
+            false -> return fetchAlbumArt(reqW, reqH)  // known no embedded art — skip MMR
+            true  -> { /* known has embedded art — fall through to MMR below */ }
+            null  -> { /* unknown — probe MMR and record result */ }
         }
 
-        // Slow path: parse embedded art tag from audio file header.
         val retriever = MediaMetadataRetriever()
         try {
             if (artData.uri.startsWith("/")) {
@@ -89,16 +78,19 @@ class AudioAlbumArtFetcher(
             }
             val picture = retriever.embeddedPicture
             if (picture != null) {
-                val bitmap = android.graphics.BitmapFactory.decodeByteArray(picture, 0, picture.size)
+                val bitmap = decodeSampled(picture, reqW, reqH)
                 if (bitmap != null) {
+                    embeddedArtCache[artData.uri] = true
                     return ImageFetchResult(
                         image = bitmap.asImage(),
-                        isSampled = false,
+                        isSampled = reqW > 0,
                         dataSource = DataSource.DISK
                     )
                 }
             }
+            embeddedArtCache[artData.uri] = false
         } catch (_: Exception) {
+            embeddedArtCache[artData.uri] = false
         } finally {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -108,7 +100,59 @@ class AudioAlbumArtFetcher(
                 }
             } catch (_: Exception) {}
         }
+
+        return fetchAlbumArt(reqW, reqH)
+    }
+
+    private fun fetchAlbumArt(reqW: Int, reqH: Int): FetchResult? {
+        artData.albumArtUri?.let { artUri ->
+            try {
+                val bytes = options.context.contentResolver
+                    .openInputStream(Uri.parse(artUri))?.use { it.readBytes() }
+                    ?: return null
+                val bitmap = decodeSampled(bytes, reqW, reqH)
+                if (bitmap != null) {
+                    return ImageFetchResult(
+                        image = bitmap.asImage(),
+                        isSampled = reqW > 0,
+                        dataSource = DataSource.DISK
+                    )
+                }
+            } catch (_: Exception) {}
+        }
         return null
+    }
+
+    private fun targetPixels(): Pair<Int, Int> {
+        val w = (options.size.width as? coil3.size.Dimension.Pixels)?.px ?: 0
+        val h = (options.size.height as? coil3.size.Dimension.Pixels)?.px ?: 0
+        return w to h
+    }
+
+    private fun decodeSampled(bytes: ByteArray, reqW: Int, reqH: Int): android.graphics.Bitmap? {
+        if (reqW <= 0 || reqH <= 0) {
+            return android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        }
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        val opts = android.graphics.BitmapFactory.Options().apply {
+            inSampleSize = calcInSampleSize(bounds.outWidth, bounds.outHeight, reqW, reqH)
+        }
+        return android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+    }
+
+    private fun calcInSampleSize(srcW: Int, srcH: Int, reqW: Int, reqH: Int): Int {
+        var sample = 1
+        if (srcH > reqH || srcW > reqW) {
+            var halfH = srcH / 2
+            var halfW = srcW / 2
+            while (halfH >= reqH && halfW >= reqW) {
+                sample *= 2
+                halfH /= 2
+                halfW /= 2
+            }
+        }
+        return sample
     }
 
     class Factory : Fetcher.Factory<AudioArtData> {
@@ -116,14 +160,26 @@ class AudioAlbumArtFetcher(
             return AudioAlbumArtFetcher(data, options)
         }
     }
+
+    companion object {
+        // Tracks whether a URI has embedded art. Populated on first MMR probe.
+        // false = skip MMR next time, go straight to albumArtUri fallback.
+        val embeddedArtCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    }
 }
 
 class AudioAlbumArtKeyer : Keyer<AudioArtData> {
     override fun key(data: AudioArtData, options: Options): String {
-        // Key on albumArtUri when available — all tracks in the same album share it,
-        // so the cache entry is reused instead of fetched once per track.
-        return if (data.albumArtUri != null) "audio_art_${data.albumArtUri}"
-        else "audio_art_${data.uri}"
+        // Key per track URI + size bucket so small thumbnails and full-player art
+        // cache separately. albumArtUri used only in fetcher, not as cache key.
+        val w = (options.size.width as? coil3.size.Dimension.Pixels)?.px ?: 0
+        val bucket = when {
+            w <= 0   -> "orig"
+            w <= 200 -> "sm"
+            w <= 600 -> "md"
+            else     -> "lg"
+        }
+        return "audio_art_${data.uri}_$bucket"
     }
 }
 

@@ -45,6 +45,8 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
+import coil3.request.ImageRequest
+import coil3.size.Size
 import androidx.compose.material.icons.rounded.MusicNote
 import com.laconical.player.ui.components.FullPlayer
 import com.laconical.player.ui.components.staggeredEntrance
@@ -826,8 +828,14 @@ private fun QueueMorphLayer(
     }
 
     // ── Morph overlay (rendered second = above QueueSheet) ───────────────────
+    val context = LocalContext.current
     val loadTarget = currentTrack.mediaUri
-    val imageModel = remember(loadTarget) { AudioArtData(loadTarget) }
+    val imageModel: ImageRequest = remember(loadTarget) {
+        ImageRequest.Builder(context)
+            .data(AudioArtData(loadTarget, currentTrack.albumArtUri))
+            .size(Size.ORIGINAL)
+            .build()
+    }
     val dominantColor by viewModel.playingTrackDominantColor.collectAsState()
     val themeColor = dominantColor ?: Color(0xFF1E1E1E)
     val currentAmplitude by viewModel.currentNormalizedAmplitude.collectAsState()
