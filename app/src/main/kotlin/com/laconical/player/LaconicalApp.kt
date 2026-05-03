@@ -5,9 +5,12 @@ import android.util.Log
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
+import coil3.disk.DiskCache
+import coil3.memory.MemoryCache
 import com.laconical.player.core.media.MediaPreWarmer
 import com.laconical.player.ui.AudioAlbumArtFetcher
 import com.laconical.player.ui.AudioAlbumArtKeyer
+import okio.Path.Companion.toOkioPath
 import com.linc.amplituda.Amplituda
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -28,6 +31,17 @@ class LaconicalApp : Application(), SingletonImageLoader.Factory {
 
     override fun newImageLoader(context: PlatformContext): ImageLoader {
         return ImageLoader.Builder(context)
+            .memoryCache {
+                MemoryCache.Builder()
+                    .maxSizePercent(context, 0.15)
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(cacheDir.resolve("image_cache").toOkioPath())
+                    .maxSizeBytes(50L * 1024 * 1024)
+                    .build()
+            }
             .components {
                 add(AudioAlbumArtFetcher.Factory())
                 add(AudioAlbumArtKeyer())

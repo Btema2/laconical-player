@@ -65,7 +65,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.palette.graphics.Palette
 import coil3.BitmapImage
 import coil3.SingletonImageLoader
-import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import com.laconical.player.core.model.Track
@@ -100,7 +100,7 @@ fun PlaylistDetailScreen(
             runCatching {
                 val loader = SingletonImageLoader.get(context)
                 val req = ImageRequest.Builder(context)
-                    .data(AudioArtData(firstTrack.mediaUri))
+                    .data(AudioArtData(firstTrack.mediaUri, firstTrack.albumArtUri))
                     .size(64)
                     .build()
                 val result = loader.execute(req)
@@ -344,18 +344,11 @@ private fun PlaylistDetailTrackRow(
                     .background(Color(0xFF1E1E1E)),
                 contentAlignment = Alignment.Center
             ) {
-                SubcomposeAsyncImage(
-                    model = remember(track.mediaUri) { AudioArtData(track.mediaUri) },
+                AsyncImage(
+                    model = remember(track.albumArtUri ?: track.mediaUri) { AudioArtData(track.mediaUri, track.albumArtUri) },
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
-                    error = {
-                        Icon(
-                            imageVector = Icons.Rounded.MusicNote,
-                            contentDescription = null,
-                            tint = Color(0xFF555555)
-                        )
-                    }
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))

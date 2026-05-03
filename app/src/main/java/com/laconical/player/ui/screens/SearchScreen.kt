@@ -71,7 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
-import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.AsyncImage
 import com.laconical.player.core.data.db.entity.Playlist
 import com.laconical.player.core.model.Track
 import com.laconical.player.ui.AudioArtData
@@ -553,8 +553,8 @@ private fun AlbumCard(
         modifier = modifier.clickable { onClick(track.album) },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        SubcomposeAsyncImage(
-            model = AudioArtData(track.mediaUri),
+        AsyncImage(
+            model = AudioArtData(track.mediaUri, track.albumArtUri),
             imageLoader = loader,
             contentDescription = track.album,
             modifier = Modifier
@@ -562,21 +562,6 @@ private fun AlbumCard(
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(8.dp)),
             contentScale = ContentScale.Crop,
-            error = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color(0xFF1E1E1E)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.MusicNote,
-                        contentDescription = null,
-                        tint = Color(0xFF555555),
-                        modifier = Modifier.fillMaxSize(0.4f)
-                    )
-                }
-            }
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
@@ -601,8 +586,8 @@ private fun ArtistCard(
         modifier = modifier.clickable { onClick(track.artist) },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        SubcomposeAsyncImage(
-            model = AudioArtData(track.mediaUri),
+        AsyncImage(
+            model = AudioArtData(track.mediaUri, track.albumArtUri),
             imageLoader = loader,
             contentDescription = track.artist,
             modifier = Modifier
@@ -610,21 +595,6 @@ private fun ArtistCard(
                 .aspectRatio(1f)
                 .clip(CircleShape),
             contentScale = ContentScale.Crop,
-            error = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color(0xFF1E1E1E)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.MusicNote,
-                        contentDescription = null,
-                        tint = Color(0xFF555555),
-                        modifier = Modifier.fillMaxSize(0.4f)
-                    )
-                }
-            }
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
