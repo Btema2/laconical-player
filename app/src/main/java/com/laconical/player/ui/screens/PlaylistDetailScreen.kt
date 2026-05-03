@@ -66,6 +66,7 @@ import androidx.palette.graphics.Palette
 import coil3.BitmapImage
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import com.laconical.player.core.model.Track
@@ -291,6 +292,7 @@ private fun PlaylistDetailTrackRow(
     onRemove: () -> Unit
 ) {
     val isDraggingThis = dragFromIndexState.intValue == index
+    var artLoadFailed by remember { mutableStateOf(false) }
 
     val latestOnDragStart by rememberUpdatedState(onDragStart)
     val latestOnDragDelta by rememberUpdatedState(onDragDelta)
@@ -349,7 +351,16 @@ private fun PlaylistDetailTrackRow(
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
+                    onState = { artLoadFailed = it is AsyncImagePainter.State.Error },
                 )
+                if (artLoadFailed) {
+                    Icon(
+                        imageVector = Icons.Rounded.MusicNote,
+                        contentDescription = null,
+                        tint = Color(0xFF555555),
+                        modifier = Modifier.fillMaxSize(0.45f)
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
