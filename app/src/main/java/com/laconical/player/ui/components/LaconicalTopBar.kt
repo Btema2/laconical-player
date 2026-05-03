@@ -38,15 +38,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
-import com.laconical.player.ui.LocalAppBackground
 
 @Composable
 fun LaconicalTopBar(
@@ -58,7 +57,6 @@ fun LaconicalTopBar(
     modifier: Modifier = Modifier
 ) {
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val containerColor = LocalAppBackground.current
     val density = LocalDensity.current
 
     val expandProgress = remember { Animatable(0f) }
@@ -67,8 +65,8 @@ fun LaconicalTopBar(
     // Animate bar open/close
     LaunchedEffect(isSearchOpen) {
         if (isSearchOpen) {
-            expandProgress.animateTo(1f, tween(380, easing = FastOutSlowInEasing))
             focusRequester.requestFocus()
+            expandProgress.animateTo(1f, tween(380, easing = FastOutSlowInEasing))
         } else {
             expandProgress.animateTo(0f, tween(220, easing = FastOutSlowInEasing))
         }
@@ -78,15 +76,6 @@ fun LaconicalTopBar(
     var searchIconRootX by remember { mutableStateOf(0f) }
     var topBarWidthPx by remember { mutableStateOf(0f) }
 
-    // Compute bar left offset in dp: lerp from search icon x → 8.dp
-    val barLeftDp: Dp = with(density) {
-        lerp(
-            start = (searchIconRootX / density.density) - 8f, // icon center minus half bar start (approx)
-            stop = 8f,
-            fraction = expandProgress.value
-        ).dp
-    }
-
     // Inner alpha for back arrow and placeholder: only fades in in last 35% of progress
     val innerAlpha = ((expandProgress.value - 0.65f) / 0.35f).coerceIn(0f, 1f)
 
@@ -95,7 +84,7 @@ fun LaconicalTopBar(
             .fillMaxWidth()
             .padding(top = statusBarHeight + 4.dp)
             .height(56.dp)
-            .onGloballyPositioned { topBarWidthPx = it.size.width.toFloat() }
+            .onSizeChanged { topBarWidthPx = it.width.toFloat() }
     ) {
         // ── Title ───────────────────────────────────────────────────
         Text(
@@ -133,6 +122,7 @@ fun LaconicalTopBar(
             // Search icon — fades out quickly
             IconButton(
                 onClick = onSearchOpen,
+                enabled = expandProgress.value < 0.4f,
                 modifier = Modifier
                     .onGloballyPositioned { coords ->
                         searchIconRootX = coords.positionInRoot().x
@@ -148,7 +138,7 @@ fun LaconicalTopBar(
         // ── Expanding search bar ────────────────────────────────────
         // Grows from the search icon position to fill the bar minus 8dp left margin
         val barAlpha = (expandProgress.value / 0.2f).coerceIn(0f, 1f)
-        if (expandProgress.value > 0.01f) {
+        if (expandProgress.value > 0.01f && topBarWidthPx > 0f) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -209,13 +199,15 @@ fun LaconicalTopBar(
                     textStyle = TextStyle(color = Color.White, fontSize = 15.sp),
                     cursorBrush = SolidColor(Color.White),
                     decorationBox = { inner ->
-                        if (searchQuery.isEmpty()) {
-                            Text(
-                                text = "Search tracks, albums…",
-                                style = TextStyle(color = Color(0xFF666666), fontSize = 15.sp)
-                            )
+                        Box {
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    text = "Search tracks, albums…",
+                                    style = TextStyle(color = Color(0xFF666666), fontSize = 15.sp)
+                                )
+                            }
+                            inner()
                         }
-                        inner()
                     }
                 )
             }
