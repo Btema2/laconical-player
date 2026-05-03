@@ -141,6 +141,8 @@ fun LibraryScreen(
     val searchedAlbums by viewModel.searchedAlbums.collectAsState()
     val searchedArtists by viewModel.searchedArtists.collectAsState()
     val searchedPlaylists by viewModel.searchedPlaylists.collectAsState()
+    val tracks by viewModel.tracks.collectAsState()
+    val isPlaybackActive by viewModel.isPlaying.collectAsState()
 
     val targetBgColor = if (playingTrackDominantColor != null) {
         val d = playingTrackDominantColor!!
@@ -285,14 +287,14 @@ fun LibraryScreen(
         }
     }
 
-    // Back: queue first, then player
-    BackHandler(enabled = isExpanded) {
-        scope.launch { scaffoldState.bottomSheetState.partialExpand() }
-    }
-
+    // Back: search registered first (lower priority); player collapse registered last (higher priority)
     BackHandler(enabled = isSearchOpen) {
         viewModel.updateSearchQuery("")
         isSearchOpen = false
+    }
+
+    BackHandler(enabled = isExpanded) {
+        scope.launch { scaffoldState.bottomSheetState.partialExpand() }
     }
 
     CompositionLocalProvider(
@@ -370,7 +372,10 @@ fun LibraryScreen(
                             isSearchOpen = isSearchOpen,
                             searchQuery = searchQuery,
                             onSearchOpen = { isSearchOpen = true },
-                            onSearchClose = { isSearchOpen = false },
+                            onSearchClose = {
+                                viewModel.updateSearchQuery("")
+                                isSearchOpen = false
+                            },
                             onQueryChange = viewModel::updateSearchQuery
                         )
                     }
@@ -654,13 +659,12 @@ fun LibraryScreen(
             enter = fadeIn(animationSpec = tween(250, delayMillis = 100)),
             exit = fadeOut(animationSpec = tween(200))
         ) {
-            val tracks by viewModel.tracks.collectAsState()
-            val isPlaybackActive by viewModel.isPlaying.collectAsState()
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(top = statusBarPadding + 4.dp + 56.dp)
                     .background(LocalAppBackground.current)
+                    .pointerInput(Unit) { awaitPointerEventScope { while (true) { awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() } } } }
             ) {
                 SearchResultsPanel(
                     searchQuery = searchQuery,
