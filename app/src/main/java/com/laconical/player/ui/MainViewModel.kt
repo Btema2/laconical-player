@@ -48,13 +48,38 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Wrapper type so Coil dispatches to OUR fetcher, not its built-in ContentUriFetcher. */
-data class AudioArtData(val uri: String)
+data class AudioArtData(
+    val uri: String,
+    /** MediaStore albumart URI — `content://media/external/audio/albumart/<albumId>`.
+     *  When present, all tracks in the same album share this key, collapsing 20 cache
+     *  misses into 1 fetch instead of opening MediaMetadataRetriever per track. */
+    val albumArtUri: String? = null,
+)
 
 class AudioAlbumArtFetcher(
     private val artData: AudioArtData,
-        private val options: Options
+    private val options: Options
 ) : Fetcher {
     override suspend fun fetch(): FetchResult? {
+        // Fast path: use the pre-built MediaStore albumart URI (same across all tracks
+        // in an album). One content resolver open vs. MediaMetadataRetriever per track.
+        artData.albumArtUri?.let { artUri ->
+            try {
+                val stream = options.context.contentResolver.openInputStream(Uri.parse(artUri))
+                if (stream != null) {
+                    val bitmap = stream.use { android.graphics.BitmapFactory.decodeStream(it) }
+                    if (bitmap != null) {
+                        return ImageFetchResult(
+                            image = bitmap.asImage(),
+                            isSampled = false,
+                            dataSource = DataSource.DISK
+                        )
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        // Slow path: parse embedded art tag from audio file header.
         val retriever = MediaMetadataRetriever()
         try {
             if (artData.uri.startsWith("/")) {
@@ -68,8 +93,8 @@ class AudioAlbumArtFetcher(
                 if (bitmap != null) {
                     return ImageFetchResult(
                         image = bitmap.asImage(),
-                                            isSampled = false,
-                                            dataSource = DataSource.DISK
+                        isSampled = false,
+                        dataSource = DataSource.DISK
                     )
                 }
             }
@@ -95,7 +120,10 @@ class AudioAlbumArtFetcher(
 
 class AudioAlbumArtKeyer : Keyer<AudioArtData> {
     override fun key(data: AudioArtData, options: Options): String {
-        return "audio_art_${data.uri}"
+        // Key on albumArtUri when available — all tracks in the same album share it,
+        // so the cache entry is reused instead of fetched once per track.
+        return if (data.albumArtUri != null) "audio_art_${data.albumArtUri}"
+        else "audio_art_${data.uri}"
     }
 }
 
@@ -376,7 +404,7 @@ class MainViewModel @Inject constructor(
                     try {
                         val imageLoader = SingletonImageLoader.get(context)
                         val request = ImageRequest.Builder(context)
-                            .data(AudioArtData(loadTarget))
+                            .data(AudioArtData(loadTarget, track.albumArtUri))
                             .size(100)
                             .build()
 
