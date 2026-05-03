@@ -637,6 +637,10 @@ fun LibraryScreen(
                 },
                 onTabSelected = { route ->
                     if (!isTransitioning) {
+                        if (isSearchOpen) {
+                            isSearchOpen = false
+                            viewModel.updateSearchQuery("")
+                        }
                         navController.navigate(route) {
                             popUpTo(NavRoute.TRACKS) { saveState = true }
                             launchSingleTop = true
@@ -656,14 +660,14 @@ fun LibraryScreen(
 
         // ── Search results overlay ───────────────────────────────────────────────
         AnimatedVisibility(
-            visible = isSearchOpen,
+            visible = isSearchOpen && expandedFraction < 0.01f,
             enter = fadeIn(animationSpec = tween(250, delayMillis = 100)),
             exit = fadeOut(animationSpec = tween(200))
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = statusBarPadding + 4.dp + 56.dp)
+                    .padding(top = statusBarPadding + 4.dp + 56.dp, bottom = sheetPeekHeight)
                     .background(LocalAppBackground.current)
             ) {
                 SearchResultsPanel(
