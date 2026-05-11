@@ -25,6 +25,7 @@ captures/
 
 # Logs
 *.log
+build_log.txt
 
 # Git worktrees
 .worktrees/
