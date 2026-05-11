@@ -28,3 +28,7 @@ captures/
 
 # Git worktrees
 .worktrees/
+
+#Agent
+.claude/
+.openclaude/
