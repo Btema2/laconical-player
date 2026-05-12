@@ -551,7 +551,8 @@ fun LibraryScreen(
                                             onPlaylistClick = { playlistId ->
                                                 navController.navigate(NavRoute.playlistDetailRoute(playlistId))
                                             },
-                                            bottomPadding = trackListBottomPadding
+                                            bottomPadding = trackListBottomPadding,
+                                            dominantColor = playingTrackDominantColor
                                         )
                                     }
                                 }

@@ -33,3 +33,4 @@ build_log.txt
 #Agent
 .claude/
 .openclaude/
+.superpowers/

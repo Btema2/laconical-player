@@ -1,5 +1,6 @@
 package com.laconical.player.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,15 +10,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import com.laconical.player.ui.components.staggeredEntrance
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
@@ -26,7 +26,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -58,9 +57,18 @@ fun PlaylistsScreen(
     onFavoritesClick: () -> Unit,
     onPlaylistClick: (Long) -> Unit,
     bottomPadding: Dp = 0.dp,
+    dominantColor: Color? = null,
     modifier: Modifier = Modifier,
     viewModel: PlaylistsViewModel = hiltViewModel()
 ) {
+    val accentColor = if (dominantColor != null) {
+        Color(
+            red   = (dominantColor.red   * 0.3f + 0.7f).coerceIn(0f, 1f),
+            green = (dominantColor.green * 0.3f + 0.7f).coerceIn(0f, 1f),
+            blue  = (dominantColor.blue  * 0.3f + 0.7f).coerceIn(0f, 1f),
+            alpha = 1f
+        )
+    } else Color.White
     val playlists by viewModel.playlists.collectAsState()
     val artMap by viewModel.playlistArtTracks.collectAsState()
 
@@ -71,16 +79,6 @@ fun PlaylistsScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = Color.Transparent,
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showCreateSheet = true },
-                containerColor = Color(0xFF4338CA),
-                contentColor = Color.White,
-                modifier = Modifier.padding(bottom = bottomPadding)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "New playlist")
-            }
-        }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -126,6 +124,13 @@ fun PlaylistsScreen(
                 }
             }
 
+            item {
+                NewPlaylistRow(
+                    accentColor = accentColor,
+                    onClick = { showCreateSheet = true }
+                )
+            }
+
             if (playlists.isEmpty()) {
                 item {
                     Box(
@@ -135,7 +140,7 @@ fun PlaylistsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            "No playlists yet. Tap + to create one.",
+                            "No playlists yet. Tap 'Create playlist' to add one.",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF555555)
                         )
@@ -196,6 +201,63 @@ fun PlaylistsScreen(
             dismissButton = {
                 TextButton(onClick = { deleteTarget = null }) { Text("Cancel") }
             }
+        )
+    }
+}
+
+@Composable
+private fun NewPlaylistRow(
+    accentColor: Color,
+    onClick: () -> Unit
+) {
+    Column {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .height(1.dp)
+                .background(Color(0xFF2A2A2A))
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "+",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Light,
+                        color = accentColor
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "New Playlist",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = accentColor
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = accentColor.copy(alpha = 0.5f)
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .height(1.dp)
+                .background(Color(0xFF2A2A2A))
         )
     }
 }
