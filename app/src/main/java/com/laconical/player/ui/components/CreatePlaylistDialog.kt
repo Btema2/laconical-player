@@ -31,7 +31,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,7 +53,6 @@ fun CreatePlaylistDialog(
     onBack: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     var text by remember { mutableStateOf(TextFieldValue("", TextRange.Zero)) }
     val nameIsValid = text.text.trim().isNotEmpty()
