@@ -786,6 +786,7 @@ fun LibraryScreen(
                 onConfirm = { name ->
                     pendingNewPlaylistTrack?.let { t ->
                         viewModel.createPlaylistAndAdd(name, t.id)
+                        playlistToastData = Pair(t.title, name)
                     }
                     pendingNewPlaylistTrack = null
                     showCreateForPicker = false
