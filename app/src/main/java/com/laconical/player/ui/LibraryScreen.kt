@@ -53,6 +53,7 @@ import com.laconical.player.ui.components.LaconicalBottomNav
 import com.laconical.player.ui.components.LaconicalTopBar
 import com.laconical.player.ui.components.MiniPlayer
 import com.laconical.player.ui.components.TrackListItem
+import com.laconical.player.ui.components.CreatePlaylistDialog
 import com.laconical.player.ui.components.PlaylistBottomSheet
 import com.laconical.player.ui.components.QueueSheet
 import com.laconical.player.ui.components.TrackMenuOverlay
@@ -179,6 +180,8 @@ fun LibraryScreen(
     val scope = rememberCoroutineScope()
     var pendingNewPlaylistTrack by remember { mutableStateOf<Track?>(null) }
     var showCreateForPicker by remember { mutableStateOf(false) }
+    var newPlaylistOriginOffset by remember { mutableStateOf(Offset.Zero) }
+    var showCreateFromPlaylistsTab by remember { mutableStateOf(false) }
     var playlistToastData by remember { mutableStateOf<Pair<String, String>?>(null) }
     val playlists by viewModel.playlists.collectAsState()
     val playlistArtTracks by viewModel.playlistArtTracks.collectAsState()
@@ -551,6 +554,7 @@ fun LibraryScreen(
                                             onPlaylistClick = { playlistId ->
                                                 navController.navigate(NavRoute.playlistDetailRoute(playlistId))
                                             },
+                                            onCreatePlaylist = { showCreateFromPlaylistsTab = true },
                                             bottomPadding = trackListBottomPadding,
                                             dominantColor = playingTrackDominantColor
                                         )
@@ -735,23 +739,6 @@ fun LibraryScreen(
                 scope = scope,
             )
         }
-        if (showCreateForPicker) {
-            PlaylistBottomSheet(
-                title = "New Playlist",
-                onDismiss = {
-                    pendingNewPlaylistTrack = null
-                    showCreateForPicker = false
-                },
-                onConfirm = { name ->
-                    pendingNewPlaylistTrack?.let { t ->
-                        viewModel.createPlaylistAndAdd(name, t.id)
-                    }
-                    pendingNewPlaylistTrack = null
-                    showCreateForPicker = false
-                }
-            )
-        }
-
         // ── Track context menu overlay ──────────────────────────────────────
         contextMenuTrack?.let { track ->
             TrackMenuOverlay(
@@ -777,10 +764,43 @@ fun LibraryScreen(
                     playlistToastData = Pair(track.title, playlist.name)
                     contextMenuTrack = null
                 },
-                onCreateNewPlaylist = {
+                onCreateNewPlaylist = { originOffset ->
+                    newPlaylistOriginOffset = originOffset
                     pendingNewPlaylistTrack = track
-                    contextMenuTrack = null
+                    // contextMenuTrack intentionally NOT cleared — overlay stays alive
                     showCreateForPicker = true
+                },
+            )
+        }
+        if (showCreateForPicker) {
+            CreatePlaylistDialog(
+                originOffset = newPlaylistOriginOffset.takeIf { contextMenuTrack != null },
+                onDismiss = {
+                    showCreateForPicker = false
+                    contextMenuTrack = null
+                },
+                onBack = {
+                    showCreateForPicker = false
+                    // contextMenuTrack stays — reveals TrackMenuOverlay in PLAYLIST mode
+                },
+                onConfirm = { name ->
+                    pendingNewPlaylistTrack?.let { t ->
+                        viewModel.createPlaylistAndAdd(name, t.id)
+                    }
+                    pendingNewPlaylistTrack = null
+                    showCreateForPicker = false
+                    contextMenuTrack = null
+                },
+            )
+        }
+        if (showCreateFromPlaylistsTab) {
+            CreatePlaylistDialog(
+                originOffset = null,
+                onDismiss = { showCreateFromPlaylistsTab = false },
+                onBack = { showCreateFromPlaylistsTab = false },
+                onConfirm = { name ->
+                    viewModel.createPlaylist(name)
+                    showCreateFromPlaylistsTab = false
                 },
             )
         }
