@@ -1,6 +1,9 @@
 package com.laconical.player.ui.components
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -31,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,12 +43,18 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
+import kotlinx.coroutines.launch
 
 @Composable
 fun CreatePlaylistDialog(
@@ -53,24 +63,38 @@ fun CreatePlaylistDialog(
     onBack: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     var text by remember { mutableStateOf(TextFieldValue("", TextRange.Zero)) }
     val nameIsValid = text.text.trim().isNotEmpty()
+    val progress = remember { Animatable(0f) }
+    val density = LocalDensity.current
 
-    BackHandler { onBack() }
+    fun animatedDismiss(callback: () -> Unit) {
+        scope.launch {
+            progress.animateTo(0f, tween(200, easing = FastOutSlowInEasing))
+            callback()
+        }
+    }
 
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    BackHandler { animatedDismiss(onBack) }
+
+    LaunchedEffect(Unit) {
+        progress.animateTo(1f, tween(280, easing = FastOutSlowInEasing))
+        focusRequester.requestFocus()
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         // Scrim
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer { alpha = (progress.value * 1.6f).coerceIn(0f, 1f) }
                 .background(Color(0xCC000000))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = onDismiss,
+                    onClick = { animatedDismiss(onDismiss) },
                 ),
         )
 
@@ -81,9 +105,30 @@ fun CreatePlaylistDialog(
                 .padding(top = maxHeight * 0.15f, start = 24.dp, end = 24.dp),
             contentAlignment = Alignment.TopCenter,
         ) {
+            var cardCenterYPx by remember { mutableStateOf(0f) }
+            val prog = progress.value
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .onGloballyPositioned { coords ->
+                        cardCenterYPx = coords.positionInRoot().y + coords.size.height / 2f
+                    }
+                    .graphicsLayer {
+                        alpha = prog
+                        val (scaleVal, transYVal) = if (originOffset != null) {
+                            // Morph from origin row: scale 0.82→1, translateY from row→card center
+                            val targetY = originOffset.y - cardCenterYPx
+                            Pair(lerp(0.82f, 1f, prog), lerp(targetY, 0f, prog))
+                        } else {
+                            // Simple drop-in: scale 0.88→1, translateY -16dp→0
+                            val startY = with(density) { -16.dp.toPx() }
+                            Pair(lerp(0.88f, 1f, prog), lerp(startY, 0f, prog))
+                        }
+                        scaleX = scaleVal
+                        scaleY = scaleVal
+                        translationY = transYVal
+                    }
                     .clip(RoundedCornerShape(20.dp)),
             ) {
                 // Header
@@ -138,7 +183,7 @@ fun CreatePlaylistDialog(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Spacer(modifier = Modifier.weight(1f))
-                        TextButton(onClick = onDismiss) {
+                        TextButton(onClick = { animatedDismiss(onDismiss) }) {
                             Text("Cancel", color = Color(0xFF888888))
                         }
                         Spacer(modifier = Modifier.width(8.dp))
