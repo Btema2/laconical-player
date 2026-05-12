@@ -95,7 +95,7 @@ fun TrackMenuOverlay(
     onViewAlbum: (() -> Unit)?,
     onViewArtist: (() -> Unit)?,
     onSelectPlaylist: (Playlist) -> Unit,
-    onCreateNewPlaylist: () -> Unit,
+    onCreateNewPlaylist: (originOffset: Offset) -> Unit,
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -316,9 +316,9 @@ fun TrackMenuOverlay(
                                 onSelectPlaylist(playlist)
                                 dismiss()
                             },
-                            onCreateNew = {
-                                onCreateNewPlaylist()
-                                dismiss()
+                            onCreateNew = { originOffset ->
+                                onCreateNewPlaylist(originOffset)
+                                // Do NOT call dismiss() — overlay stays alive behind CreatePlaylistDialog
                             },
                         )
                     }
@@ -421,8 +421,9 @@ private fun PlaylistPickerBody(
     artTracks: Map<Long, List<Track>>,
     menuBg: Color,
     onSelectPlaylist: (Playlist) -> Unit,
-    onCreateNew: () -> Unit,
+    onCreateNew: (originOffset: Offset) -> Unit,
 ) {
+    var rowOffset by remember { mutableStateOf(Offset.Zero) }
     Column {
         LazyColumn(
             modifier = Modifier
@@ -466,10 +467,11 @@ private fun PlaylistPickerBody(
                 .fillMaxWidth()
                 .background(menuBg)
                 .clip(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp))
+                .onGloballyPositioned { coords -> rowOffset = coords.positionInRoot() }
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = ripple(color = Color.White),
-                    onClick = onCreateNew,
+                    onClick = { onCreateNew(rowOffset) },
                 )
                 .padding(horizontal = 20.dp, vertical = 18.dp),
         ) {
