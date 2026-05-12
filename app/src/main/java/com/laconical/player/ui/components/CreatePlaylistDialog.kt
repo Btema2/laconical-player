@@ -27,6 +27,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -62,7 +63,18 @@ fun CreatePlaylistDialog(
     onDismiss: () -> Unit,
     onBack: () -> Unit,
     onConfirm: (String) -> Unit,
+    dominantColor: Color? = null,
 ) {
+    // Accent: saturated tint of dominant color, or app gray if nothing playing
+    val accentColor = if (dominantColor != null) {
+        Color(
+            red   = (dominantColor.red   * 0.35f + 0.45f).coerceIn(0f, 1f),
+            green = (dominantColor.green * 0.35f + 0.45f).coerceIn(0f, 1f),
+            blue  = (dominantColor.blue  * 0.35f + 0.65f).coerceIn(0f, 1f),
+        )
+    } else {
+        Color(0xFF7070A0) // idle gray-blue matching app theme
+    }
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     var text by remember { mutableStateOf(TextFieldValue("", TextRange.Zero)) }
@@ -105,7 +117,7 @@ fun CreatePlaylistDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = maxHeight * 0.15f, start = 24.dp, end = 24.dp),
+                .padding(top = maxHeight * 0.25f, start = 24.dp, end = 24.dp),
             contentAlignment = Alignment.TopCenter,
         ) {
             var cardCenterYPx by remember { mutableStateOf(0f) }
@@ -143,12 +155,12 @@ fun CreatePlaylistDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFF1A1A24))
-                        .padding(horizontal = 18.dp, vertical = 14.dp),
+                        .padding(horizontal = 20.dp, vertical = 18.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.QueueMusic,
                         contentDescription = null,
-                        tint = Color(0xFF7C6FE0),
+                        tint = accentColor,
                         modifier = Modifier.size(22.dp),
                     )
                     Spacer(modifier = Modifier.width(12.dp))
@@ -167,13 +179,21 @@ fun CreatePlaylistDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFF12121A))
-                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                        .padding(horizontal = 20.dp, vertical = 24.dp),
                 ) {
                     OutlinedTextField(
                         value = text,
                         onValueChange = { text = it },
-                        placeholder = { Text("Playlist name", color = Color(0xFF555555)) },
+                        placeholder = { Text("Playlist name", color = Color(0xFF555568)) },
                         singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = accentColor,
+                            unfocusedBorderColor = Color(0xFF3A3A4A),
+                            cursorColor = accentColor,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color(0xFFCCCCCC),
+                        ),
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester),
@@ -185,20 +205,21 @@ fun CreatePlaylistDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 12.dp),
+                            .padding(top = 20.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Spacer(modifier = Modifier.weight(1f))
                         TextButton(onClick = { animatedDismiss(onDismiss) }) {
-                            Text("Cancel", color = Color(0xFF888888))
+                            Text("Cancel", color = Color(0xFF888898))
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = { if (nameIsValid) onConfirm(text.text.trim()) },
                             enabled = nameIsValid,
+                            shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF7C6FE0),
-                                disabledContainerColor = Color(0xFF7C6FE0).copy(alpha = 0.4f),
+                                containerColor = accentColor,
+                                disabledContainerColor = accentColor.copy(alpha = 0.35f),
                             ),
                         ) {
                             Text("Create", color = Color.White)

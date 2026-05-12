@@ -774,6 +774,7 @@ fun LibraryScreen(
         if (showCreateForPicker) {
             CreatePlaylistDialog(
                 originOffset = newPlaylistOriginOffset.takeIf { contextMenuTrack != null },
+                dominantColor = playingTrackDominantColor,
                 onDismiss = {
                     showCreateForPicker = false
                     contextMenuTrack = null
@@ -795,6 +796,7 @@ fun LibraryScreen(
         if (showCreateFromPlaylistsTab) {
             CreatePlaylistDialog(
                 originOffset = null,
+                dominantColor = playingTrackDominantColor,
                 onDismiss = { showCreateFromPlaylistsTab = false },
                 onBack = { showCreateFromPlaylistsTab = false },
                 onConfirm = { name ->
