@@ -56,6 +56,7 @@ import com.laconical.player.ui.viewmodels.PlaylistsViewModel
 fun PlaylistsScreen(
     onFavoritesClick: () -> Unit,
     onPlaylistClick: (Long) -> Unit,
+    onCreatePlaylist: () -> Unit,
     bottomPadding: Dp = 0.dp,
     dominantColor: Color? = null,
     modifier: Modifier = Modifier,
@@ -72,7 +73,6 @@ fun PlaylistsScreen(
     val playlists by viewModel.playlists.collectAsState()
     val artMap by viewModel.playlistArtTracks.collectAsState()
 
-    var showCreateSheet by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<Playlist?>(null) }
     var deleteTarget by remember { mutableStateOf<Playlist?>(null) }
 
@@ -127,7 +127,7 @@ fun PlaylistsScreen(
             item {
                 NewPlaylistRow(
                     accentColor = accentColor,
-                    onClick = { showCreateSheet = true }
+                    onClick = onCreatePlaylist
                 )
             }
 
@@ -160,17 +160,6 @@ fun PlaylistsScreen(
                 }
             }
         }
-    }
-
-    if (showCreateSheet) {
-        PlaylistBottomSheet(
-            title = "New Playlist",
-            onDismiss = { showCreateSheet = false },
-            onConfirm = { name ->
-                viewModel.createPlaylist(name)
-                showCreateSheet = false
-            }
-        )
     }
 
     renameTarget?.let { target ->
