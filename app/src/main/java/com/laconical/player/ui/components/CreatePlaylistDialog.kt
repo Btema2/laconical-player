@@ -70,7 +70,10 @@ fun CreatePlaylistDialog(
     val progress = remember { Animatable(0f) }
     val density = LocalDensity.current
 
+    var isExiting by remember { mutableStateOf(false) }
+
     fun animatedDismiss(callback: () -> Unit) {
+        isExiting = true
         scope.launch {
             progress.animateTo(0f, tween(200, easing = FastOutSlowInEasing))
             callback()
@@ -116,12 +119,15 @@ fun CreatePlaylistDialog(
                     }
                     .graphicsLayer {
                         alpha = prog
-                        val (scaleVal, transYVal) = if (originOffset != null) {
-                            // Morph from origin row: scale 0.82→1, translateY from row→card center
+                        val (scaleVal, transYVal) = if (isExiting) {
+                            // Uniform exit: always scale 0.88→1 regardless of how dialog was entered
+                            Pair(lerp(0.88f, 1f, prog), 0f)
+                        } else if (originOffset != null) {
+                            // Entry from track menu: morph from row position
                             val targetY = originOffset.y - cardCenterYPx
                             Pair(lerp(0.82f, 1f, prog), lerp(targetY, 0f, prog))
                         } else {
-                            // Simple drop-in: scale 0.88→1, translateY -16dp→0
+                            // Entry from PlaylistsScreen: simple drop-in
                             val startY = with(density) { -16.dp.toPx() }
                             Pair(lerp(0.88f, 1f, prog), lerp(startY, 0f, prog))
                         }

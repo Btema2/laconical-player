@@ -54,7 +54,6 @@ import com.laconical.player.ui.components.LaconicalTopBar
 import com.laconical.player.ui.components.MiniPlayer
 import com.laconical.player.ui.components.TrackListItem
 import com.laconical.player.ui.components.CreatePlaylistDialog
-import com.laconical.player.ui.components.PlaylistBottomSheet
 import com.laconical.player.ui.components.QueueSheet
 import com.laconical.player.ui.components.TrackMenuOverlay
 import androidx.compose.foundation.clickable
