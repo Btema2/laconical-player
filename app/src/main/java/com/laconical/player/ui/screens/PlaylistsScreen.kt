@@ -235,11 +235,6 @@ private fun NewPlaylistRow(
                     color = accentColor
                 )
             }
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = accentColor.copy(alpha = 0.5f)
-            )
         }
         Box(
             modifier = Modifier
