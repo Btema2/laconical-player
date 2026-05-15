@@ -56,6 +56,9 @@ import com.laconical.player.ui.components.TrackListItem
 import com.laconical.player.ui.components.CreatePlaylistDialog
 import com.laconical.player.ui.components.QueueSheet
 import com.laconical.player.ui.components.TrackMenuOverlay
+import com.laconical.player.ui.components.PlaylistMenuOverlay
+import com.laconical.player.ui.components.PlaylistBottomSheet
+import com.laconical.player.ui.viewmodels.PlaylistsViewModel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -117,7 +120,8 @@ private const val QUEUE_ANIM_MS = 300
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
-    viewModel: MainViewModel = hiltViewModel()
+    viewModel: MainViewModel = hiltViewModel(),
+    playlistsViewModel: PlaylistsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -189,6 +193,11 @@ fun LibraryScreen(
     var contextMenuTrack by remember { mutableStateOf<Track?>(null) }
     var contextMenuArtOffset by remember { mutableStateOf(Offset.Zero) }
     var contextMenuArtSize by remember { mutableFloatStateOf(0f) }
+    var contextMenuPlaylist by remember { mutableStateOf<Playlist?>(null) }
+    var contextMenuPlaylistArtOffset by remember { mutableStateOf(Offset.Zero) }
+    var contextMenuPlaylistArtSize by remember { mutableFloatStateOf(0f) }
+    var showRenamePlaylist by remember { mutableStateOf(false) }
+    var showDeletePlaylist by remember { mutableStateOf(false) }
     val navController = rememberNavController()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val queueAnimatable = remember { Animatable(0f) }
@@ -554,6 +563,11 @@ fun LibraryScreen(
                                                 navController.navigate(NavRoute.playlistDetailRoute(playlistId))
                                             },
                                             onCreatePlaylist = { showCreateFromPlaylistsTab = true },
+                                            onMenuOpen = { playlist, offset, size ->
+                                                contextMenuPlaylist = playlist
+                                                contextMenuPlaylistArtOffset = offset
+                                                contextMenuPlaylistArtSize = size
+                                            },
                                             bottomPadding = trackListBottomPadding,
                                             dominantColor = playingTrackDominantColor
                                         )
@@ -770,6 +784,63 @@ fun LibraryScreen(
                     showCreateForPicker = true
                 },
             )
+        }
+        // ── Playlist context menu overlay ───────────────────────────────────
+        contextMenuPlaylist?.let { playlist ->
+            PlaylistMenuOverlay(
+                playlist = playlist,
+                artTracks = playlistArtTracks[playlist.id] ?: emptyList(),
+                artStartOffsetPx = contextMenuPlaylistArtOffset,
+                artStartSizePx = contextMenuPlaylistArtSize,
+                dominantColor = playingTrackDominantColor,
+                onDismiss = { contextMenuPlaylist = null },
+                onRename = { showRenamePlaylist = true },
+                onDelete = { showDeletePlaylist = true },
+            )
+        }
+        if (showRenamePlaylist) {
+            contextMenuPlaylist?.let { target ->
+                PlaylistBottomSheet(
+                    title = "Rename Playlist",
+                    initialName = target.name,
+                    onDismiss = {
+                        showRenamePlaylist = false
+                        contextMenuPlaylist = null
+                    },
+                    onConfirm = { name ->
+                        playlistsViewModel.renamePlaylist(target.id, name)
+                        showRenamePlaylist = false
+                        contextMenuPlaylist = null
+                    }
+                )
+            }
+        }
+        if (showDeletePlaylist) {
+            contextMenuPlaylist?.let { target ->
+                AlertDialog(
+                    onDismissRequest = {
+                        showDeletePlaylist = false
+                        contextMenuPlaylist = null
+                    },
+                    title = { Text("Delete \"${target.name}\"?") },
+                    text = { Text("This will permanently delete the playlist and remove all its tracks. Your music files are not affected.") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            playlistsViewModel.deletePlaylist(target.id)
+                            showDeletePlaylist = false
+                            contextMenuPlaylist = null
+                        }) {
+                            Text("Delete", color = Color(0xFFEF4444))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            showDeletePlaylist = false
+                            contextMenuPlaylist = null
+                        }) { Text("Cancel") }
+                    }
+                )
+            }
         }
         if (showCreateForPicker) {
             CreatePlaylistDialog(
