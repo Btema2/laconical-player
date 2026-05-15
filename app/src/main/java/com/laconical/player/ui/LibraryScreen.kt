@@ -793,7 +793,9 @@ fun LibraryScreen(
                 artStartOffsetPx = contextMenuPlaylistArtOffset,
                 artStartSizePx = contextMenuPlaylistArtSize,
                 dominantColor = playingTrackDominantColor,
-                onDismiss = { contextMenuPlaylist = null },
+                onDismiss = {
+                    if (!showRenamePlaylist && !showDeletePlaylist) contextMenuPlaylist = null
+                },
                 onRename = { showRenamePlaylist = true },
                 onDelete = { showDeletePlaylist = true },
             )
