@@ -308,6 +308,14 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch { userDataRepository.createPlaylist(name) }
     }
 
+    fun renamePlaylist(playlistId: Long, name: String) {
+        viewModelScope.launch { userDataRepository.renamePlaylist(playlistId, name.trim()) }
+    }
+
+    fun deletePlaylist(playlistId: Long) {
+        viewModelScope.launch { userDataRepository.deletePlaylist(playlistId) }
+    }
+
     private val _currentNormalizedAmplitude = MutableStateFlow(0f)
     val currentNormalizedAmplitude: StateFlow<Float> = _currentNormalizedAmplitude.asStateFlow()
 

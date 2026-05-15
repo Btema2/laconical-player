@@ -58,7 +58,6 @@ import com.laconical.player.ui.components.QueueSheet
 import com.laconical.player.ui.components.TrackMenuOverlay
 import com.laconical.player.ui.components.PlaylistMenuOverlay
 import com.laconical.player.ui.components.PlaylistBottomSheet
-import com.laconical.player.ui.viewmodels.PlaylistsViewModel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -121,7 +120,6 @@ private const val QUEUE_ANIM_MS = 300
 @Composable
 fun LibraryScreen(
     viewModel: MainViewModel = hiltViewModel(),
-    playlistsViewModel: PlaylistsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -810,7 +808,7 @@ fun LibraryScreen(
                         contextMenuPlaylist = null
                     },
                     onConfirm = { name ->
-                        playlistsViewModel.renamePlaylist(target.id, name)
+                        viewModel.renamePlaylist(target.id, name)
                         showRenamePlaylist = false
                         contextMenuPlaylist = null
                     }
@@ -828,7 +826,7 @@ fun LibraryScreen(
                     text = { Text("This will permanently delete the playlist and remove all its tracks. Your music files are not affected.") },
                     confirmButton = {
                         TextButton(onClick = {
-                            playlistsViewModel.deletePlaylist(target.id)
+                            viewModel.deletePlaylist(target.id)
                             showDeletePlaylist = false
                             contextMenuPlaylist = null
                         }) {
