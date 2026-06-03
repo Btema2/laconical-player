@@ -14,6 +14,7 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
 @RunWith(AndroidJUnit4::class)
+// Plain Application: LaconicalBottomNav has no DI deps. Switch to HiltTestApplication if that changes.
 @Config(sdk = [33], application = Application::class)
 class LaconicalBottomNavTest {
 
