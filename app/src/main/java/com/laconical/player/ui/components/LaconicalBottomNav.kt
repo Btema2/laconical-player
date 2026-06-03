@@ -1,17 +1,21 @@
 package com.laconical.player.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,6 +47,8 @@ import androidx.compose.ui.unit.sp
 import com.laconical.player.ui.LocalAppSurface
 import com.laconical.player.ui.navigation.NavRoute
 
+private val PillShape = RoundedCornerShape(50)
+
 private data class NavItem(
     val label: String,
     val route: String,
@@ -57,17 +63,8 @@ fun LaconicalBottomNav(
     modifier: Modifier = Modifier
 ) {
     val bgColor = LocalAppSurface.current
-
-    val iconBaseColor = if (dynamicColor != null) {
-        Color(
-            red   = (dynamicColor.red   * 0.3f + 0.7f).coerceIn(0f, 1f),
-            green = (dynamicColor.green * 0.3f + 0.7f).coerceIn(0f, 1f),
-            blue  = (dynamicColor.blue  * 0.3f + 0.7f).coerceIn(0f, 1f),
-            alpha = 1f
-        )
-    } else Color.White
-
-    val indicatorColor = dynamicColor ?: Color.White
+    val pillFill   = dynamicColor?.copy(alpha = 0.26f) ?: Color.White.copy(alpha = 0.12f)
+    val pillBorder = dynamicColor?.copy(alpha = 0.18f) ?: Color.Transparent
 
     val items = listOf(
         NavItem("Tracks",    NavRoute.TRACKS,    Icons.Outlined.MusicNote),
@@ -98,21 +95,21 @@ fun LaconicalBottomNav(
                     key(item.route) {
                         val isSelected = selectedRoute == item.route
 
-                        val itemColor = if (isSelected) iconBaseColor else Color(0xFF666666)
+                        val iconTint = if (isSelected) Color.White else Color.White.copy(alpha = 0.42f)
 
                         val yOffset by animateDpAsState(
-                            targetValue = if (isSelected) (-4).dp else 0.dp,
+                            targetValue = if (isSelected) (-2).dp else 0.dp,
                             animationSpec = tween(300, easing = FastOutSlowInEasing),
-                            label = "iconOffsetAnim_${item.route}"
+                            label = "iconOffset_${item.route}"
                         )
 
-                        val indicatorAlpha by animateFloatAsState(
-                            targetValue = if (isSelected) 1f else 0f,
-                            animationSpec = tween(300),
-                            label = "indicatorAlpha_${item.route}"
+                        val pillWidth by animateDpAsState(
+                            targetValue = if (isSelected) 76.dp else 0.dp,
+                            animationSpec = tween(320, easing = FastOutSlowInEasing),
+                            label = "pillWidth_${item.route}"
                         )
 
-                        Column(
+                        Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .clickable(
@@ -120,29 +117,42 @@ fun LaconicalBottomNav(
                                     indication = null,
                                     onClick = { onTabSelected(item.route) }
                                 ),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = item.label,
-                                tint = itemColor,
-                                modifier = Modifier.offset(y = yOffset)
-                            )
-                            Text(
-                                text = item.label,
-                                color = itemColor,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 11.sp
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
+                            // Pill — expands from center (curtains effect)
                             Box(
                                 modifier = Modifier
-                                    .width(16.dp)
-                                    .height(3.dp)
-                                    .clip(RoundedCornerShape(50))
-                                    .background(indicatorColor.copy(alpha = indicatorAlpha))
+                                    .width(pillWidth)
+                                    .height(42.dp)
+                                    .clip(PillShape)
+                                    .background(pillFill)
+                                    .border(1.dp, pillBorder, PillShape)
                             )
+
+                            // Icon + label on top of pill
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.label,
+                                    tint = iconTint,
+                                    modifier = Modifier.offset(y = yOffset)
+                                )
+                                AnimatedVisibility(
+                                    visible = isSelected,
+                                    enter = fadeIn(tween(220)) + slideInVertically { it / 2 },
+                                    exit  = fadeOut(tween(150)) + slideOutVertically { it / 2 }
+                                ) {
+                                    Text(
+                                        text = item.label,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                            }
                         }
                     }
                 }
