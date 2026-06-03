@@ -47,6 +47,7 @@ Laconical Player — open-source Android music player (Namida-inspired). Local a
 - **Phase 1 (mini→full):** `BottomSheetScaffold.expandedFraction` (0→1). Ghost elements report `positionInRoot()`; overlay `lerp()`s between coordinate sets.
 - **Phase 2+3 (full→queue):** `queueProgress` float drives a second `lerp()` from FullPlayer → QueueSheet header positions.
 - **Ghost contract:** Source elements are invisible (alpha=0/Color.Transparent/placeholder Box). Overlay is the sole renderer and tap handler.
+- **Start-point anchor:** the mini-side lerp origin is the *collapsed* `sheetRootYPx`, captured in `LibraryScreen` (`collapsedSheetRootYPx`) at rest, gated on `currentTrack != null`, then passed into `QueueMorphLayer`. Getting this wrong is the source of two distinct bugs — see Animation Pitfalls → Morph start-point.
 
 ### Album Art Loading
 
@@ -121,7 +122,13 @@ Kotlin + Jetpack Compose (M3) · Hilt · Media3/ExoPlayer · Room · Coil 3 (cus
 
 ## Animation Pitfalls (Hard-Won Rules)
 
-**Lerp linearity:** Freeze start-point before animation begins. Use sheet-relative coords for full player.
+**Morph start-point (mini→full lerp) — three traps, hit in order while fixing one cold-start bug:**
+
+1. **Capture the collapsed anchor in the parent, never in the overlay.** `collapsedSheetRootYPx` is captured in `LibraryScreen` (always composed). The morph overlay (`QueueMorphLayer`) is gated on `allGhostsReady`; on a cold start the ghosts first report their positions *mid-expand*, so a capture living inside the overlay never sees the at-rest value. The lerp then starts from a *moving* point → curved "hook" (Y races ~2×) + a visible snap when the value finally latches. Tell-tale symptom: the jump happens **only on the first slide** and disappears after a few (the latched value gets remembered once captured at rest).
+2. **Gate capture on `currentTrack != null`.** With no track, `logicalPeekHeight` is `0`, so the sheet rests entirely below the screen and `sheetRootYPx` equals the screen bottom. Capturing then anchors the mini elements off-screen — symptom: overlay elements **"come up from under the screen"** during the expand. Capture only once a track exists.
+3. **Do NOT reconstruct the anchor from offset math.** `collapsed = sheetRootYPx + maxOffset * expandedFraction` looks algebraically exact but `sheetRootYPx` does **not** track the sheet offset 1:1 — the term overshoots and pushes elements off-screen. Capture the real measured value at rest (`expandedFraction < 0.05f`) in a `LaunchedEffect`, then hold it frozen through the expand.
+
+**Lerp linearity:** the captured collapsed anchor keeps the mini-side start-point still during the morph (a live `sheetRootYPx` moves both lerp endpoints → curved path). Full-player side uses sheet-relative coords (`absY - sheetRootYPx`, stable as the sheet scrolls); album-art full side is a pure constant.
 
 **Spring gating:** Spring ON only when fully at rest (expandedFraction ≥ 0.99 && queueProg < 0.01). Never apply spring during morph.
 
