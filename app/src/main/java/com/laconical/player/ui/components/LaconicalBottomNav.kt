@@ -55,6 +55,13 @@ private data class NavItem(
     val icon: ImageVector,
 )
 
+private val navItems = listOf(
+    NavItem("Tracks",    NavRoute.TRACKS,    Icons.Outlined.MusicNote),
+    NavItem("Albums",    NavRoute.ALBUMS,    Icons.Outlined.Album),
+    NavItem("Artists",   NavRoute.ARTISTS,   Icons.Outlined.Person),
+    NavItem("Playlists", NavRoute.PLAYLISTS, Icons.Outlined.QueueMusic),
+)
+
 @Composable
 fun LaconicalBottomNav(
     selectedRoute: String,
@@ -65,13 +72,6 @@ fun LaconicalBottomNav(
     val bgColor = LocalAppSurface.current
     val pillFill   = dynamicColor?.copy(alpha = 0.26f) ?: Color.White.copy(alpha = 0.12f)
     val pillBorder = dynamicColor?.copy(alpha = 0.18f) ?: Color.Transparent
-
-    val items = listOf(
-        NavItem("Tracks",    NavRoute.TRACKS,    Icons.Outlined.MusicNote),
-        NavItem("Albums",    NavRoute.ALBUMS,    Icons.Outlined.Album),
-        NavItem("Artists",   NavRoute.ARTISTS,   Icons.Outlined.Person),
-        NavItem("Playlists", NavRoute.PLAYLISTS, Icons.Outlined.QueueMusic),
-    )
 
     Box(
         modifier = modifier
@@ -91,7 +91,7 @@ fun LaconicalBottomNav(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                items.forEach { item ->
+                navItems.forEach { item ->
                     key(item.route) {
                         val isSelected = selectedRoute == item.route
 
