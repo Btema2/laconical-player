@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
@@ -133,11 +134,13 @@ private fun NavTabItem(
     )
 
     Box(
-        modifier = modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null,
-            onClick = { onTabSelected(item.route) }
-        ),
+        modifier = modifier
+            .fillMaxHeight()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = { onTabSelected(item.route) }
+            ),
         contentAlignment = Alignment.Center
     ) {
         // Pill — expands from center (curtains effect)
@@ -168,7 +171,7 @@ private fun NavTabItem(
                 exit  = fadeOut(tween(150)) + slideOutVertically { it },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 8.dp)
+                    .padding(bottom = 5.dp)
             ) {
                 Text(
                     text = item.label,
