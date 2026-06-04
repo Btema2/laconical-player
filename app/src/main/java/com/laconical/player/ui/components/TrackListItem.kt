@@ -148,7 +148,7 @@ fun TrackListItem(
         ) {
             Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
                 if (isActiveTrack) {
-                    val paint = remember {
+                    val paint = remember(vibeColor) {
                         Paint().apply {
                             color = vibeColor.copy(alpha = 0.6f)
                             asFrameworkPaint().maskFilter = android.graphics.BlurMaskFilter(40f, android.graphics.BlurMaskFilter.Blur.NORMAL)
