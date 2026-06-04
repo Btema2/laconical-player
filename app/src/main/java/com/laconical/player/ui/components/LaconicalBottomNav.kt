@@ -93,69 +93,89 @@ fun LaconicalBottomNav(
             ) {
                 navItems.forEach { item ->
                     key(item.route) {
-                        val isSelected = selectedRoute == item.route
-
-                        val iconTint = if (isSelected) Color.White else Color.White.copy(alpha = 0.42f)
-
-                        val yOffset by animateDpAsState(
-                            targetValue = if (isSelected) (-2).dp else 0.dp,
-                            animationSpec = tween(300, easing = FastOutSlowInEasing),
-                            label = "iconOffset_${item.route}"
+                        NavTabItem(
+                            item = item,
+                            isSelected = selectedRoute == item.route,
+                            pillFill = pillFill,
+                            pillBorder = pillBorder,
+                            onTabSelected = onTabSelected,
+                            modifier = Modifier.weight(1f)
                         )
-
-                        val pillWidth by animateDpAsState(
-                            targetValue = if (isSelected) 76.dp else 0.dp,
-                            animationSpec = tween(320, easing = FastOutSlowInEasing),
-                            label = "pillWidth_${item.route}"
-                        )
-
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = { onTabSelected(item.route) }
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Pill — expands from center (curtains effect)
-                            Box(
-                                modifier = Modifier
-                                    .width(pillWidth)
-                                    .height(42.dp)
-                                    .clip(PillShape)
-                                    .background(pillFill)
-                                    .border(1.dp, pillBorder, PillShape)
-                            )
-
-                            // Icon + label on top of pill
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = item.icon,
-                                    contentDescription = item.label,
-                                    tint = iconTint,
-                                    modifier = Modifier.offset(y = yOffset)
-                                )
-                                AnimatedVisibility(
-                                    visible = isSelected,
-                                    enter = fadeIn(tween(220)) + slideInVertically { it / 2 },
-                                    exit  = fadeOut(tween(150)) + slideOutVertically { it / 2 }
-                                ) {
-                                    Text(
-                                        text = item.label,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 10.sp
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NavTabItem(
+    item: NavItem,
+    isSelected: Boolean,
+    pillFill: Color,
+    pillBorder: Color,
+    onTabSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val iconTint = if (isSelected) Color.White else Color.White.copy(alpha = 0.42f)
+
+    // Icon lifts independently — never driven by text layout changes
+    val iconOffsetY by animateDpAsState(
+        targetValue = if (isSelected) (-8).dp else 0.dp,
+        animationSpec = tween(280, easing = FastOutSlowInEasing),
+        label = "iconOffset_${item.route}"
+    )
+
+    val pillWidth by animateDpAsState(
+        targetValue = if (isSelected) 76.dp else 0.dp,
+        animationSpec = tween(320, easing = FastOutSlowInEasing),
+        label = "pillWidth_${item.route}"
+    )
+
+    Box(
+        modifier = modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = { onTabSelected(item.route) }
+        ),
+        contentAlignment = Alignment.Center
+    ) {
+        // Pill — expands from center (curtains effect)
+        Box(
+            modifier = Modifier
+                .width(pillWidth)
+                .height(42.dp)
+                .clip(PillShape)
+                .background(pillFill)
+                .border(1.dp, pillBorder, PillShape)
+        )
+
+        // Icon — independent layer, position never affected by text
+        Icon(
+            imageVector = item.icon,
+            contentDescription = item.label,
+            tint = iconTint,
+            modifier = Modifier.offset(y = iconOffsetY)
+        )
+
+        // Text pinned to bottom of tab via matchParentSize wrapper.
+        // AnimatedVisibility height changes stay inside this layer
+        // and never move the icon.
+        Box(modifier = Modifier.matchParentSize()) {
+            AnimatedVisibility(
+                visible = isSelected,
+                enter = fadeIn(tween(220)) + slideInVertically { it },
+                exit  = fadeOut(tween(150)) + slideOutVertically { it },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 8.dp)
+            ) {
+                Text(
+                    text = item.label,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 10.sp
+                )
             }
         }
     }
