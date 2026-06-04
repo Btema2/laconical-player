@@ -76,11 +76,9 @@ class AudioVisualizerManager @Inject constructor(
         if (isVisualizerGeneratingRealData) {
             val rms = if (bytes.isNotEmpty()) sqrt(sumSquares / bytes.size) else 0f
             val pulse = (rms / 40f).coerceIn(0f, 1f)
-            
-            scope.launch {
-                _waveform.value = normalized
-                _beatPulse.value = pulse
-            }
+
+            _waveform.value = normalized
+            _beatPulse.value = pulse
         }
     }
 

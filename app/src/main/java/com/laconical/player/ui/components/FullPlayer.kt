@@ -111,7 +111,7 @@ fun FullPlayer(
             .graphicsLayer { alpha = contentAlpha }
             .background(animatedBg)
     ) {
-        ParticleSystem(isPlaying = isPlaying, color = particleColor)
+        ParticleSystem(isPlaying = isPlaying, isVisible = expandedFraction > 0.01f, color = particleColor)
 
         Column(
             modifier = Modifier
@@ -239,7 +239,8 @@ fun FullPlayer(
                 duration = duration,
                 onSeek = { viewModel.seekTo(it) },
                 activeColor = seekBarActiveColor,
-                isPlaying = isPlaying
+                isPlaying = isPlaying,
+                expandedFraction = expandedFraction
             )
 
             // Time Row
@@ -379,7 +380,8 @@ fun VisualizerSeekBar(
     duration: Long,
     onSeek: (Float) -> Unit,
     activeColor: Color,
-    isPlaying: Boolean
+    isPlaying: Boolean,
+    expandedFraction: Float
 ) {
     var isDragging by remember { mutableStateOf(false) }
     var dragProgress by remember { mutableFloatStateOf(0f) }
@@ -406,8 +408,9 @@ fun VisualizerSeekBar(
     }
 
     var phase by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) {
+    val animatePhase = isPlaying && expandedFraction > 0.01f
+    LaunchedEffect(animatePhase) {
+        if (animatePhase) {
             while (true) { withFrameNanos { phase = (phase + 0.0005f) % 1000f } }
         }
     }
@@ -588,7 +591,7 @@ fun PlaybackControls(
  * ────────────────────────────────────────────────────────────────────── */
 
 @Composable
-fun ParticleSystem(isPlaying: Boolean, color: Color) {
+fun ParticleSystem(isPlaying: Boolean, isVisible: Boolean, color: Color) {
     var frameTime by remember { mutableLongStateOf(0L) }
     var canvasWidth by remember { mutableFloatStateOf(0f) }
     var canvasHeight by remember { mutableFloatStateOf(0f) }
@@ -608,7 +611,7 @@ fun ParticleSystem(isPlaying: Boolean, color: Color) {
     LaunchedEffect(Unit) {
         var lastNanos = 0L
         while (true) {
-            if (energy < 0.005f && particles.all { it.life <= 0f }) {
+            if (!isVisible || (energy < 0.005f && particles.all { it.life <= 0f })) {
                 delay(100)
                 lastNanos = 0L
                 continue

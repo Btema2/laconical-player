@@ -97,6 +97,7 @@ import com.laconical.player.ui.LocalAppSurface
 // Symmetric open/close duration for the queue morph (ms). Material standard easing
 // (FastOutSlowInEasing) is used in both directions so the motion feels the same in and out.
 private const val QUEUE_ANIM_MS = 300
+private val sortOrders = SortOrder.entries.toTypedArray()
 
 /**
  * Main library screen.
@@ -429,8 +430,6 @@ fun LibraryScreen(
                                 popExitTransition  = { navPopExitTransition() },
                             ) {
                                 composable(NavRoute.TRACKS) {
-                                    val tracks by viewModel.tracks.collectAsState()
-                                    val isPlaybackActive by viewModel.isPlaying.collectAsState()
                                     val sortOrder by viewModel.sortOrder.collectAsState()
     
                                     Column(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
@@ -439,7 +438,7 @@ fun LibraryScreen(
                                             contentPadding = PaddingValues(horizontal = 16.dp),
                                             modifier = Modifier.padding(vertical = 4.dp)
                                         ) {
-                                            items(SortOrder.entries.toTypedArray(), key = { it.name }) { order ->
+                                            items(sortOrders, key = { it.name }) { order ->
                                                 FilterChip(
                                                     selected = sortOrder == order,
                                                     onClick = { viewModel.setSortOrder(order) },
