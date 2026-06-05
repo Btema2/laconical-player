@@ -507,8 +507,9 @@ class MainViewModel @Inject constructor(
             val live = musicPlayer.currentQueueSnapshot()
             if (!live.isEmpty) {
                 // Case A: process survived — controller still has the queue. Reattach UI without
-                // touching playback. mapNotNull filters any track deleted mid-session; the
-                // controller index still references the full controller queue, so we coerceIn.
+                // touching playback. mapNotNull filters tracks deleted mid-session; this can
+                // desync _currentQueue length from the controller queue — a known tradeoff for
+                // the process-alive fast path. coerceIn guards the OOB crash only.
                 val tracks = live.mediaIds.mapNotNull { byId[it] }
                 if (tracks.isEmpty()) return
                 _currentQueue.value = tracks

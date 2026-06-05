@@ -12,8 +12,10 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.guava.await
@@ -99,7 +101,9 @@ class MusicPlayerImpl @Inject constructor(
         scope.launch {
             try {
                 val sessionToken = SessionToken(context, ComponentName(context, PlaybackService::class.java))
-                val controller = MediaController.Builder(context, sessionToken).buildAsync().await()
+                val controller = withTimeout(10_000L) {
+                    MediaController.Builder(context, sessionToken).buildAsync().await()
+                }
                 mediaController = controller
                 controller.addListener(object : Player.Listener {
                     override fun onIsPlayingChanged(playing: Boolean) {
@@ -137,6 +141,8 @@ class MusicPlayerImpl @Inject constructor(
                 _shuffleModeEnabled.value = controller.shuffleModeEnabled
                 _repeatMode.value = controller.repeatMode
                 if (controller.isPlaying) startPollingProgress()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
