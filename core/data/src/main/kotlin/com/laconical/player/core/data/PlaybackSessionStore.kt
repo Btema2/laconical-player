@@ -5,12 +5,15 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.laconical.player.core.model.Track
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.IOException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -56,7 +59,12 @@ class DataStorePlaybackSessionStore @Inject constructor(
         val REPEAT = intPreferencesKey("repeat_mode")
     }
 
-    override val session: Flow<PlaybackSession?> = context.playbackSessionDataStore.data.map { prefs ->
+    override val session: Flow<PlaybackSession?> = context.playbackSessionDataStore.data
+        .catch { e ->
+            if (e is IOException) emit(emptyPreferences())
+            else throw e
+        }
+        .map { prefs ->
         val raw = prefs[Keys.TRACK_IDS] ?: return@map null
         val ids = raw.split(",")
             .filter { it.isNotBlank() }
@@ -101,7 +109,7 @@ fun resolveSession(saved: PlaybackSession, byId: Map<Long, Track>): ResolvedSess
         // Current track was deleted or index was out of range — count how many
         // surviving ids had original positions before saved.index
         val survivingBeforeIndex = saved.trackIds
-            .take(saved.index)
+            .take(saved.index.coerceAtLeast(0))
             .count { byId.containsKey(it) }
         survivingBeforeIndex.coerceIn(0, filteredTracks.lastIndex)
     }
