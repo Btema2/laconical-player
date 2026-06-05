@@ -399,6 +399,9 @@ class MainViewModel @Inject constructor(
             }
         }
 
+        private fun Track.toMediaItem(): MediaItem =
+            MediaItem.Builder().setUri(mediaUri).setMediaId(id.toString()).build()
+
         fun playTracks(sourceTracks: List<Track>, startIndex: Int) {
             if (sourceTracks.isEmpty()) return
             try {
@@ -409,7 +412,7 @@ class MainViewModel @Inject constructor(
                 _currentTrack.value = track
                 resetAmplitudeState()
 
-                val mediaItems = sourceTracks.map { MediaItem.fromUri(it.mediaUri) }
+                val mediaItems = sourceTracks.map { it.toMediaItem() }
                 musicPlayer.setPlaylist(mediaItems, safeIndex)
 
                 launchWaveformExtraction(track)
