@@ -204,15 +204,24 @@ class MusicPlayerImpl @Inject constructor(
         try {
             mediaController?.setMediaItems(items, startIndex, 0L)
             mediaController?.prepare()
+            // Optimistic update — onTimelineChanged fires async; seeding now prevents
+            // the persistence combiner's first emit from writing index=0.
+            _currentMediaItemIndex.value = startIndex
         } catch (e: Exception) { e.printStackTrace() }
     }
 
     override fun setShuffle(enabled: Boolean) {
-        try { mediaController?.shuffleModeEnabled = enabled } catch (e: Exception) { e.printStackTrace() }
+        try {
+            mediaController?.shuffleModeEnabled = enabled
+            _shuffleModeEnabled.value = enabled
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
     override fun setRepeatMode(mode: Int) {
-        try { mediaController?.repeatMode = mode } catch (e: Exception) { e.printStackTrace() }
+        try {
+            mediaController?.repeatMode = mode
+            _repeatMode.value = mode
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
     override fun toggleShuffle() {

@@ -3,6 +3,9 @@ package com.laconical.player.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.laconical.player.core.data.MediaRepository
+import com.laconical.player.core.data.PlaybackSession
+import com.laconical.player.core.data.PlaybackSessionStore
+import com.laconical.player.core.data.resolveSession
 import com.laconical.player.core.data.UserDataRepository
 import com.laconical.player.core.data.db.entity.Playlist
 import com.laconical.player.core.media.MusicPlayer
@@ -21,6 +24,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import android.content.Context
@@ -190,7 +194,8 @@ class MainViewModel @Inject constructor(
     private val musicPlayer: MusicPlayer,
     private val visualizerManager: AudioVisualizerManager,
     private val waveformExtractor: WaveformExtractor,
-    private val userDataRepository: UserDataRepository
+    private val userDataRepository: UserDataRepository,
+    private val sessionStore: PlaybackSessionStore
 ) : ViewModel() {
 
     private val _allTracks = MutableStateFlow<List<Track>>(emptyList())
@@ -335,6 +340,8 @@ class MainViewModel @Inject constructor(
             if (liveIds.isNotEmpty()) {
                 userDataRepository.purgeStaleTrackIds(liveIds)
             }
+            restorePlaybackSession(loaded)
+            startSessionPersistence()
         }
         startAmplitudeTicker()
         startAutoAdvanceCollector()
@@ -483,6 +490,56 @@ class MainViewModel @Inject constructor(
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
+                }
+            }
+        }
+
+        private fun seedCurrentTrack(track: Track) {
+            _currentTrack.value = track
+            resetAmplitudeState()
+            launchWaveformExtraction(track)
+            launchColorExtraction(track)
+        }
+
+        private suspend fun restorePlaybackSession(allTracks: List<Track>) {
+            musicPlayer.awaitConnection()
+            val byId = allTracks.associateBy { it.id }
+            val live = musicPlayer.currentQueueSnapshot()
+            if (!live.isEmpty) {
+                // Case A: process survived — controller still has the queue. Reattach UI without
+                // touching playback. mapNotNull filters any track deleted mid-session; the
+                // controller index still references the full controller queue, so we coerceIn.
+                val tracks = live.mediaIds.mapNotNull { byId[it] }
+                if (tracks.isEmpty()) return
+                _currentQueue.value = tracks
+                seedCurrentTrack(tracks[live.index.coerceIn(0, tracks.lastIndex)])
+            } else {
+                // Case B: full process death — rebuild queue paused from DataStore.
+                val saved = sessionStore.session.first() ?: return
+                val resolved = resolveSession(saved, byId) ?: run { sessionStore.clear(); return }
+                _currentQueue.value = resolved.tracks
+                musicPlayer.setPlaylistPaused(resolved.tracks.map { it.toMediaItem() }, resolved.index)
+                musicPlayer.setShuffle(saved.shuffle)
+                musicPlayer.setRepeatMode(saved.repeat)
+                seedCurrentTrack(resolved.tracks[resolved.index])
+            }
+        }
+
+        private fun startSessionPersistence() {
+            viewModelScope.launch {
+                combine(
+                    _currentQueue,
+                    musicPlayer.currentMediaItemIndex,
+                    musicPlayer.shuffleModeEnabled,
+                    musicPlayer.repeatMode
+                ) { queue, index, shuffle, repeat ->
+                    if (queue.isEmpty()) null
+                    else PlaybackSession(queue.map { it.id }, index, shuffle, repeat)
+                }
+                .distinctUntilChanged()
+                .collect { session ->
+                    if (session == null) sessionStore.clear()
+                    else sessionStore.save(session)
                 }
             }
         }
