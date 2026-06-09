@@ -199,6 +199,8 @@ class MainViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _allTracks = MutableStateFlow<List<Track>>(emptyList())
+    private val _isLoadingTracks = MutableStateFlow(false)
+    val isLoadingTracks: StateFlow<Boolean> = _isLoadingTracks.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -334,13 +336,21 @@ class MainViewModel @Inject constructor(
 
     fun loadTracks() {
         viewModelScope.launch {
-            val loaded = repository.getTracks()
-            _allTracks.value = loaded
-            val liveIds = loaded.map { it.id }.toSet()
+            _isLoadingTracks.value = true
+            var lastBatch = emptyList<Track>()
+            try {
+                repository.getTracksFlow().collect { batch ->
+                    _allTracks.value = batch
+                    lastBatch = batch
+                }
+            } finally {
+                _isLoadingTracks.value = false
+            }
+            val liveIds = lastBatch.map { it.id }.toSet()
             if (liveIds.isNotEmpty()) {
                 userDataRepository.purgeStaleTrackIds(liveIds)
             }
-            restorePlaybackSession(loaded)
+            restorePlaybackSession(lastBatch)
             startSessionPersistence()
         }
         startAmplitudeTicker()
