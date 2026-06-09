@@ -120,6 +120,7 @@ class MusicPlayerImpl @Inject constructor(
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                         _currentMediaItemIndex.value = controller.currentMediaItemIndex
                         _duration.value = controller.duration
+                        _currentPosition.value = 0L
                     }
 
                     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
