@@ -32,14 +32,6 @@ fun FadingMarqueeText(
         overflow = TextOverflow.Clip,
         modifier = modifier
             .fillMaxWidth()
-            .then(
-                if (isScrolling) Modifier.basicMarquee(
-                    animationMode = MarqueeAnimationMode.Immediately,
-                    initialDelayMillis = 3000,
-                    repeatDelayMillis = 2500,
-                    velocity = 80.dp,
-                ) else Modifier
-            )
             .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
             .drawWithContent {
                 drawContent()
@@ -52,6 +44,14 @@ fun FadingMarqueeText(
                     ),
                     blendMode = BlendMode.DstIn,
                 )
-            },
+            }
+            .then(
+                if (isScrolling) Modifier.basicMarquee(
+                    animationMode = MarqueeAnimationMode.Immediately,
+                    initialDelayMillis = 3000,
+                    repeatDelayMillis = 2500,
+                    velocity = 80.dp,
+                ) else Modifier
+            ),
     )
 }
