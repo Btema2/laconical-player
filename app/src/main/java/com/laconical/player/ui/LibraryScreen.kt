@@ -55,6 +55,7 @@ import com.laconical.player.ui.components.MiniPlayer
 import com.laconical.player.ui.components.TrackListItem
 import com.laconical.player.ui.components.CreatePlaylistDialog
 import com.laconical.player.ui.components.QueueSheet
+import com.laconical.player.ui.components.FadingMarqueeText
 import com.laconical.player.ui.components.TrackMenuOverlay
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
@@ -192,6 +193,7 @@ fun LibraryScreen(
     var contextMenuTrack by remember { mutableStateOf<Track?>(null) }
     var contextMenuArtOffset by remember { mutableStateOf(Offset.Zero) }
     var contextMenuArtSize by remember { mutableFloatStateOf(0f) }
+    var isMenuFromFullPlayer by remember { mutableStateOf(false) }
     val navController = rememberNavController()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val queueAnimatable = remember { Animatable(0f) }
@@ -361,7 +363,13 @@ fun LibraryScreen(
                                         tween(QUEUE_ANIM_MS, easing = FastOutSlowInEasing)
                                     )
                                 }
-                            }
+                            },
+                            isFavorite = favoriteIds.contains(currentTrack?.id),
+                            onToggleFavorite = { currentTrack?.let { viewModel.toggleFavorite(it.id) } },
+                            onShowMenu = {
+                                contextMenuTrack = currentTrack
+                                isMenuFromFullPlayer = true
+                            },
                         )
 
                         // ── Mini Player (artwork slot is transparent) ────────────
@@ -494,6 +502,7 @@ fun LibraryScreen(
                                                             contextMenuTrack = track
                                                             contextMenuArtOffset = offset
                                                             contextMenuArtSize = size
+                                                            isMenuFromFullPlayer = false
                                                         },
                                                     )
                                                 }
@@ -764,24 +773,39 @@ fun LibraryScreen(
                 track = track,
                 artStartOffsetPx = contextMenuArtOffset,
                 artStartSizePx = contextMenuArtSize,
+                skipArtMorph = isMenuFromFullPlayer,
                 isFavorite = favoriteIds.contains(track.id),
                 dominantColor = playingTrackDominantColor,
                 playlists = playlists,
                 artTracks = playlistArtTracks,
-                onDismiss = { contextMenuTrack = null },
+                onDismiss = {
+                    contextMenuTrack = null
+                    isMenuFromFullPlayer = false
+                },
                 onFavoriteToggle = { viewModel.toggleFavorite(track.id) },
                 onViewAlbum = {
+                    val fromFullPlayer = isMenuFromFullPlayer
                     contextMenuTrack = null
+                    isMenuFromFullPlayer = false
+                    if (fromFullPlayer) {
+                        scope.launch { scaffoldState.bottomSheetState.partialExpand() }
+                    }
                     navController.navigate(NavRoute.albumDetailRoute(track.album))
                 },
                 onViewArtist = {
+                    val fromFullPlayer = isMenuFromFullPlayer
                     contextMenuTrack = null
+                    isMenuFromFullPlayer = false
+                    if (fromFullPlayer) {
+                        scope.launch { scaffoldState.bottomSheetState.partialExpand() }
+                    }
                     navController.navigate(NavRoute.artistDetailRoute(track.artist))
                 },
                 onSelectPlaylist = { playlist ->
                     viewModel.addTrackToPlaylist(track.id, playlist.id)
                     playlistToastData = Pair(track.title, playlist.name)
                     contextMenuTrack = null
+                    isMenuFromFullPlayer = false
                 },
                 onCreateNewPlaylist = { originOffset ->
                     newPlaylistOriginOffset = originOffset
@@ -798,6 +822,7 @@ fun LibraryScreen(
                 onDismiss = {
                     showCreateForPicker = false
                     contextMenuTrack = null
+                    isMenuFromFullPlayer = false
                 },
                 onBack = {
                     showCreateForPicker = false
@@ -811,6 +836,7 @@ fun LibraryScreen(
                     pendingNewPlaylistTrack = null
                     showCreateForPicker = false
                     contextMenuTrack = null
+                    isMenuFromFullPlayer = false
                 },
             )
         }
@@ -875,6 +901,10 @@ private fun QueueMorphLayer(
 
     // Reading value HERE instead of in LibraryScreen is the performance fix.
     val queueProg = queueAnimatable.value
+
+    val isStable = (expandedFraction < 0.05f && queueProg < 0.05f) ||
+                   (expandedFraction > 0.95f && queueProg < 0.05f) ||
+                   (queueProg > 0.95f)
 
     // ── Queue Sheet (rendered first = below morph overlay) ───────────────────
     // Fade + small 80dp slide instead of a full-screen-height slide. This keeps
@@ -989,16 +1019,15 @@ private fun QueueMorphLayer(
     val queueTitleMaxWidthDp  = screenWidthDp - 88.dp - 80.dp
     val finalTitleMaxWidthDp  = lerp(playerTitleMaxWidthDp.value, queueTitleMaxWidthDp.value, queueProg).dp
 
-    Text(
+    FadingMarqueeText(
         text = currentTrack.title,
         color = Color.White,
         fontSize = finalTitleSize,
         fontWeight = FontWeight.Bold,
-        maxLines = 1,
-        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        isScrolling = isStable,
         modifier = Modifier
             .offset(x = finalTitleLeft, y = finalTitleTop)
-            .widthIn(max = finalTitleMaxWidthDp)
+            .widthIn(max = finalTitleMaxWidthDp),
     )
 
     // ── Artist morph overlay ───────────────────────────────────────────
@@ -1015,16 +1044,15 @@ private fun QueueMorphLayer(
     val finalArtistTop   = lerp(playerArtistTop.value,  queueArtistTopDp.value,  queueProg).dp
     val finalArtistSize  = lerp(lerp(13f, 14f, expandedFraction), 13f, queueProg).sp
 
-    Text(
+    FadingMarqueeText(
         text = currentTrack.artist,
         color = Color(0xFFBBBBBB),
         fontSize = finalArtistSize,
         fontWeight = FontWeight.Medium,
-        maxLines = 1,
-        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        isScrolling = isStable,
         modifier = Modifier
             .offset(x = finalArtistLeft, y = finalArtistTop)
-            .widthIn(max = finalTitleMaxWidthDp)
+            .widthIn(max = finalTitleMaxWidthDp),
     )
 
     // ── Album art morph overlay ────────────────────────────────────────
