@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -57,6 +58,9 @@ fun FullPlayer(
     /** Reports root-space center (x, y) of Prev, Play, Next buttons for the morphing overlay. */
     onPlayControlsPositioned: (prevX: Float, prevY: Float, playX: Float, playY: Float, nextX: Float, nextY: Float) -> Unit = { _, _, _, _, _, _ -> },
     onShowQueue: () -> Unit = {},
+    isFavorite: Boolean = false,
+    onToggleFavorite: () -> Unit = {},
+    onShowMenu: () -> Unit = {},
 ) {
     val currentTrack by viewModel.currentTrack.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
@@ -102,6 +106,16 @@ fun FullPlayer(
         Color.hsl(hue = hsl[0] * 360f, saturation = hsl[1].coerceIn(0.2f, 0.5f), lightness = 0.4f)
     }
 
+    var likePressed by remember { mutableStateOf(false) }
+    val likeScale by animateFloatAsState(
+        targetValue = if (likePressed) 1.4f else 1f,
+        animationSpec = spring(dampingRatio = 0.3f, stiffness = 600f),
+        label = "LikeScale",
+    )
+    LaunchedEffect(likePressed) {
+        if (likePressed) { delay(50); likePressed = false }
+    }
+
     // The full player content fades in as the sheet expands
     val contentAlpha = expandedFraction.coerceIn(0f, 1f)
 
@@ -144,11 +158,25 @@ fun FullPlayer(
                     fontWeight = FontWeight.Normal,
                     letterSpacing = 1.sp,
                     maxLines = 1,
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                        .drawWithContent {
+                            drawContent()
+                            drawRect(
+                                brush = Brush.horizontalGradient(
+                                    colorStops = arrayOf(
+                                        0.7f to Color.Black,
+                                        1.0f to Color.Transparent,
+                                    ),
+                                ),
+                                blendMode = BlendMode.DstIn,
+                            )
+                        },
                 )
 
-                IconButton(onClick = { }) {
+                IconButton(onClick = onShowMenu) {
                     Icon(imageVector = Icons.Outlined.MoreVert, contentDescription = "More", tint = Color.White)
                 }
             }
@@ -216,12 +244,14 @@ fun FullPlayer(
                     )
                 }
 
-                IconButton(onClick = { }) {
+                IconButton(onClick = { likePressed = true; onToggleFavorite() }) {
                     Icon(
-                        imageVector = Icons.Outlined.FavoriteBorder,
+                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                         contentDescription = "Like",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+                        tint = if (isFavorite) Color(0xFFE84B7A) else Color.White,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .graphicsLayer { scaleX = likeScale; scaleY = likeScale },
                     )
                 }
             }
