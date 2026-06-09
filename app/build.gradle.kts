@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -19,13 +22,39 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Read local.properties securely
+    val localProperties = Properties().apply {
+        val localPropertiesFile = rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            load(FileInputStream(localPropertiesFile))
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystorePath = localProperties.getProperty("release.keystore.path")
+            
+            if (keystorePath != null) {
+                // Resolves the path relative to your project's root folder
+                storeFile = rootProject.file(keystorePath)
+                storePassword = localProperties.getProperty("release.keystore.password")
+                keyAlias = localProperties.getProperty("release.key.alias")
+                keyPassword = localProperties.getProperty("release.key.password")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Only apply signing configuration if the local secrets are available
+            if (localProperties.getProperty("release.keystore.path") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

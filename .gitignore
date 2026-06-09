@@ -22,6 +22,7 @@ captures/
 # Signing (keep debug.keystore for dev convenience)
 *.keystore
 !debug.keystore
+my-release-key.jks
 
 # Logs
 *.log
