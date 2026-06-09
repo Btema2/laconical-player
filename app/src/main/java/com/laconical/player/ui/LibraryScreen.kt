@@ -134,6 +134,7 @@ fun LibraryScreen(
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         hasPermission = isGranted
+        if (isGranted) viewModel.loadTracks()
     }
 
     val playingTrackDominantColor by viewModel.playingTrackDominantColor.collectAsState()
@@ -144,6 +145,7 @@ fun LibraryScreen(
     val searchedPlaylists by viewModel.searchedPlaylists.collectAsState()
     val tracks by viewModel.tracks.collectAsState()
     val isPlaybackActive by viewModel.isPlaying.collectAsState()
+    val isLoadingTracks by viewModel.isLoadingTracks.collectAsState()
 
     val targetBgColor = if (playingTrackDominantColor != null) {
         val d = playingTrackDominantColor!!
@@ -481,7 +483,7 @@ fun LibraryScreen(
                                                         isFavorite = favoriteIds.contains(track.id),
                                                         onFavoriteToggle = { viewModel.toggleFavorite(track.id) },
                                                         onClick = { viewModel.playTracks(tracks, index) },
-                                                        modifier = Modifier.staggeredEntrance(index),
+                                                        modifier = Modifier.staggeredEntrance(index, isLoadingIn = isLoadingTracks),
                                                         onViewAlbum = {
                                                             navController.navigate(NavRoute.albumDetailRoute(track.album))
                                                         },
