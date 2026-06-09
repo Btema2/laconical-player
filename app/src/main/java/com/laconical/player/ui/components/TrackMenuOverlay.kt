@@ -88,6 +88,7 @@ fun TrackMenuOverlay(
     artStartSizePx: Float,
     isFavorite: Boolean,
     dominantColor: Color?,
+    skipArtMorph: Boolean = false,
     playlists: List<Playlist>,
     artTracks: Map<Long, List<Track>>,
     onDismiss: () -> Unit,
@@ -183,7 +184,10 @@ fun TrackMenuOverlay(
                     val sp = switchProgress.value
                     val inCardSize = lerp(64f, 56f, sp).dp
                     val inCardCorner = lerp(14f, 12f, sp).dp
-                    val inCardAlpha = (sp * 4f).coerceIn(0f, 1f)
+                    val inCardAlpha = when {
+                        skipArtMorph -> (prog * 2f).coerceIn(0f, 1f)
+                        else -> (sp * 4f).coerceIn(0f, 1f)
+                    }
 
                     Box(
                         modifier = Modifier
@@ -331,7 +335,10 @@ fun TrackMenuOverlay(
         val artTop  = with(density) { lerp(artStartOffsetPx.y, targetOffsetPx.y, prog).toDp() }
         val artSize = with(density) { lerp(artStartSizePx, targetSizePx, prog).toDp() }
         val artCorner = lerp(10f, 14f, prog).dp
-        val floatingArtAlpha = lerp(1f, 0f, (switchProgress.value * 4f).coerceIn(0f, 1f))
+        val floatingArtAlpha = when {
+            skipArtMorph -> 0f
+            else -> lerp(1f, 0f, (switchProgress.value * 4f).coerceIn(0f, 1f))
+        }
 
         Box(
             modifier = Modifier
