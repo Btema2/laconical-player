@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 **Code quality:** Modern Kotlin. Use context7 MCP for docs.
-**Git:** Commit after verifying changes on the associated branch.
+**Git:** Commit after verifying changes on the associated branch. Before committing, verify `git config user.name`/`user.email` are set (global `~/.gitconfig`: name "Btema2", email "temabiill@gmail.com" — matches GitHub account). If unset/wrong, git falls back to OS username (lowercase, unlinked on GitHub) — fix config before committing, don't just proceed.
 **Worktrees:** Use `.worktrees/` for git worktree dirs.
 
 ## Project Overview
