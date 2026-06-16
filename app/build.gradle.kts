@@ -104,6 +104,10 @@ dependencies {
     
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    // Dagger/Hilt compiler bundles kotlin-metadata-jvm 2.2.20, which only parses
+    // metadata up to format version 2.3. Kotlin 2.4.0 emits 2.4 metadata, so force
+    // a matching kotlin-metadata-jvm on the KSP classpath until Hilt updates its pin.
+    ksp("org.jetbrains.kotlin:kotlin-metadata-jvm:${libs.versions.kotlin.get()}")
     
     implementation(libs.google.material)
     implementation(libs.androidx.appcompat)
