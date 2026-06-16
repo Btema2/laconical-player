@@ -1,6 +1,6 @@
 [versions]
 # Plugins
-agp = "9.0.1"
+agp = "9.2.0"
 kotlin = "2.2.10"
 ksp = "2.2.10-2.0.2"
 hilt = "2.59.1"
@@ -15,7 +15,7 @@ datastore = "1.1.1"
 navigation = "2.8.5"
 media3 = "1.6.0"
 kotlinxCoroutines = "1.10.1"
-robolectric = "4.13"
+robolectric = "4.16"
 junit4 = "4.13.2"
 
 # Compose
