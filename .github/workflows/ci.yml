@@ -21,7 +21,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Cache Gradle home
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.gradle/caches
@@ -31,7 +31,7 @@ jobs:
             ${{ runner.os }}-gradle-home-
 
       - name: Cache Gradle build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.gradle/build-cache
           key: ${{ runner.os }}-gradle-build-${{ hashFiles('gradle/libs.versions.toml') }}
