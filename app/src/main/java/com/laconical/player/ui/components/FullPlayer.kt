@@ -140,221 +140,221 @@ fun FullPlayer(
             val playButtonSize = 72.dp * controlScale
             val skipIconSize = 48.dp * controlScale
 
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Top Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                IconButton(onClick = onCollapse) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = "Collapse",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
+                // Top Bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    IconButton(onClick = onCollapse) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Collapse",
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+
+                    Text(
+                        text = track.album.uppercase(),
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Normal,
+                        letterSpacing = 1.sp,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(
+                                    brush = Brush.horizontalGradient(
+                                        colorStops = arrayOf(
+                                            0.7f to Color.Black,
+                                            1.0f to Color.Transparent,
+                                        ),
+                                    ),
+                                    blendMode = BlendMode.DstIn,
+                                )
+                            },
                     )
+
+                    IconButton(onClick = onShowMenu) {
+                        Icon(imageVector = Icons.Outlined.MoreVert, contentDescription = "More", tint = Color.White)
+                    }
                 }
 
-                Text(
-                    text = track.album.uppercase(),
-                    color = Color.Gray,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Normal,
-                    letterSpacing = 1.sp,
-                    maxLines = 1,
-                    textAlign = TextAlign.Center,
+                Spacer(modifier = Modifier.weight(0.08f))
+
+                // Album art layout spacer — the morphing overlay in LibraryScreen
+                // renders the actual art on top; this just reserves the right amount of space.
+                // Vertical drag: swipe up → queue, swipe down → collapse player.
+                Spacer(
                     modifier = Modifier
-                        .weight(1f)
-                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                        .drawWithContent {
-                            drawContent()
-                            drawRect(
-                                brush = Brush.horizontalGradient(
-                                    colorStops = arrayOf(
-                                        0.7f to Color.Black,
-                                        1.0f to Color.Transparent,
-                                    ),
-                                ),
-                                blendMode = BlendMode.DstIn,
+                        .size(artSizeDp)
+                        .onGloballyPositioned { coords ->
+                            val pos = coords.positionInRoot()
+                            onAlbumArtPositioned(pos.x, pos.y, coords.size.width.toFloat())
+                        }
+                        .pointerInput(Unit) {
+                            val threshold = 80.dp.toPx()
+                            var totalDragY = 0f
+                            detectDragGestures(
+                                onDragStart = { totalDragY = 0f },
+                                onDrag = { _, dragAmount -> totalDragY += dragAmount.y },
+                                onDragEnd = {
+                                    when {
+                                        totalDragY < -threshold -> onShowQueue()
+                                        totalDragY > threshold -> onCollapse()
+                                    }
+                                }
                             )
-                        },
+                        }
                 )
 
-                IconButton(onClick = onShowMenu) {
-                    Icon(imageVector = Icons.Outlined.MoreVert, contentDescription = "More", tint = Color.White)
-                }
-            }
+                // weight(0.165f) leaves 50% of the previous gap — pulls title/author closer to thumbnail
+                Spacer(modifier = Modifier.weight(0.165f))
 
-            Spacer(modifier = Modifier.weight(0.08f))
-
-            // Album art layout spacer — the morphing overlay in LibraryScreen
-            // renders the actual art on top; this just reserves the right amount of space.
-            // Vertical drag: swipe up → queue, swipe down → collapse player.
-            Spacer(
-                modifier = Modifier
-                    .size(artSizeDp)
-                    .onGloballyPositioned { coords ->
-                        val pos = coords.positionInRoot()
-                        onAlbumArtPositioned(pos.x, pos.y, coords.size.width.toFloat())
-                    }
-                    .pointerInput(Unit) {
-                        val threshold = 80.dp.toPx()
-                        var totalDragY = 0f
-                        detectDragGestures(
-                            onDragStart = { totalDragY = 0f },
-                            onDrag = { _, dragAmount -> totalDragY += dragAmount.y },
-                            onDragEnd = {
-                                when {
-                                    totalDragY < -threshold -> onShowQueue()
-                                    totalDragY > threshold -> onCollapse()
-                                }
+                // Track Info Row
+                // Title AND artist are invisible layout ghosts — the morphing overlay in
+                // LibraryScreen renders the real text on top, same pattern as the thumbnail.
+                // onGloballyPositioned reports root-space coords for pixel-perfect alignment.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = track.title,
+                            color = Color.White.copy(alpha = 0f), // invisible ghost for layout only
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.onGloballyPositioned { coords ->
+                                onTitlePositioned(coords.positionInRoot().y)
+                            }
+                        )
+                        Text(
+                            text = track.artist,
+                            color = Color.Gray.copy(alpha = 0f), // invisible ghost for layout only
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            modifier = Modifier.onGloballyPositioned { coords ->
+                                val p = coords.positionInRoot()
+                                onArtistPositioned(p.x, p.y)
                             }
                         )
                     }
-            )
 
-            // weight(0.165f) leaves 50% of the previous gap — pulls title/author closer to thumbnail
-            Spacer(modifier = Modifier.weight(0.165f))
-
-            // Track Info Row
-            // Title AND artist are invisible layout ghosts — the morphing overlay in
-            // LibraryScreen renders the real text on top, same pattern as the thumbnail.
-            // onGloballyPositioned reports root-space coords for pixel-perfect alignment.
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = track.title,
-                        color = Color.White.copy(alpha = 0f), // invisible ghost for layout only
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        modifier = Modifier.onGloballyPositioned { coords ->
-                            onTitlePositioned(coords.positionInRoot().y)
-                        }
-                    )
-                    Text(
-                        text = track.artist,
-                        color = Color.Gray.copy(alpha = 0f), // invisible ghost for layout only
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        modifier = Modifier.onGloballyPositioned { coords ->
-                            val p = coords.positionInRoot()
-                            onArtistPositioned(p.x, p.y)
-                        }
-                    )
-                }
-
-                IconButton(onClick = { likePressed = true; onToggleFavorite() }) {
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = "Like",
-                        tint = if (isFavorite) Color(0xFFE84B7A) else Color.White,
-                        modifier = Modifier
-                            .size(28.dp)
-                            .graphicsLayer { scaleX = likeScale; scaleY = likeScale },
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Visualizer Seek Bar
-            VisualizerSeekBar(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(32.dp)
-                    .padding(horizontal = 24.dp),
-                waveform = waveform,
-                progress = progress,
-                duration = duration,
-                onSeek = { viewModel.seekTo(it) },
-                activeColor = seekBarActiveColor,
-                isPlaying = isPlaying,
-                expandedFraction = expandedFraction
-            )
-
-            // Time Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(text = formatTime(currentPosition), color = Color.Gray, fontSize = 12.sp)
-                Text(text = formatTime(duration), color = Color.Gray, fontSize = 12.sp)
-            }
-
-            // Playback Controls ghost — invisible layout spacer that reports root-space
-            // button centers. The morphing overlay in LibraryScreen renders the real buttons.
-            Box(modifier = Modifier.graphicsLayer { alpha = 0f }) {
-                PlaybackControls(
-                    isPlaying = isPlaying,
-                    themeColor = themeColor,
-                    onTogglePlay = {},
-                    onPrevious = {},
-                    onNext = {},
-                    playButtonSize = playButtonSize,
-                    skipIconSize = skipIconSize,
-                    onPrevPositioned  = { x, y -> onPlayControlsPositioned(x, y, Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE) },
-                    onPlayPositioned  = { x, y -> onPlayControlsPositioned(Float.MIN_VALUE, Float.MIN_VALUE, x, y, Float.MIN_VALUE, Float.MIN_VALUE) },
-                    onNextPositioned  = { x, y -> onPlayControlsPositioned(Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE, x, y) },
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            HorizontalDivider(
-                modifier = Modifier.fillMaxWidth(0.8f),
-                thickness = 0.5.dp,
-                color = Color.White.copy(alpha = 0.15f)
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(onClick = { viewModel.toggleShuffle() }) {
-                    Icon(
-                        imageVector = if (shuffleModeEnabled) Icons.Filled.Shuffle else Icons.Outlined.Shuffle,
-                        contentDescription = "Shuffle",
-                        tint = if (shuffleModeEnabled) seekBarActiveColor else Color.Gray,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                TextButton(onClick = onShowQueue) {
-                    Text("UP NEXT", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-                TextButton(onClick = { }) {
-                    Text("LYRICS", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-                TextButton(onClick = { viewModel.cycleRepeatMode() }) {
-                    val repeatIcon = when (repeatMode) {
-                        Player.REPEAT_MODE_ONE -> Icons.Filled.RepeatOne
-                        Player.REPEAT_MODE_ALL -> Icons.Filled.Repeat   // filled = visually distinct from OFF
-                        else -> Icons.Outlined.Repeat
+                    IconButton(onClick = { likePressed = true; onToggleFavorite() }) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = "Like",
+                            tint = if (isFavorite) Color(0xFFE84B7A) else Color.White,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .graphicsLayer { scaleX = likeScale; scaleY = likeScale },
+                        )
                     }
-                    val repeatTint = if (repeatMode != Player.REPEAT_MODE_OFF) seekBarActiveColor else Color.Gray
-                    Icon(repeatIcon, contentDescription = "Repeat", tint = repeatTint, modifier = Modifier.size(22.dp))
                 }
-            }
-        } // Column
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Visualizer Seek Bar
+                VisualizerSeekBar(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(32.dp)
+                        .padding(horizontal = 24.dp),
+                    waveform = waveform,
+                    progress = progress,
+                    duration = duration,
+                    onSeek = { viewModel.seekTo(it) },
+                    activeColor = seekBarActiveColor,
+                    isPlaying = isPlaying,
+                    expandedFraction = expandedFraction
+                )
+
+                // Time Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = formatTime(currentPosition), color = Color.Gray, fontSize = 12.sp)
+                    Text(text = formatTime(duration), color = Color.Gray, fontSize = 12.sp)
+                }
+
+                // Playback Controls ghost — invisible layout spacer that reports root-space
+                // button centers. The morphing overlay in LibraryScreen renders the real buttons.
+                Box(modifier = Modifier.graphicsLayer { alpha = 0f }) {
+                    PlaybackControls(
+                        isPlaying = isPlaying,
+                        themeColor = themeColor,
+                        onTogglePlay = {},
+                        onPrevious = {},
+                        onNext = {},
+                        playButtonSize = playButtonSize,
+                        skipIconSize = skipIconSize,
+                        onPrevPositioned  = { x, y -> onPlayControlsPositioned(x, y, Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE) },
+                        onPlayPositioned  = { x, y -> onPlayControlsPositioned(Float.MIN_VALUE, Float.MIN_VALUE, x, y, Float.MIN_VALUE, Float.MIN_VALUE) },
+                        onNextPositioned  = { x, y -> onPlayControlsPositioned(Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE, x, y) },
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                HorizontalDivider(
+                    modifier = Modifier.fillMaxWidth(0.8f),
+                    thickness = 0.5.dp,
+                    color = Color.White.copy(alpha = 0.15f)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = { viewModel.toggleShuffle() }) {
+                        Icon(
+                            imageVector = if (shuffleModeEnabled) Icons.Filled.Shuffle else Icons.Outlined.Shuffle,
+                            contentDescription = "Shuffle",
+                            tint = if (shuffleModeEnabled) seekBarActiveColor else Color.Gray,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    TextButton(onClick = onShowQueue) {
+                        Text("UP NEXT", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    TextButton(onClick = { }) {
+                        Text("LYRICS", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    TextButton(onClick = { viewModel.cycleRepeatMode() }) {
+                        val repeatIcon = when (repeatMode) {
+                            Player.REPEAT_MODE_ONE -> Icons.Filled.RepeatOne
+                            Player.REPEAT_MODE_ALL -> Icons.Filled.Repeat   // filled = visually distinct from OFF
+                            else -> Icons.Outlined.Repeat
+                        }
+                        val repeatTint = if (repeatMode != Player.REPEAT_MODE_OFF) seekBarActiveColor else Color.Gray
+                        Icon(repeatIcon, contentDescription = "Repeat", tint = repeatTint, modifier = Modifier.size(22.dp))
+                    }
+                }
+            } // Column
         } // BoxWithConstraints
     }
 }
