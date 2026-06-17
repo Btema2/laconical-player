@@ -32,6 +32,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -552,10 +553,14 @@ fun PlaybackControls(
     onTogglePlay: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    playButtonSize: Dp = 72.dp,
+    skipIconSize: Dp = 48.dp,
     onPrevPositioned: (Float, Float) -> Unit = { _, _ -> },
     onPlayPositioned: (Float, Float) -> Unit = { _, _ -> },
     onNextPositioned: (Float, Float) -> Unit = { _, _ -> },
 ) {
+    val playIconSize = playButtonSize * (42f / 72f)
+
     val buttonBgColor = remember(themeColor) {
         val hsl = themeColor.toHsl()
         Color.hsl(hue = hsl[0] * 360f, saturation = hsl[1].coerceIn(0.2f, 0.5f), lightness = 0.4f)
@@ -580,12 +585,12 @@ fun PlaybackControls(
                 onPrevPositioned(c.x + coords.size.width / 2f, c.y + coords.size.height / 2f)
             }
         ) {
-            Icon(Icons.Default.SkipPrevious, "Previous", tint = Color.White, modifier = Modifier.size(48.dp))
+            Icon(Icons.Default.SkipPrevious, "Previous", tint = Color.White, modifier = Modifier.size(skipIconSize))
         }
 
         Box(
             modifier = Modifier
-                .size(72.dp)
+                .size(playButtonSize)
                 .clip(CircleShape)
                 .background(animatedButtonColor)
                 .clickable(onClick = onTogglePlay)
@@ -599,7 +604,7 @@ fun PlaybackControls(
                 Icon(
                     imageVector = if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (playing) "Pause" else "Play",
-                    tint = Color.White, modifier = Modifier.size(42.dp)
+                    tint = Color.White, modifier = Modifier.size(playIconSize)
                 )
             }
         }
@@ -611,7 +616,7 @@ fun PlaybackControls(
                 onNextPositioned(c.x + coords.size.width / 2f, c.y + coords.size.height / 2f)
             }
         ) {
-            Icon(Icons.Default.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(48.dp))
+            Icon(Icons.Default.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(skipIconSize))
         }
     }
 }
