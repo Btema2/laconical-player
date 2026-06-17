@@ -58,6 +58,7 @@ fun FullPlayer(
     onArtistPositioned: (Float, Float) -> Unit = { _, _ -> },
     /** Reports root-space center (x, y) of Prev, Play, Next buttons for the morphing overlay. */
     onPlayControlsPositioned: (prevX: Float, prevY: Float, playX: Float, playY: Float, nextX: Float, nextY: Float) -> Unit = { _, _, _, _, _, _ -> },
+    onAlbumArtPositioned: (x: Float, y: Float, sizePx: Float) -> Unit = { _, _, _ -> },
     onShowQueue: () -> Unit = {},
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
@@ -128,11 +129,19 @@ fun FullPlayer(
     ) {
         ParticleSystem(isPlaying = isPlaying, isVisible = expandedFraction > 0.01f, color = particleColor)
 
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+        ) {
+            val artSizeDp = minOf(maxWidth * 0.95f, maxHeight * 0.42f)
+            val controlScale = (artSizeDp.value / 280f).coerceIn(0.85f, 1.15f)
+            val playButtonSize = 72.dp * controlScale
+            val skipIconSize = 48.dp * controlScale
+
+        Column(
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Top Bar
@@ -182,15 +191,18 @@ fun FullPlayer(
                 }
             }
 
-            Spacer(modifier = Modifier.height(64.dp))
+            Spacer(modifier = Modifier.weight(0.08f))
 
             // Album art layout spacer — the morphing overlay in LibraryScreen
             // renders the actual art on top; this just reserves the right amount of space.
             // Vertical drag: swipe up → queue, swipe down → collapse player.
             Spacer(
                 modifier = Modifier
-                    .fillMaxWidth(0.95f)
-                    .aspectRatio(1f)
+                    .size(artSizeDp)
+                    .onGloballyPositioned { coords ->
+                        val pos = coords.positionInRoot()
+                        onAlbumArtPositioned(pos.x, pos.y, coords.size.width.toFloat())
+                    }
                     .pointerInput(Unit) {
                         val threshold = 80.dp.toPx()
                         var totalDragY = 0f
@@ -295,6 +307,8 @@ fun FullPlayer(
                     onTogglePlay = {},
                     onPrevious = {},
                     onNext = {},
+                    playButtonSize = playButtonSize,
+                    skipIconSize = skipIconSize,
                     onPrevPositioned  = { x, y -> onPlayControlsPositioned(x, y, Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE) },
                     onPlayPositioned  = { x, y -> onPlayControlsPositioned(Float.MIN_VALUE, Float.MIN_VALUE, x, y, Float.MIN_VALUE, Float.MIN_VALUE) },
                     onNextPositioned  = { x, y -> onPlayControlsPositioned(Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE, x, y) },
@@ -340,7 +354,8 @@ fun FullPlayer(
                     Icon(repeatIcon, contentDescription = "Repeat", tint = repeatTint, modifier = Modifier.size(22.dp))
                 }
             }
-        }
+        } // Column
+        } // BoxWithConstraints
     }
 }
 
@@ -559,7 +574,7 @@ fun PlaybackControls(
     onPlayPositioned: (Float, Float) -> Unit = { _, _ -> },
     onNextPositioned: (Float, Float) -> Unit = { _, _ -> },
 ) {
-    val playIconSize = playButtonSize * (42f / 72f)
+    val playIconSize = remember(playButtonSize) { playButtonSize * (42f / 72f) }
 
     val buttonBgColor = remember(themeColor) {
         val hsl = themeColor.toHsl()
