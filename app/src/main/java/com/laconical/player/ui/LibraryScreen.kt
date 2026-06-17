@@ -266,6 +266,9 @@ fun LibraryScreen(
     var fullPlayCenterYPx by remember { mutableFloatStateOf(-1f) }
     var fullNextCenterXPx by remember { mutableFloatStateOf(-1f) }
     var fullNextCenterYPx by remember { mutableFloatStateOf(-1f) }
+    var fullArtTopPx  by remember { mutableFloatStateOf(-1f) }
+    var fullArtLeftPx by remember { mutableFloatStateOf(-1f) }
+    var fullArtSizePx by remember { mutableFloatStateOf(-1f) }
 
     // expandedFraction computed at this level so both sheetContent and outer Box can use it
     val maxOffset = if (containerHeightPx > 0f)
@@ -363,6 +366,11 @@ fun LibraryScreen(
                                 if (lx != Float.MIN_VALUE) { fullPlayCenterXPx = lx; fullPlayCenterYPx = ly }
                                 if (nx != Float.MIN_VALUE) { fullNextCenterXPx = nx; fullNextCenterYPx = ny }
                             },
+                            onAlbumArtPositioned = { x, y, sizePx ->
+                                fullArtLeftPx = x
+                                fullArtTopPx  = y
+                                fullArtSizePx = sizePx
+                            },
                             onShowQueue = {
                                 scope.launch {
                                     queueAnimatable.animateTo(
@@ -386,7 +394,8 @@ fun LibraryScreen(
                         if (expandedFraction < 0.99f) {
                             val overlayActive = currentTrack != null && sheetRootYPx >= 0f &&
                                 fullTitleTopPx >= 0f && fullArtistTopPx >= 0f &&
-                                fullPrevCenterYPx >= 0f && fullPlayCenterYPx >= 0f && fullNextCenterYPx >= 0f
+                                fullPrevCenterYPx >= 0f && fullPlayCenterYPx >= 0f && fullNextCenterYPx >= 0f &&
+                                fullArtSizePx >= 0f
                             MiniPlayer(
                                 viewModel = viewModel,
                                 hideArt = overlayActive,
@@ -758,7 +767,8 @@ fun LibraryScreen(
         // being set.
         val allGhostsReady = sheetRootYPx >= 0f &&
             fullTitleTopPx >= 0f && fullArtistTopPx >= 0f &&
-            fullPrevCenterYPx >= 0f && fullPlayCenterYPx >= 0f && fullNextCenterYPx >= 0f
+            fullPrevCenterYPx >= 0f && fullPlayCenterYPx >= 0f && fullNextCenterYPx >= 0f &&
+            fullArtSizePx >= 0f
         if (currentTrack != null && allGhostsReady) {
             QueueMorphLayer(
                 queueAnimatable = queueAnimatable,
@@ -776,6 +786,9 @@ fun LibraryScreen(
                 fullPlayCenterYPx = fullPlayCenterYPx,
                 fullNextCenterXPx = fullNextCenterXPx,
                 fullNextCenterYPx = fullNextCenterYPx,
+                fullArtTopPx  = fullArtTopPx,
+                fullArtLeftPx = fullArtLeftPx,
+                fullArtSizePx = fullArtSizePx,
                 scope = scope,
             )
         }
