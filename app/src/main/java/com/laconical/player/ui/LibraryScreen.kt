@@ -963,6 +963,9 @@ private fun QueueMorphLayer(
     fullPlayCenterYPx: Float,
     fullNextCenterXPx: Float,
     fullNextCenterYPx: Float,
+    fullArtTopPx: Float = -1f,
+    fullArtLeftPx: Float = -1f,
+    fullArtSizePx: Float = -1f,
     scope: CoroutineScope,
 ) {
     val density = LocalDensity.current
@@ -1052,9 +1055,12 @@ private fun QueueMorphLayer(
     val miniArtLeftDp = 24.dp
     val miniArtTopDp  = miniSheetRootYDp + 11.5.dp
 
-    val fullArtSizeDp = (screenWidthDp - 48.dp) * 0.95f
-    val fullArtLeftDp = (screenWidthDp - fullArtSizeDp) / 2f
-    val fullArtTopDp  = statusBarPadding + 16.dp + 48.dp + 64.dp
+    val fullArtSizeDp = if (fullArtSizePx >= 0f) with(density) { fullArtSizePx.toDp() }
+                        else (screenWidthDp - 48.dp) * 0.95f
+    val fullArtLeftDp = if (fullArtLeftPx >= 0f) with(density) { fullArtLeftPx.toDp() }
+                        else (screenWidthDp - fullArtSizeDp) / 2f
+    val fullArtTopDp  = if (fullArtTopPx >= 0f) with(density) { (fullArtTopPx - sheetRootYPx).toDp() }
+                        else statusBarPadding + 16.dp + 48.dp + 64.dp
 
     val queueArtSizeDp = 56.dp
     val queueArtLeftDp = 20.dp
