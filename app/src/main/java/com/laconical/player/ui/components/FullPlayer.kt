@@ -4,6 +4,8 @@ import android.graphics.BlurMaskFilter
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -29,6 +31,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -40,6 +43,7 @@ import com.laconical.player.ui.AudioArtData
 import com.laconical.player.ui.MainViewModel
 import com.laconical.player.ui.toHsl
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 import kotlin.random.Random
 
 /**
@@ -203,19 +207,44 @@ fun FullPlayer(
                             val pos = coords.positionInRoot()
                             onAlbumArtPositioned(pos.x, pos.y, coords.size.width.toFloat())
                         }
+                        // A downward drag is intentionally NOT consumed, so it bubbles to the
+                        // BottomSheetScaffold's own sheet drag — the player then collapses
+                        // live and finger-tracked, exactly like dragging the background. Only
+                        // an upward drag is claimed here, preserving the swipe-up-for-queue
+                        // gesture (release-triggered, as before).
                         .pointerInput(Unit) {
-                            val threshold = 80.dp.toPx()
-                            var totalDragY = 0f
-                            detectDragGestures(
-                                onDragStart = { totalDragY = 0f },
-                                onDrag = { _, dragAmount -> totalDragY += dragAmount.y },
-                                onDragEnd = {
-                                    when {
-                                        totalDragY < -threshold -> onShowQueue()
-                                        totalDragY > threshold -> onCollapse()
+                            val queueThresholdPx = 80.dp.toPx()
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                val touchSlop = viewConfiguration.touchSlop
+                                var totalDy = 0f
+                                var goesUp = false
+                                var decided = false
+                                // Phase 1 — detect direction WITHOUT consuming, so a downward
+                                // drag stays fully available to the sheet underneath.
+                                while (!decided) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == down.id }
+                                        ?: return@awaitEachGesture
+                                    if (!change.pressed) return@awaitEachGesture // tap, no drag
+                                    totalDy += change.positionChange().y
+                                    if (abs(totalDy) > touchSlop) {
+                                        decided = true
+                                        goesUp = totalDy < 0f
                                     }
                                 }
-                            )
+                                if (!goesUp) return@awaitEachGesture // downward → sheet collapses
+                                // Phase 2 — claim the upward drag for the queue gesture.
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == down.id }
+                                        ?: break
+                                    change.consume()
+                                    totalDy += change.positionChange().y
+                                    if (!change.pressed) break
+                                }
+                                if (totalDy < -queueThresholdPx) onShowQueue()
+                            }
                         }
                 )
 

@@ -275,31 +275,130 @@ fun LibraryScreen(
         containerHeightPx - with(density) { logicalPeekHeight.toPx() }
     else 1000f
 
-    val currentOffset = try {
+    // requireOffset() throws (offset == NaN) until AnchoredDraggable's anchors are
+    // initialised, and can throw transiently around layout in newer Compose foundation.
+    // The old fallback returned maxOffset → expandedFraction 0 = fully collapsed, so any
+    // transient throw mid-expand snapped the morph shut for a single frame and produced
+    // the visible "jumps back and forth". Cache the last valid offset in a NON-snapshot
+    // holder (a plain FloatArray — writing it during composition must not trigger another
+    // recomposition) and reuse it on a throw. Only before the very first valid reading do
+    // we fall back to a settled value derived from currentValue.
+    val offsetCache = remember { floatArrayOf(Float.NaN) }
+    val rawOffset = try {
         scaffoldState.bottomSheetState.requireOffset()
     } catch (_: IllegalStateException) {
-        maxOffset
+        Float.NaN
+    }
+    val currentOffset = when {
+        !rawOffset.isNaN() -> { offsetCache[0] = rawOffset; rawOffset }
+        !offsetCache[0].isNaN() -> offsetCache[0]
+        scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded -> 0f
+        else -> maxOffset
     }
 
-    val expandedFraction = if (maxOffset > 0f)
+    val rawExpandedFraction = if (maxOffset > 0f)
         (1f - (currentOffset / maxOffset)).coerceIn(0f, 1f)
     else 0f
 
-    // Collapsed sheet-root Y — the stable start-point for the mini→full morph. Tracked
-    // while the sheet is at rest (expandedFraction ≈ 0) and a track is present, then held
-    // frozen during the expand. It lives HERE (LibraryScreen is always composed) rather than
-    // inside QueueMorphLayer, which is gated on every ghost being measured (`allGhostsReady`);
-    // on a cold start the ghosts only report mid-expand, so an in-overlay capture first runs
-    // after the sheet has already moved and never sees the true collapsed origin — the lerp
-    // then starts from a moving point and visibly snaps when it latches.
+    // ── Monotonic morph driver ──────────────────────────────────────────────
+    // expandedFraction is the ONLY live input to the morph overlay (mini-side coords are
+    // frozen anchors, maxOffset is constant), so any per-frame non-monotonicity in the raw
+    // sheet offset shows up directly as the morph "moving back then continuing".
     //
-    // The `currentTrack != null` gate is essential: with no track the peek height is 0
-    // (see logicalPeekHeight), so the sheet rests entirely below the screen and sheetRootYPx
-    // is the screen bottom. Capturing that value would anchor the mini elements off-screen.
-    val collapsedSheetRootYPx = remember { mutableFloatStateOf(-1f) }
-    LaunchedEffect(sheetRootYPx, expandedFraction, currentTrack) {
-        if (currentTrack != null && expandedFraction < 0.05f && sheetRootYPx >= 0f) {
-            collapsedSheetRootYPx.floatValue = sheetRootYPx
+    // A FINGER DRAG reads the offset smoothly and 1:1 — consecutive frames barely differ —
+    // so it looks perfect and must stay untouched. But a TAP/FLING runs a settle animation
+    // whose offset can step BACKWARD for a single frame near the endpoint: either a genuine
+    // spring settle wobble, or a transient requireOffset() throw falling back to the 1-frame-
+    // stale offsetCache (a stale offset during fast motion = a visibly wrong fraction). It is
+    // visible only on fast/animated transitions, never on a slow drag.
+    //
+    // Fix: while the sheet is ANIMATING (not being dragged), lock the driver so it can only
+    // move TOWARD the animation's target endpoint → the morph path is strictly monotonic
+    // (linear, no back-step). During a drag we pass the raw value through so finger reversals
+    // stay live. isAnimationRunning (material3 1.4+) is the only signal that cleanly separates
+    // a settle animation from an active drag — currentValue != targetValue is also true mid-
+    // drag (targetValue tracks the predicted anchor), so it would wrongly freeze finger drags.
+    val bottomSheet = scaffoldState.bottomSheetState
+    val lastFraction = remember { floatArrayOf(Float.NaN) }
+    val expandedFraction = if (bottomSheet.isAnimationRunning && !lastFraction[0].isNaN()) {
+        if (bottomSheet.targetValue == SheetValue.Expanded)
+            rawExpandedFraction.coerceAtLeast(lastFraction[0]) // expanding → never step back down
+        else
+            rawExpandedFraction.coerceAtMost(lastFraction[0])  // collapsing → never step back up
+    } else {
+        rawExpandedFraction
+    }
+    // Plain (non-snapshot) holder — written during composition without triggering another
+    // recomposition, exactly like offsetCache above.
+    lastFraction[0] = expandedFraction
+
+    // ── Frozen morph anchors ────────────────────────────────────────────────
+    // The mini→full morph lerps mini-side screen coords against full-side targets expressed
+    // sheet-relative as (fullXxxPx - sheetRootYPx). That difference is INVARIANT to the
+    // sheet's offset — the full player's internal layout never moves relative to the sheet
+    // root — so it only needs measuring once. The morph used to recompute it every frame
+    // from two *live* onGloballyPositioned values. Newer Compose backs those callbacks with
+    // a throttled/debounced rect tracker (see CLAUDE.md → Compose dependency notes), so the
+    // two values desync frame-to-frame and the "constant" difference wobbles → stutter; the
+    // live-value readiness gate also flickered → the disappear/reappear flash.
+    //
+    // Fix: snapshot every ghost position AND the sheet root ATOMICALLY while the sheet is at
+    // rest (expandedFraction ≈ 0, track present), then hold it frozen. One settled layout
+    // pass = mutually-consistent values. The morph then depends only on the smooth
+    // expandedFraction driver, never on per-frame callback lockstep.
+    //
+    // The `currentTrack != null` gate is essential: with no track the peek height is 0 (see
+    // logicalPeekHeight), so the sheet rests entirely below the screen and sheetRootYPx is
+    // the screen bottom — capturing that would anchor the mini elements off-screen.
+    var morphAnchors by remember { mutableStateOf<MorphAnchors?>(null) }
+    // Keyed on the rest BOOLEAN, not the raw per-frame float, so the effect relaunches only
+    // when the sheet crosses the rest threshold — never 60×/sec during the morph itself.
+    //
+    // `!isAnimationRunning` is LOAD-BEARING. sheetRootYPx and the full-side ghost positions are
+    // measured on nodes INSIDE the sheet, so they physically move as the sheet slides, written
+    // through the throttled/debounced onGloballyPositioned in newer Compose. `expandedFraction
+    // < 0.05f` alone is NOT "at rest": on a fast tap/fling collapse the fraction crosses 0.05
+    // while the sheet is still moving at speed, so the capture would read a lagging mid-motion
+    // sheetRootYPx and overwrite the anchors with a bad value. anchors.sheetRootYPx is the
+    // mini-side origin (dominant near the end of the collapse) → every morph element jumps
+    // ("moves back"), then snaps right once the settled callback re-fires a correct capture.
+    // The held anchors are invariant to the sheet offset, so refusing to capture mid-animation
+    // loses nothing — we only ever (re)capture from a genuinely settled, idle layout pass.
+    val anchorsAtRest = expandedFraction < 0.05f && !bottomSheet.isAnimationRunning
+    LaunchedEffect(
+        currentTrack, anchorsAtRest, sheetRootYPx,
+        fullTitleTopPx, fullArtistLeftPx, fullArtistTopPx,
+        fullPrevCenterXPx, fullPrevCenterYPx, fullPlayCenterXPx, fullPlayCenterYPx,
+        fullNextCenterXPx, fullNextCenterYPx, fullArtTopPx, fullArtLeftPx, fullArtSizePx,
+    ) {
+        if (currentTrack == null) {
+            morphAnchors = null
+            return@LaunchedEffect
+        }
+        val allMeasured = sheetRootYPx >= 0f &&
+            fullTitleTopPx >= 0f && fullArtistTopPx >= 0f && fullArtistLeftPx >= 0f &&
+            fullPrevCenterYPx >= 0f && fullPlayCenterYPx >= 0f && fullNextCenterYPx >= 0f &&
+            fullPrevCenterXPx >= 0f && fullPlayCenterXPx >= 0f && fullNextCenterXPx >= 0f &&
+            fullArtTopPx >= 0f && fullArtLeftPx >= 0f && fullArtSizePx >= 0f
+        // Capture only at rest so every value comes from one settled layout pass. Structural
+        // equality on the data class makes re-capturing identical values a no-op (no churn),
+        // and re-measures naturally after a configuration change once the sheet settles again.
+        if (allMeasured && anchorsAtRest) {
+            morphAnchors = MorphAnchors(
+                sheetRootYPx = sheetRootYPx,
+                titleTopPx = fullTitleTopPx,
+                artistLeftPx = fullArtistLeftPx,
+                artistTopPx = fullArtistTopPx,
+                prevCenterXPx = fullPrevCenterXPx,
+                prevCenterYPx = fullPrevCenterYPx,
+                playCenterXPx = fullPlayCenterXPx,
+                playCenterYPx = fullPlayCenterYPx,
+                nextCenterXPx = fullNextCenterXPx,
+                nextCenterYPx = fullNextCenterYPx,
+                artTopPx = fullArtTopPx,
+                artLeftPx = fullArtLeftPx,
+                artSizePx = fullArtSizePx,
+            )
         }
     }
 
@@ -392,10 +491,9 @@ fun LibraryScreen(
                         // measuring on first track), show the mini player's own art/controls
                         // so there's no blank frame.
                         if (expandedFraction < 0.99f) {
-                            val overlayActive = currentTrack != null && sheetRootYPx >= 0f &&
-                                fullTitleTopPx >= 0f && fullArtistTopPx >= 0f &&
-                                fullPrevCenterYPx >= 0f && fullPlayCenterYPx >= 0f && fullNextCenterYPx >= 0f &&
-                                fullArtSizePx >= 0f
+                            // Latched on the frozen anchors so a transient invalid live
+                            // reading can't flip the mini player back to drawing its own art.
+                            val overlayActive = currentTrack != null && morphAnchors != null
                             MiniPlayer(
                                 viewModel = viewModel,
                                 hideArt = overlayActive,
@@ -759,36 +857,33 @@ fun LibraryScreen(
         // QueueMorphLayer reads queueAnimatable.value itself, scoping 60fps
         // recompositions to that small composable rather than all of LibraryScreen.
         //
-        // Gate on every ghost position being measured. Before the overlay renders,
-        // the sheet-relative math and the -1f fallback math disagree — if we let
-        // the overlay animate with some positions still at -1f, the lerp visibly
-        // snaps to the measured value mid-drag. FullPlayer is always composed so
-        // its onGloballyPositioned callbacks fire within one frame of currentTrack
-        // being set.
-        val allGhostsReady = sheetRootYPx >= 0f &&
-            fullTitleTopPx >= 0f && fullArtistTopPx >= 0f &&
-            fullPrevCenterYPx >= 0f && fullPlayCenterYPx >= 0f && fullNextCenterYPx >= 0f &&
-            fullArtSizePx >= 0f
-        if (currentTrack != null && allGhostsReady) {
+        // Gate on the FROZEN anchors, not live positions. Once captured at rest the overlay
+        // stays mounted, so a transient invalid reading from the throttled position callbacks
+        // can no longer unmount it mid-animation (that unmount was the disappear/reappear
+        // flash). All full-side values come from one consistent layout snapshot, so the
+        // sheet-relative math never disagrees with itself.
+        val morphTrack = currentTrack
+        val anchors = morphAnchors
+        if (morphTrack != null && anchors != null) {
             QueueMorphLayer(
                 queueAnimatable = queueAnimatable,
                 viewModel = viewModel,
-                currentTrack = currentTrack!!,
+                currentTrack = morphTrack,
                 expandedFraction = expandedFraction,
-                collapsedSheetRootYPx = collapsedSheetRootYPx.floatValue,
-                sheetRootYPx = sheetRootYPx,
-                fullTitleTopPx = fullTitleTopPx,
-                fullArtistLeftPx = fullArtistLeftPx,
-                fullArtistTopPx = fullArtistTopPx,
-                fullPrevCenterXPx = fullPrevCenterXPx,
-                fullPrevCenterYPx = fullPrevCenterYPx,
-                fullPlayCenterXPx = fullPlayCenterXPx,
-                fullPlayCenterYPx = fullPlayCenterYPx,
-                fullNextCenterXPx = fullNextCenterXPx,
-                fullNextCenterYPx = fullNextCenterYPx,
-                fullArtTopPx  = fullArtTopPx,
-                fullArtLeftPx = fullArtLeftPx,
-                fullArtSizePx = fullArtSizePx,
+                collapsedSheetRootYPx = anchors.sheetRootYPx,
+                sheetRootYPx = anchors.sheetRootYPx,
+                fullTitleTopPx = anchors.titleTopPx,
+                fullArtistLeftPx = anchors.artistLeftPx,
+                fullArtistTopPx = anchors.artistTopPx,
+                fullPrevCenterXPx = anchors.prevCenterXPx,
+                fullPrevCenterYPx = anchors.prevCenterYPx,
+                fullPlayCenterXPx = anchors.playCenterXPx,
+                fullPlayCenterYPx = anchors.playCenterYPx,
+                fullNextCenterXPx = anchors.nextCenterXPx,
+                fullNextCenterYPx = anchors.nextCenterYPx,
+                fullArtTopPx  = anchors.artTopPx,
+                fullArtLeftPx = anchors.artLeftPx,
+                fullArtSizePx = anchors.artSizePx,
                 scope = scope,
             )
         }
@@ -945,6 +1040,42 @@ fun LibraryScreen(
 }
 
 /**
+ * One atomic snapshot of every mini→full morph anchor, captured while the sheet is at rest.
+ *
+ * All positions are root-space pixels from a single settled layout pass, so they are mutually
+ * consistent — [sheetRootYPx] is the sheet-content root and the `*Px` fields are the FullPlayer
+ * ghost positions. The morph derives stable sheet-relative targets as (`fieldPx - sheetRootYPx`),
+ * which is invariant to the sheet's offset. Freezing this snapshot is what makes the morph
+ * immune to the throttled/desynced onGloballyPositioned callbacks in newer Compose foundation.
+ */
+/**
+ * Ken-Perlin smootherstep — zero first AND second derivative at both ends, so a value driven
+ * by it eases in and out with no perceptible kink. Used only for the morph's decorative
+ * properties (glow bloom, play-circle fade); positional lerps stay linear so they track the
+ * drag finger 1:1.
+ */
+private fun smootherstep(t: Float): Float {
+    val x = t.coerceIn(0f, 1f)
+    return x * x * x * (x * (x * 6f - 15f) + 10f)
+}
+
+private data class MorphAnchors(
+    val sheetRootYPx: Float,
+    val titleTopPx: Float,
+    val artistLeftPx: Float,
+    val artistTopPx: Float,
+    val prevCenterXPx: Float,
+    val prevCenterYPx: Float,
+    val playCenterXPx: Float,
+    val playCenterYPx: Float,
+    val nextCenterXPx: Float,
+    val nextCenterYPx: Float,
+    val artTopPx: Float,
+    val artLeftPx: Float,
+    val artSizePx: Float,
+)
+
+/**
  * Renders the queue sheet and the morph overlay (album art, title, artist, controls)
  * as a single isolated composable.
  *
@@ -1057,11 +1188,13 @@ private fun QueueMorphLayer(
     )
 
     // ── Position math ──────────────────────────────────────────────────
-    // The mini lerp start-point is pinned to the COLLAPSED sheet-root Y. A live
-    // sheetRootYPx moves as the sheet expands, which would drag the lerp start-point with
-    // it and bend the straight path into a "hook". [collapsedSheetRootYPx] is captured once
-    // at rest by LibraryScreen (the always-composed parent) and passed in — see the note
-    // there for why the capture cannot live inside this ghost-gated overlay.
+    // Every full-side value here ([sheetRootYPx], [collapsedSheetRootYPx] and the full*Px
+    // params) is a FROZEN anchor — one atomic snapshot captured at rest by LibraryScreen (see
+    // MorphAnchors). They are NOT live per-frame readings, so the (full*Px - sheetRootYPx)
+    // differences below are true constants: a "hook"-free straight path on the mini side and
+    // jitter-proof targets on the full side, regardless of how the throttled position
+    // callbacks fire mid-animation. The ONLY live input to this overlay is expandedFraction
+    // (the smooth sheet-offset driver) and queueProg.
     val miniSheetRootYPx = if (collapsedSheetRootYPx >= 0f) collapsedSheetRootYPx else sheetRootYPx
     val miniSheetRootYDp = with(density) { miniSheetRootYPx.toDp() }
     val miniArtSizeDp = 52.dp
@@ -1084,9 +1217,8 @@ private fun QueueMorphLayer(
     val miniTitleLeftDp = miniArtLeftDp + miniArtSizeDp + 12.dp
     val miniTitleTopDp  = miniArtTopDp + 2.dp
     val fullTitleLeftDp = 48.dp
-    // Full player Y positions: subtract sheetRootYPx to get sheet-relative coordinates.
-    // positionInRoot() moves as the sheet scrolls, but (absY - sheetRootY) is constant
-    // regardless of sheet position, giving a stable lerp target.
+    // Full-player Y positions: (frozen absY - frozen sheetRootY) = the element's offset within
+    // the sheet, invariant to the sheet's live position — a stable lerp target.
     val fullTitleTopDp  = if (fullTitleTopPx >= 0f)
         with(density) { (fullTitleTopPx - sheetRootYPx).toDp() }
     else
@@ -1168,7 +1300,7 @@ private fun QueueMorphLayer(
     ) {
         if (expandedFraction > 0.4f && queueProg < 0.8f) {
             val glowFraction = ((expandedFraction - 0.4f) / 0.6f).coerceIn(0f, 1f) * (1f - queueProg)
-            val easedGlow = glowFraction * glowFraction
+            val easedGlow = smootherstep(glowFraction)
             androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
                 drawIntoCanvas { canvas ->
                     val paint = android.graphics.Paint().apply {
@@ -1249,7 +1381,7 @@ private fun QueueMorphLayer(
     val prevNextIconSize  = lerp(24f, 48f, expandedFraction).dp
     val playContainerSize = lerp(lerp(48f, 72f, expandedFraction), 48f, queueProg).dp
     val playIconSize      = lerp(lerp(36f, 42f, expandedFraction), 36f, queueProg).dp
-    val circleAlpha       = expandedFraction * (1f - queueProg)
+    val circleAlpha       = smootherstep(expandedFraction) * (1f - queueProg)
     val prevNextAlpha     = (1f - queueProg * 1.4f).coerceIn(0f, 1f)
 
     val buttonBgColor = remember(themeColor) {
