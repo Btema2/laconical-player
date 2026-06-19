@@ -18,7 +18,7 @@ buildscript {
             // jose4j vulnerability (Dependabot #18).
             add("classpath", "org.bitbucket.b_c:jose4j:0.9.6")
             // commons-lang3 vulnerability (Dependabot #12).
-            add("classpath", "org.apache.commons:commons-lang3:3.18.0")
+            add("classpath", "org.apache.commons:commons-lang3:3.20.0")
         }
     }
 }
