@@ -50,7 +50,8 @@ private val QUEUE_ITEM_HEIGHT = 72.dp
 
 /**
  * Full-screen queue sheet. Positioned and translated by [LibraryScreen] via [modifier].
- * The [progress] value (0f = closed, 1f = open) is reserved for future queue-body fades.
+ * The [progress] value (0f = closed, 1f = open) drives interactivity (gated at >0.5) and the
+ * park-on-current-track scroll, so the sheet can be mounted invisibly to pre-compose its rows.
  *
  * Album art, title, artist, AND play/pause button are all INVISIBLE ghosts here —
  * [LibraryScreen]'s morphing overlay renders the real versions on top, lerping from
@@ -100,9 +101,12 @@ fun QueueSheet(
     val listState = rememberLazyListState()
 
     // Interactive only once the sheet is mostly open. While invisible (pre-warm) or in the
-    // first half of the open animation, every pointer node is stripped so touches pass through
-    // to the FullPlayer beneath (the morph layer sits above it). The QueueSheet root Box has no
-    // pointer node, so stripping the children below makes the whole subtree non-hit-testable.
+    // first half of the open animation, the explicit pointer nodes (header swipe, row click,
+    // drag handle) are stripped so touches reach the FullPlayer beneath (the morph layer sits
+    // above it; the root Box has no pointer node). The only node left live is the LazyColumn's
+    // own scroll — it consumes ONLY post-slop vertical drags, so taps and the FullPlayer's
+    // horizontal seek-drag still pass through. (Don't add a vertical-drag control to the
+    // FullPlayer area beneath without revisiting this.)
     val interactive = progress > 0.5f
 
     // While the sheet is closed/invisible (including the pre-warm mount), park the list on the
@@ -113,12 +117,10 @@ fun QueueSheet(
     var wasQueueOpen by remember { mutableStateOf(false) }
     LaunchedEffect(progress > 0.01f, currentIndex, queue.size) {
         val isOpen = progress > 0.01f
-        if (currentIndex >= 0 && queue.isNotEmpty()) {
-            if (!isOpen) {
-                listState.scrollToItem(currentIndex.coerceIn(0, queue.lastIndex))
-            } else if (!wasQueueOpen) {
-                listState.scrollToItem(currentIndex.coerceIn(0, queue.lastIndex))
-            }
+        // Park while closed/invisible (pre-warm), and once on the first open; never while already
+        // open (so browsing / track changes don't yank the list).
+        if (currentIndex >= 0 && queue.isNotEmpty() && (!isOpen || !wasQueueOpen)) {
+            listState.scrollToItem(currentIndex.coerceIn(0, queue.lastIndex))
         }
         wasQueueOpen = isOpen
     }
