@@ -100,13 +100,12 @@ fun QueueSheet(
 
     val listState = rememberLazyListState()
 
-    // Interactive only once the sheet is mostly open. While invisible (pre-warm) or in the
-    // first half of the open animation, the explicit pointer nodes (header swipe, row click,
-    // drag handle) are stripped so touches reach the FullPlayer beneath (the morph layer sits
-    // above it; the root Box has no pointer node). The only node left live is the LazyColumn's
-    // own scroll — it consumes ONLY post-slop vertical drags, so taps and the FullPlayer's
-    // horizontal seek-drag still pass through. (Don't add a vertical-drag control to the
-    // FullPlayer area beneath without revisiting this.)
+    // Interactive only once the sheet is mostly open. While invisible (pre-warm) or in the first
+    // half of the open animation, EVERY pointer node is removed: the explicit handlers (header
+    // swipe, row click, drag handle) are gated off below, and the LazyColumn's scroll is gated
+    // off via userScrollEnabled. The root Box has no pointer node of its own, so the whole subtree
+    // is non-hit-testable and all touches reach the FullPlayer beneath (the morph layer sits above
+    // it). Without this, the invisible full-screen sheet ate the FullPlayer "UP NEXT" tap.
     val interactive = progress > 0.5f
 
     // While the sheet is closed/invisible (including the pre-warm mount), park the list on the
@@ -234,6 +233,11 @@ fun QueueSheet(
             // ── Track list with drag-to-reorder ────────────────────────────────
             LazyColumn(
                 state = listState,
+                // Disable user scroll while invisible (pre-warm). It is the only pointer node
+                // left in the sheet once the explicit handlers are gated off; with it off too,
+                // the whole subtree is non-hit-testable so taps (e.g. the FullPlayer "UP NEXT"
+                // button beneath) pass through. Programmatic scrollToItem (the park) still works.
+                userScrollEnabled = interactive,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = WindowInsets.navigationBars
                     .add(WindowInsets(top = 4.dp, bottom = 4.dp))
