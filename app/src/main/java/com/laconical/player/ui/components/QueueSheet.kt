@@ -105,15 +105,20 @@ fun QueueSheet(
     // pointer node, so stripping the children below makes the whole subtree non-hit-testable.
     val interactive = progress > 0.5f
 
-    // Instant-scroll to current track only on initial open (not on track changes while browsing).
-    // Triggered at progress > 0.01f so the sheet is nearly transparent — user never sees the jump.
-    // Using scrollToItem (not animateScrollToItem) avoids traversing intermediate items,
-    // which would trigger Coil thumbnail loads for every song between 0 and currentIndex.
+    // While the sheet is closed/invisible (including the pre-warm mount), park the list on the
+    // current track so the rows composed ahead of time are exactly the ones shown on open — the
+    // open animation then triggers no scroll-jump composition. Re-parks on track change while
+    // invisible (user can't see the yank). Once open, stop auto-scrolling so browsing isn't yanked.
+    // scrollToItem (not animateScrollToItem) avoids composing every intermediate row.
     var wasQueueOpen by remember { mutableStateOf(false) }
     LaunchedEffect(progress > 0.01f, currentIndex, queue.size) {
         val isOpen = progress > 0.01f
-        if (isOpen && !wasQueueOpen && currentIndex >= 0 && queue.isNotEmpty()) {
-            listState.scrollToItem(currentIndex.coerceIn(0, queue.lastIndex))
+        if (currentIndex >= 0 && queue.isNotEmpty()) {
+            if (!isOpen) {
+                listState.scrollToItem(currentIndex.coerceIn(0, queue.lastIndex))
+            } else if (!wasQueueOpen) {
+                listState.scrollToItem(currentIndex.coerceIn(0, queue.lastIndex))
+            }
         }
         wasQueueOpen = isOpen
     }
