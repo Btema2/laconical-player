@@ -413,6 +413,23 @@ fun LibraryScreen(
         }
     }
 
+    // Pre-compose the queue list while the full player sits fully open and idle, so opening the
+    // queue animates already-built rows instead of composing a screenful on frame 1. One-shot:
+    // flips true once per settle and never polls, so an idle full player burns no CPU.
+    // `!isAnimationRunning` is load-bearing — composing during the mini→full morph tail would land
+    // the row-composition spike on the very animation we keep smooth. withFrameNanos defers one
+    // frame past the settle frame so the compose lands on a clean idle frame.
+    var queuePrewarm by remember { mutableStateOf(false) }
+    val fullyOpenIdle = expandedFraction >= 0.99f && !bottomSheet.isAnimationRunning
+    LaunchedEffect(fullyOpenIdle) {
+        if (fullyOpenIdle) {
+            withFrameNanos {}
+            queuePrewarm = true
+        } else {
+            queuePrewarm = false
+        }
+    }
+
     // Collapse the sheet when playback stops so the invisible full-player
     // cannot block input while nothing is showing.
     LaunchedEffect(currentTrack) {
@@ -867,6 +884,7 @@ fun LibraryScreen(
         if (morphTrack != null && anchors != null) {
             QueueMorphLayer(
                 queueAnimatable = queueAnimatable,
+                prewarm = queuePrewarm,
                 viewModel = viewModel,
                 currentTrack = morphTrack,
                 expandedFraction = expandedFraction,
@@ -1093,6 +1111,7 @@ private data class MorphAnchors(
 @Composable
 private fun QueueMorphLayer(
     queueAnimatable: Animatable<Float, AnimationVector1D>,
+    prewarm: Boolean,
     viewModel: MainViewModel,
     currentTrack: Track,
     expandedFraction: Float,
@@ -1128,7 +1147,7 @@ private fun QueueMorphLayer(
     // Fade + small 80dp slide instead of a full-screen-height slide. This keeps
     // the sheet background behind the morph elements from the very start of the
     // transition, eliminating the empty-space-at-top gap.
-    if (queueProg > 0.001f) {
+    if (queueProg > 0.001f || prewarm) {
         val screenH = with(density) { configuration.screenHeightDp.dp.toPx() }
         val slideDistance = with(density) { 80.dp.toPx() }
         QueueSheet(
