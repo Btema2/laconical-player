@@ -99,6 +99,12 @@ fun QueueSheet(
 
     val listState = rememberLazyListState()
 
+    // Interactive only once the sheet is mostly open. While invisible (pre-warm) or in the
+    // first half of the open animation, every pointer node is stripped so touches pass through
+    // to the FullPlayer beneath (the morph layer sits above it). The QueueSheet root Box has no
+    // pointer node, so stripping the children below makes the whole subtree non-hit-testable.
+    val interactive = progress > 0.5f
+
     // Instant-scroll to current track only on initial open (not on track changes while browsing).
     // Triggered at progress > 0.01f so the sheet is nearly transparent — user never sees the jump.
     // Using scrollToItem (not animateScrollToItem) avoids traversing intermediate items,
@@ -128,25 +134,27 @@ fun QueueSheet(
             // Swipe down on the header dismisses the queue back to the full player.
             Column(
                 modifier = Modifier
-                    .pointerInput(Unit) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown()
-                            val tracker = VelocityTracker()
-                            tracker.addPosition(down.uptimeMillis, down.position)
-                            do {
-                                val event = awaitPointerEvent()
-                                val change = event.changes.firstOrNull() ?: break
-                                if (!change.pressed) {
-                                    val velocity = tracker.calculateVelocity()
-                                    onDragEnd(velocity.y)
-                                    break
-                                }
-                                tracker.addPosition(change.uptimeMillis, change.position)
-                                onDragDelta(change.positionChange().y)
-                                change.consume()
-                            } while (true)
-                        }
-                    }
+                    .then(
+                        if (interactive) Modifier.pointerInput(Unit) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown()
+                                val tracker = VelocityTracker()
+                                tracker.addPosition(down.uptimeMillis, down.position)
+                                do {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull() ?: break
+                                    if (!change.pressed) {
+                                        val velocity = tracker.calculateVelocity()
+                                        onDragEnd(velocity.y)
+                                        break
+                                    }
+                                    tracker.addPosition(change.uptimeMillis, change.position)
+                                    onDragDelta(change.positionChange().y)
+                                    change.consume()
+                                } while (true)
+                            }
+                        } else Modifier
+                    )
             ) {
                 // Borderless header row — all four elements are INVISIBLE ghosts.
                 // LibraryScreen's morph overlay draws the real versions and handles taps.
@@ -232,6 +240,7 @@ fun QueueSheet(
                         track = track,
                         index = index,
                         queueSize = queue.size,
+                        interactive = interactive,
                         isCurrentTrack = isCurrentTrack,
                         isBefore = isBefore,
                         seekBarActiveColor = seekBarActiveColor,
@@ -276,6 +285,7 @@ private fun QueueTrackRow(
     track: Track,
     index: Int,
     queueSize: Int,
+    interactive: Boolean,
     isCurrentTrack: Boolean,
     isBefore: Boolean,
     seekBarActiveColor: Color,
@@ -343,7 +353,7 @@ private fun QueueTrackRow(
                         else -> Color.Transparent
                     }
                 )
-                .clickable(onClick = onTrackClick)
+                .then(if (interactive) Modifier.clickable(onClick = onTrackClick) else Modifier)
                 .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -413,14 +423,16 @@ private fun QueueTrackRow(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .pointerInput(track.id) {
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = { latestOnDragStart() },
-                            onDrag = { _, offset -> latestOnDragDelta(offset.y) },
-                            onDragEnd = { latestOnDragEnd() },
-                            onDragCancel = { latestOnDragCancel() }
-                        )
-                    },
+                    .then(
+                        if (interactive) Modifier.pointerInput(track.id) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { latestOnDragStart() },
+                                onDrag = { _, offset -> latestOnDragDelta(offset.y) },
+                                onDragEnd = { latestOnDragEnd() },
+                                onDragCancel = { latestOnDragCancel() }
+                            )
+                        } else Modifier
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
