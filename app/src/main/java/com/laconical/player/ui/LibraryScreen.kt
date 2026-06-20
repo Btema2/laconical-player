@@ -1172,7 +1172,16 @@ private fun QueueMorphLayer(
                 }
             },
             modifier = Modifier.graphicsLayer {
-                translationY = (1f - queueProg) * slideDistance
+                // While invisible (pre-warm at rest), park the whole sheet OFF-SCREEN so its hit
+                // region does not overlap the FullPlayer beneath. In Compose the topmost sibling
+                // holding any pointer node claims the pointer (shareWithSiblings=false by default)
+                // and blocks the controls below — the LazyColumn's scroll node does this over the
+                // lower half (UP NEXT / seek / like), and userScrollEnabled can't remove that node.
+                // graphicsLayer translation moves the hit bounds too, but NOT measurement/layout,
+                // so the rows still pre-compose off-screen. Once opening (queueProg > 0.001), use
+                // the small 80dp slide that keeps the sheet background behind the morph elements.
+                translationY = if (queueProg < 0.001f) screenH
+                               else (1f - queueProg) * slideDistance
                 alpha = queueProg.coerceIn(0f, 1f)
             }
         )
