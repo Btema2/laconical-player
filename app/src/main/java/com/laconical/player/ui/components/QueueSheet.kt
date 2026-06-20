@@ -34,7 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.ui.platform.LocalContext
@@ -364,8 +364,18 @@ private fun QueueTrackRow(
                     .background(Color(0xFF1E1E1E)),
                 contentAlignment = Alignment.Center
             ) {
+                // MusicNote sits BEHIND the art: visible while loading or when no
+                // art exists; the opaque loaded image covers it. AsyncImage (not
+                // SubcomposeAsyncImage) avoids a per-row subcomposition pass — that
+                // subcomposition, multiplied across a screenful of rows composing on
+                // frame 1 of the queue-open animation, was the jank/"warm-up" spike.
+                Icon(
+                    imageVector = Icons.Rounded.MusicNote,
+                    contentDescription = null,
+                    tint = Color(0xFF555555)
+                )
                 val context = LocalContext.current
-                SubcomposeAsyncImage(
+                AsyncImage(
                     model = remember(track.albumArtUri ?: track.mediaUri) {
                         ImageRequest.Builder(context)
                             .data(AudioArtData(track.mediaUri, track.albumArtUri))
@@ -375,13 +385,6 @@ private fun QueueTrackRow(
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
-                    error = {
-                        Icon(
-                            imageVector = Icons.Rounded.MusicNote,
-                            contentDescription = null,
-                            tint = Color(0xFF555555)
-                        )
-                    }
                 )
             }
 
