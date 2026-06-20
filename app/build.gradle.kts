@@ -10,12 +10,12 @@ plugins {
 
 android {
     namespace = "com.laconical.player"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.laconical.player"
         minSdk = 26
-        targetSdk = 37
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
