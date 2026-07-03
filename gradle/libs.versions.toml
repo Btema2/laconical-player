@@ -23,7 +23,7 @@ composeBom = "2026.06.00"
 androidx-compose-material3 = "1.4.0"
 
 # Hilt Extensions
-androidx-hilt-navigation-compose = "1.3.0"
+androidx-hilt-navigation-compose = "1.4.0"
 
 # Image Loading
 coil = "3.4.0"
