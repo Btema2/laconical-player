@@ -63,12 +63,13 @@ fun MiniPlayer(
         surfaceColor
     }
 
-    // Swipe-down-to-remove warning tint: rest -> vivid pink -> vivid red, easing back on abort.
-    // Saturated/bright on purpose — a subtle tint would be easy to miss as the warning signal.
+    // Swipe-down-to-remove warning tint: rest -> vivid orange -> vivid red, easing back on abort.
+    // Orange/red reads as "warning" conventionally (pink doesn't); saturated/bright on purpose —
+    // a subtle tint would be easy to miss as the warning signal.
     val baseColor by animateColorAsState(
         targetValue = when (warningStage) {
             0 -> restAccent
-            1 -> Color(0xFFFF3D7F)
+            1 -> Color(0xFFFF9500)
             else -> Color(0xFFFF2424)
         },
         animationSpec = tween(220),

@@ -1039,7 +1039,16 @@ fun LibraryScreen(
                                 totalDy += dy
                                 val touchSlopPx = dismissTuning.value.touchSlopPx
                                 if (!engaged) {
-                                    if (totalDy < -touchSlopPx) break // upward -> let expand/tap through
+                                    if (totalDy < -touchSlopPx) {
+                                        // Upward intent: same issue as the tap case above — this
+                                        // surface sits above the sheet's own drag handler, so an
+                                        // unconsumed upward move does not reliably bubble down to
+                                        // it either. Self-handle by expanding directly.
+                                        if (hasPermission) {
+                                            scope.launch { scaffoldState.bottomSheetState.expand() }
+                                        }
+                                        break
+                                    }
                                     if (totalDy > touchSlopPx) engaged = true
                                 }
                                 if (engaged) {
