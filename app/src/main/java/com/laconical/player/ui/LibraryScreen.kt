@@ -110,6 +110,10 @@ private const val DISMISS_FLICK_DISTANCE_DP = 48
 private const val DISMISS_FLICK_VELOCITY_DP = 800
 private const val DISMISS_TOUCH_SLOP_DP = 6
 private const val DISMISS_OFFSCREEN_MARGIN_DP = 120
+// Flick 1 and 2 only bounce this far (matches the original small overscroll bounce, well
+// clear of the bottom nav) — the strip does NOT follow the finger past this. Only flick 3's
+// drag (and its committed removal animation) travels the full off-screen distance.
+private const val DISMISS_LIVE_BOUNCE_MAX_DP = 24
 private const val DISMISS_ABORT_TIMEOUT_MS = 1000L
 private const val DISMISS_TERMINAL_ANIM_MS = 280
 private const val DISMISS_HAPTIC_STAGE1_MS = 18L
@@ -439,6 +443,7 @@ fun LibraryScreen(
             touchSlopPx = with(density) { DISMISS_TOUCH_SLOP_DP.dp.toPx() },
             offscreenTargetPx = (containerHeightPx - (morphAnchors?.sheetRootYPx ?: 0f))
                 .coerceAtLeast(0f) + with(density) { DISMISS_OFFSCREEN_MARGIN_DP.dp.toPx() },
+            liveBounceMaxPx = with(density) { DISMISS_LIVE_BOUNCE_MAX_DP.dp.toPx() },
         )
     )
 
@@ -489,6 +494,13 @@ fun LibraryScreen(
     val isExpanded = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded ||
             scaffoldState.bottomSheetState.targetValue == SheetValue.Expanded
     val miniAlpha = (1f - expandedFraction * 2f).coerceIn(0f, 1f)
+    // When currentTrack goes null (e.g. removePlayback()), logicalPeekHeight collapses to 0.dp
+    // in the SAME frame, instantly inflating maxOffset while the sheet's physical offset hasn't
+    // caught up yet — expandedFraction briefly spikes before the sheet settles, which would
+    // otherwise fade+slide the nav bar out and back in. The nav bar has no legitimate reason to
+    // react to expandedFraction while there's no track (nothing to expand into), so pin it fully
+    // visible and ignore the transient blip entirely.
+    val navBarVisualAlpha = if (currentTrack == null) 1f else miniAlpha
     // Same taper QueueMorphLayer's mini-side ghosts use for dismissOffsetY: 1 at collapsed
     // rest, 0 the instant any morph begins. Keeps the MiniPlayer's own strip (background,
     // gradient, progress bar) in lockstep with the ghost overlay it sits underneath — without
@@ -914,8 +926,8 @@ fun LibraryScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .graphicsLayer {
-                        alpha = miniAlpha
-                        translationY = (1f - miniAlpha) * navBarHeightPx
+                        alpha = navBarVisualAlpha
+                        translationY = (1f - navBarVisualAlpha) * navBarHeightPx
                     }
             )
         }
@@ -975,15 +987,18 @@ fun LibraryScreen(
         // sheet-relative math never disagrees with itself.
 
         // ── Swipe-down-to-remove-playback gesture surface ───────────────────────
-        // Transparent, topmost sibling over the collapsed strip (drawn above the scaffold's
-        // sheet, below the overlay controls painted by QueueMorphLayer below). Fully consumes
-        // DOWNWARD drags so the framework sheet never overscroll-bounces; leaves UPWARD drags
-        // and taps unconsumed so tap-to-expand still works. Only active at collapsed rest.
+        // Topmost sibling over the collapsed strip's LEFT region only (padding(end=120dp)
+        // mirrors MiniPlayer's own clickable region, staying clear of the prev/play/next
+        // buttons QueueMorphLayer draws on top). Fully consumes DOWNWARD drags so the
+        // framework sheet never overscroll-bounces. A plain tap (no engaged drag) explicitly
+        // triggers expand itself — this surface sits above MiniPlayer's own clickable, so
+        // tap-to-expand must not depend on the tap passing through to it underneath.
         if (currentTrack != null && morphAnchors != null && expandedFraction < 0.05f && !terminating) {
             val stripTopDp = with(density) { (morphAnchors?.sheetRootYPx ?: 0f).toDp() }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(end = 120.dp)
                     .offset(y = stripTopDp)
                     .height(miniPlayerHeight)
                     .pointerInput(Unit) {
@@ -1014,6 +1029,9 @@ fun LibraryScreen(
                                                 )
                                             }
                                         }
+                                    } else if (hasPermission) {
+                                        // Plain tap, no meaningful drag -> expand to full player.
+                                        scope.launch { scaffoldState.bottomSheetState.expand() }
                                     }
                                     break
                                 }
@@ -1026,8 +1044,14 @@ fun LibraryScreen(
                                 }
                                 if (engaged) {
                                     tracker.addPosition(change.uptimeMillis, change.position)
-                                    val next = (dismissOffsetY.value + dy)
-                                        .coerceIn(0f, dismissTuning.value.offscreenTargetPx)
+                                    // Flick 1/2 only bounce a short, fixed distance (matches the
+                                    // original small overscroll bounce, clear of the nav bar);
+                                    // only flick 3's drag (warningStage already 2, about to
+                                    // become 3) is allowed to travel the full off-screen distance.
+                                    val tuning = dismissTuning.value
+                                    val liveMax = if (warningStage < 2) tuning.liveBounceMaxPx
+                                                  else tuning.offscreenTargetPx
+                                    val next = (dismissOffsetY.value + dy).coerceIn(0f, liveMax)
                                     scope.launch { dismissOffsetY.snapTo(next) }
                                     change.consume()
                                 }
@@ -1249,6 +1273,7 @@ private data class DismissGestureTuning(
     val flickVelocityPx: Float,
     val touchSlopPx: Float,
     val offscreenTargetPx: Float,
+    val liveBounceMaxPx: Float,
 )
 
 private data class MorphAnchors(

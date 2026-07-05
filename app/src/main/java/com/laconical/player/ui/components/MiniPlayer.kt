@@ -63,16 +63,20 @@ fun MiniPlayer(
         surfaceColor
     }
 
-    // Swipe-down-to-remove warning tint: rest -> dark-adapted pink -> red, easing back on abort.
+    // Swipe-down-to-remove warning tint: rest -> vivid pink -> vivid red, easing back on abort.
+    // Saturated/bright on purpose — a subtle tint would be easy to miss as the warning signal.
     val baseColor by animateColorAsState(
         targetValue = when (warningStage) {
             0 -> restAccent
-            1 -> Color(0xFF6E2233)
-            else -> Color(0xFF7A1717)
+            1 -> Color(0xFFFF3D7F)
+            else -> Color(0xFFFF2424)
         },
         animationSpec = tween(220),
         label = "MiniWarnAccent"
     )
+    // Gradient/progress-bar intensity is boosted on top of the color change itself so the
+    // warning reads clearly even at a glance, not just as a faint hue shift.
+    val warnBoost = warningStage > 0
 
     Box(
         modifier = modifier
@@ -85,8 +89,8 @@ fun MiniPlayer(
             .background(
                 brush = Brush.horizontalGradient(
                     colors = listOf(
-                        baseColor.copy(alpha = 0.45f),
-                        baseColor.copy(alpha = 0.15f),
+                        baseColor.copy(alpha = if (warnBoost) 0.75f else 0.45f),
+                        baseColor.copy(alpha = if (warnBoost) 0.40f else 0.15f),
                         Color.Transparent,
                     )
                 )
