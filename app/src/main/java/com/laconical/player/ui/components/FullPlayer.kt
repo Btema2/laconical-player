@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -64,6 +65,10 @@ fun FullPlayer(
     onPlayControlsPositioned: (prevX: Float, prevY: Float, playX: Float, playY: Float, nextX: Float, nextY: Float) -> Unit = { _, _, _, _, _, _ -> },
     onAlbumArtPositioned: (x: Float, y: Float, sizePx: Float) -> Unit = { _, _, _ -> },
     onShowQueue: () -> Unit = {},
+    /** Live delta (px) of an in-progress swipe-up-to-queue drag, follow-finger. */
+    onQueueDragDelta: (dy: Float) -> Unit = {},
+    /** Fired on release of a swipe-up-to-queue drag, with the final vertical velocity (px/s). */
+    onQueueDragEnd: (velocityY: Float) -> Unit = {},
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
     onShowMenu: () -> Unit = {},
@@ -81,6 +86,8 @@ fun FullPlayer(
     if (currentTrack == null) return
 
     val track = currentTrack!!
+    val latestOnQueueDragDelta by rememberUpdatedState(onQueueDragDelta)
+    val latestOnQueueDragEnd by rememberUpdatedState(onQueueDragEnd)
     val themeColor = dominantColor ?: Color(0xFF1E1E1E)
 
     // Matches the play/pause button background — used for the active portion of the seek bar
@@ -130,6 +137,47 @@ fun FullPlayer(
             .fillMaxSize()
             .graphicsLayer { alpha = contentAlpha }
             .background(animatedBg)
+            // Swipe-up-anywhere-to-queue, follow-finger. Root-level so it still receives
+            // events under a button/TextButton — a real drag past touch slop cancels that
+            // control's own press (Compose's normal tap-gesture-cancel-on-move), so plain
+            // taps on controls are unaffected (they never cross slop, so this never claims
+            // them), while a drag starting on a control still opens the queue.
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val tracker = VelocityTracker()
+                    tracker.addPosition(down.uptimeMillis, down.position)
+                    val touchSlop = viewConfiguration.touchSlop
+                    var totalDy = 0f
+                    var goesUp = false
+                    var decided = false
+                    // Phase 1 — detect direction WITHOUT consuming, so a downward drag stays
+                    // fully available to the sheet's own collapse-by-drag underneath.
+                    while (!decided) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id }
+                            ?: return@awaitEachGesture
+                        if (!change.pressed) return@awaitEachGesture // tap, no drag
+                        tracker.addPosition(change.uptimeMillis, change.position)
+                        totalDy += change.positionChange().y
+                        if (abs(totalDy) > touchSlop) {
+                            decided = true
+                            goesUp = totalDy < 0f
+                        }
+                    }
+                    if (!goesUp) return@awaitEachGesture // downward → sheet collapses
+                    // Phase 2 — claim the upward drag, follow the finger live.
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        change.consume()
+                        tracker.addPosition(change.uptimeMillis, change.position)
+                        latestOnQueueDragDelta(change.positionChange().y)
+                        if (!change.pressed) break
+                    }
+                    latestOnQueueDragEnd(tracker.calculateVelocity().y)
+                }
+            }
     ) {
         ParticleSystem(isPlaying = isPlaying, isVisible = expandedFraction > 0.01f, color = particleColor)
 
@@ -199,52 +247,12 @@ fun FullPlayer(
 
                 // Album art layout spacer — the morphing overlay in LibraryScreen
                 // renders the actual art on top; this just reserves the right amount of space.
-                // Vertical drag: swipe up → queue, swipe down → collapse player.
                 Spacer(
                     modifier = Modifier
                         .size(artSizeDp)
                         .onGloballyPositioned { coords ->
                             val pos = coords.positionInRoot()
                             onAlbumArtPositioned(pos.x, pos.y, coords.size.width.toFloat())
-                        }
-                        // A downward drag is intentionally NOT consumed, so it bubbles to the
-                        // BottomSheetScaffold's own sheet drag — the player then collapses
-                        // live and finger-tracked, exactly like dragging the background. Only
-                        // an upward drag is claimed here, preserving the swipe-up-for-queue
-                        // gesture (release-triggered, as before).
-                        .pointerInput(Unit) {
-                            val queueThresholdPx = 80.dp.toPx()
-                            awaitEachGesture {
-                                val down = awaitFirstDown(requireUnconsumed = false)
-                                val touchSlop = viewConfiguration.touchSlop
-                                var totalDy = 0f
-                                var goesUp = false
-                                var decided = false
-                                // Phase 1 — detect direction WITHOUT consuming, so a downward
-                                // drag stays fully available to the sheet underneath.
-                                while (!decided) {
-                                    val event = awaitPointerEvent()
-                                    val change = event.changes.firstOrNull { it.id == down.id }
-                                        ?: return@awaitEachGesture
-                                    if (!change.pressed) return@awaitEachGesture // tap, no drag
-                                    totalDy += change.positionChange().y
-                                    if (abs(totalDy) > touchSlop) {
-                                        decided = true
-                                        goesUp = totalDy < 0f
-                                    }
-                                }
-                                if (!goesUp) return@awaitEachGesture // downward → sheet collapses
-                                // Phase 2 — claim the upward drag for the queue gesture.
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    val change = event.changes.firstOrNull { it.id == down.id }
-                                        ?: break
-                                    change.consume()
-                                    totalDy += change.positionChange().y
-                                    if (!change.pressed) break
-                                }
-                                if (totalDy < -queueThresholdPx) onShowQueue()
-                            }
                         }
                 )
 

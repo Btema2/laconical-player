@@ -106,6 +106,12 @@ import kotlin.math.abs
 // (FastOutSlowInEasing) is used in both directions so the motion feels the same in and out.
 private const val QUEUE_ANIM_MS = 300
 
+// ── Swipe-up-anywhere-to-queue tuning ───────────────────────────────────────
+// Fast upward flick commits the queue open even from a short drag, matching the
+// flick-velocity precedent already used for dismiss/skip below. Same magnitude
+// as DISMISS_FLICK_VELOCITY_DP — both represent "a fast flick", not a slow drag.
+private const val QUEUE_OPEN_FLICK_VELOCITY_DP = 800
+
 // ── Swipe-down-to-remove-playback tuning ────────────────────────────────────
 private const val DISMISS_FLICK_DISTANCE_DP = 48
 private const val DISMISS_FLICK_VELOCITY_DP = 800
@@ -654,6 +660,29 @@ fun LibraryScreen(
                                         1f,
                                         tween(QUEUE_ANIM_MS, easing = FastOutSlowInEasing)
                                     )
+                                }
+                            },
+                            onQueueDragDelta = { dy ->
+                                val screenH = with(density) { configuration.screenHeightDp.dp.toPx() }
+                                val newProg = (queueAnimatable.value - dy / screenH).coerceIn(0f, 1f)
+                                scope.launch { queueAnimatable.snapTo(newProg) }
+                            },
+                            onQueueDragEnd = { velocityY ->
+                                val flickVelocityPx = with(density) {
+                                    QUEUE_OPEN_FLICK_VELOCITY_DP.dp.toPx()
+                                }
+                                scope.launch {
+                                    if (queueAnimatable.value > 0.5f || velocityY < -flickVelocityPx) {
+                                        queueAnimatable.animateTo(
+                                            1f,
+                                            tween(QUEUE_ANIM_MS, easing = FastOutSlowInEasing)
+                                        )
+                                    } else {
+                                        queueAnimatable.animateTo(
+                                            0f,
+                                            tween(QUEUE_ANIM_MS, easing = FastOutSlowInEasing)
+                                        )
+                                    }
                                 }
                             },
                             isFavorite = favoriteIds.contains(currentTrack?.id),
