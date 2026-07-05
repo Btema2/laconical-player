@@ -57,7 +57,7 @@ onQueueDragEnd = { velocityY ->
 - Downward drag on empty space: unaffected, still un-consumed, still bubbles to sheet-collapse.
 - Tap on any control (shuffle/repeat/favorite/menu/collapse/UP NEXT): unaffected.
 - Drag starting on a control, moving up past slop: control's press cancels, queue-open gesture claims. Acceptable/desirable.
-- Seek bar's own drag is horizontal; a horizontal seek drag won't cross vertical touch slop, so it won't false-trigger. No automated test for this, verify manually on device.
+- Seek bar: `VisualizerSeekBar` uses `detectDragGestures` (omnidirectional, not horizontal-locked), so a seek drag with vertical wobble past touch-slop could race with the root gesture. Guarded by an `event.changes.any { it.isConsumed }` bail-out in Phase 1 — if the seek bar's detector consumed first, the root gesture exits immediately. No automated test for this; verify manually on device.
 
 ## Testing
 

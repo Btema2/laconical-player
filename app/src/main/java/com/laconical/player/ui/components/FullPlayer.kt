@@ -155,6 +155,9 @@ fun FullPlayer(
                     // fully available to the sheet's own collapse-by-drag underneath.
                     while (!decided) {
                         val event = awaitPointerEvent()
+                        // Bail if a sibling (e.g. VisualizerSeekBar's detectDragGestures)
+                        // already consumed this event — first consumer wins.
+                        if (event.changes.any { it.isConsumed }) return@awaitEachGesture
                         val change = event.changes.firstOrNull { it.id == down.id }
                             ?: return@awaitEachGesture
                         if (!change.pressed) return@awaitEachGesture // tap, no drag
