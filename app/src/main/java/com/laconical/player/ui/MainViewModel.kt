@@ -458,6 +458,21 @@ class MainViewModel @Inject constructor(
             launchColorExtraction(track)
         }
 
+        /**
+         * Removes the current track + queue without shutting the player down: the singleton
+         * ExoPlayer/MediaController survive, playing nothing, ready for the next [playTracks].
+         * Driven by the miniplayer's 3-flick swipe-down-to-remove gesture (see LibraryScreen).
+         */
+        fun removePlayback() {
+            waveformJob?.cancel()
+            colorJob?.cancel()
+            musicPlayer.clear()
+            _currentQueue.value = emptyList()
+            _currentTrack.value = null
+            _playingTrackDominantColor.value = null
+            resetAmplitudeState()
+        }
+
         private fun resetAmplitudeState() {
             _waveformData.value = emptyList()
             cachedMaxAmplitude = 1

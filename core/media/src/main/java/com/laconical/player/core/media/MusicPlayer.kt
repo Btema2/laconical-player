@@ -44,6 +44,9 @@ interface MusicPlayer {
     fun play()
     fun pause()
     fun stop()
+
+    /** Stop playback and drop the entire queue/timeline (STATE_IDLE, mediaItemCount == 0). */
+    fun clear()
     fun skipToPrevious()
     fun skipToNext()
     fun seekTo(position: Long)
@@ -185,6 +188,16 @@ class MusicPlayerImpl @Inject constructor(
 
     override fun stop() {
         try { mediaController?.stop() } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    override fun clear() {
+        // clearMediaItems() (not stop() alone) is required: it empties the timeline and is
+        // the only thing that tears down the Media3 foreground notification — stop() alone
+        // transitions to STATE_IDLE but keeps the playlist, so a stale-track notification lingers.
+        try {
+            mediaController?.clearMediaItems()
+            mediaController?.stop()
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
     override fun skipToPrevious() {

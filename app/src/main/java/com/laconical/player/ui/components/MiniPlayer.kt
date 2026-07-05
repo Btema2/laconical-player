@@ -1,5 +1,6 @@
 package com.laconical.player.ui.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,6 +39,8 @@ fun MiniPlayer(
     modifier: Modifier = Modifier,
     /** When true the album-art slot is left empty (morphing overlay renders it instead). */
     hideArt: Boolean = false,
+    /** 0 = rest, 1 = first flick (pink warning), 2/3 = second+ flick (red warning). */
+    warningStage: Int = 0,
     onClick: () -> Unit = {}
 ) {
     val currentTrack by viewModel.currentTrack.collectAsState()
@@ -49,7 +52,7 @@ fun MiniPlayer(
 
     val surfaceColor = LocalAppSurface.current
 
-    val baseColor = if (vibeColor != null) {
+    val restAccent = if (vibeColor != null) {
         Color(
             red   = vibeColor!!.red   * 0.3f,
             green = vibeColor!!.green * 0.3f,
@@ -59,6 +62,17 @@ fun MiniPlayer(
     } else {
         surfaceColor
     }
+
+    // Swipe-down-to-remove warning tint: rest -> dark-adapted pink -> red, easing back on abort.
+    val baseColor by animateColorAsState(
+        targetValue = when (warningStage) {
+            0 -> restAccent
+            1 -> Color(0xFF6E2233)
+            else -> Color(0xFF7A1717)
+        },
+        animationSpec = tween(220),
+        label = "MiniWarnAccent"
+    )
 
     Box(
         modifier = modifier

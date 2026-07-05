@@ -78,8 +78,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import com.laconical.player.ui.navigation.navEnterTransition
 import com.laconical.player.ui.navigation.navExitTransition
 import com.laconical.player.ui.navigation.navPopEnterTransition
@@ -100,6 +104,17 @@ import com.laconical.player.ui.LocalAppSurface
 // Symmetric open/close duration for the queue morph (ms). Material standard easing
 // (FastOutSlowInEasing) is used in both directions so the motion feels the same in and out.
 private const val QUEUE_ANIM_MS = 300
+
+// ── Swipe-down-to-remove-playback tuning ────────────────────────────────────
+private const val DISMISS_FLICK_DISTANCE_DP = 48
+private const val DISMISS_FLICK_VELOCITY_DP = 800
+private const val DISMISS_TOUCH_SLOP_DP = 6
+private const val DISMISS_OFFSCREEN_MARGIN_DP = 120
+private const val DISMISS_ABORT_TIMEOUT_MS = 1000L
+private const val DISMISS_TERMINAL_ANIM_MS = 280
+private const val DISMISS_HAPTIC_STAGE1_MS = 18L
+private const val DISMISS_HAPTIC_STAGE2_MS = 55L
+private const val DISMISS_HAPTIC_STAGE3_MS = 900L
 private val sortOrders = SortOrder.entries.toTypedArray()
 
 /**
@@ -206,6 +221,17 @@ fun LibraryScreen(
     val queueAnimatable = remember { Animatable(0f) }
     var isSearchOpen by remember { mutableStateOf(false) }
     val contentFadeProgress = remember { Animatable(0f) }
+
+    // ── Swipe-down-to-remove-playback (miniplayer) ──────────────────────────
+    // dismissOffsetY is the SOLE source of truth for how far the strip has been dragged.
+    // Applied ONLY via graphicsLayer.translationY (never a layout modifier) on both the
+    // MiniPlayer sheet content and the QueueMorphLayer mini-side elements, so it moves the
+    // whole strip as one unit without ever touching a measured node — the frozen morph
+    // anchors (sheetRootYPx, FullPlayer ghost positions) stay untouched. See CLAUDE.md
+    // "Animation Pitfalls" for why that discipline matters here.
+    val dismissOffsetY = remember { Animatable(0f) }
+    var warningStage by remember { mutableIntStateOf(0) } // 0=rest,1=pink,2=red,3=terminal
+    var terminating by remember { mutableStateOf(false) }
 
     LaunchedEffect(isSearchOpen) {
         if (isSearchOpen) {
@@ -402,9 +428,73 @@ fun LibraryScreen(
         }
     }
 
+    // ── Swipe-down-to-remove-playback: flick handler + stage machine ────────
+    // Placed after morphAnchors so the off-screen terminal target can use the frozen anchor's
+    // sheetRootYPx. Reads only vars declared above (density, containerHeightPx, morphAnchors,
+    // scope, context, viewModel) — all already in scope by this point in the function.
+    val dismissTuning = rememberUpdatedState(
+        DismissGestureTuning(
+            flickDistancePx = with(density) { DISMISS_FLICK_DISTANCE_DP.dp.toPx() },
+            flickVelocityPx = with(density) { DISMISS_FLICK_VELOCITY_DP.dp.toPx() },
+            touchSlopPx = with(density) { DISMISS_TOUCH_SLOP_DP.dp.toPx() },
+            offscreenTargetPx = (containerHeightPx - (morphAnchors?.sheetRootYPx ?: 0f))
+                .coerceAtLeast(0f) + with(density) { DISMISS_OFFSCREEN_MARGIN_DP.dp.toPx() },
+        )
+    )
+
+    val onFlick: () -> Unit = {
+        val next = warningStage + 1
+        warningStage = next
+        when (next) {
+            1 -> context.vibrateOneShot(DISMISS_HAPTIC_STAGE1_MS)
+            2 -> context.vibrateOneShot(DISMISS_HAPTIC_STAGE2_MS)
+            3 -> {
+                context.vibrateOneShot(DISMISS_HAPTIC_STAGE3_MS)
+                terminating = true
+                // Guard against the track changing (e.g. user taps a different track in the
+                // list) during the termination animation — removePlayback() must only fire if
+                // it's still clearing the track that was actually flicked away.
+                val flickedTrackId = currentTrack?.id
+                scope.launch {
+                    dismissOffsetY.animateTo(
+                        targetValue = dismissTuning.value.offscreenTargetPx,
+                        animationSpec = tween(DISMISS_TERMINAL_ANIM_MS, easing = FastOutLinearInEasing)
+                    )
+                    if (viewModel.currentTrack.value?.id == flickedTrackId) {
+                        viewModel.removePlayback()
+                    }
+                }
+            }
+            else -> {}
+        }
+    }
+    val onFlickState = rememberUpdatedState(onFlick)
+
+    // No flick within 1s of the last one aborts back to rest (no haptic on abort).
+    LaunchedEffect(warningStage) {
+        if (warningStage in 1..2) {
+            delay(DISMISS_ABORT_TIMEOUT_MS)
+            warningStage = 0
+        }
+    }
+
+    // Clean slate for the next track: strip is unmounted while currentTrack == null (MiniPlayer
+    // early-returns), so this snap is invisible — the next track's strip mounts already at rest.
+    LaunchedEffect(currentTrack) {
+        warningStage = 0
+        terminating = false
+        dismissOffsetY.snapTo(0f)
+    }
+
     val isExpanded = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded ||
             scaffoldState.bottomSheetState.targetValue == SheetValue.Expanded
     val miniAlpha = (1f - expandedFraction * 2f).coerceIn(0f, 1f)
+    // Same taper QueueMorphLayer's mini-side ghosts use for dismissOffsetY: 1 at collapsed
+    // rest, 0 the instant any morph begins. Keeps the MiniPlayer's own strip (background,
+    // gradient, progress bar) in lockstep with the ghost overlay it sits underneath — without
+    // this a residual dismiss offset (e.g. an abort spring-back interrupted by an expand)
+    // could leave the visible strip displaced while its ghost text/controls already snapped back.
+    val dismissMiniWeight = (1f - expandedFraction / 0.05f).coerceIn(0f, 1f)
 
     // Collapse queue automatically if player collapses while queue is open
     LaunchedEffect(expandedFraction) {
@@ -514,9 +604,13 @@ fun LibraryScreen(
                             MiniPlayer(
                                 viewModel = viewModel,
                                 hideArt = overlayActive,
+                                warningStage = warningStage,
                                 modifier = Modifier
                                     .align(Alignment.TopCenter)
-                                    .graphicsLayer { alpha = miniAlpha },
+                                    .graphicsLayer {
+                                        alpha = miniAlpha
+                                        translationY = dismissOffsetY.value * dismissMiniWeight
+                                    },
                                 onClick = {
                                     if (hasPermission) {
                                         scope.launch { scaffoldState.bottomSheetState.expand() }
@@ -879,6 +973,70 @@ fun LibraryScreen(
         // can no longer unmount it mid-animation (that unmount was the disappear/reappear
         // flash). All full-side values come from one consistent layout snapshot, so the
         // sheet-relative math never disagrees with itself.
+
+        // ── Swipe-down-to-remove-playback gesture surface ───────────────────────
+        // Transparent, topmost sibling over the collapsed strip (drawn above the scaffold's
+        // sheet, below the overlay controls painted by QueueMorphLayer below). Fully consumes
+        // DOWNWARD drags so the framework sheet never overscroll-bounces; leaves UPWARD drags
+        // and taps unconsumed so tap-to-expand still works. Only active at collapsed rest.
+        if (currentTrack != null && morphAnchors != null && expandedFraction < 0.05f && !terminating) {
+            val stripTopDp = with(density) { (morphAnchors?.sheetRootYPx ?: 0f).toDp() }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = stripTopDp)
+                    .height(miniPlayerHeight)
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val tracker = VelocityTracker()
+                            tracker.addPosition(down.uptimeMillis, down.position)
+                            var engaged = false
+                            var totalDy = 0f
+                            do {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull() ?: break
+                                if (!change.pressed) {
+                                    if (engaged) {
+                                        val tuning = dismissTuning.value
+                                        val velocityY = tracker.calculateVelocity().y
+                                        val isFlick = totalDy > tuning.flickDistancePx ||
+                                            velocityY > tuning.flickVelocityPx
+                                        if (isFlick) onFlickState.value()
+                                        // Stage 3's own animation already drives dismissOffsetY
+                                        // off-screen (started inside onFlick) — don't spring it
+                                        // back under that.
+                                        if (!(isFlick && warningStage >= 3)) {
+                                            scope.launch {
+                                                dismissOffsetY.animateTo(
+                                                    0f,
+                                                    spring(stiffness = Spring.StiffnessMedium)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    break
+                                }
+                                val dy = change.positionChange().y
+                                totalDy += dy
+                                val touchSlopPx = dismissTuning.value.touchSlopPx
+                                if (!engaged) {
+                                    if (totalDy < -touchSlopPx) break // upward -> let expand/tap through
+                                    if (totalDy > touchSlopPx) engaged = true
+                                }
+                                if (engaged) {
+                                    tracker.addPosition(change.uptimeMillis, change.position)
+                                    val next = (dismissOffsetY.value + dy)
+                                        .coerceIn(0f, dismissTuning.value.offscreenTargetPx)
+                                    scope.launch { dismissOffsetY.snapTo(next) }
+                                    change.consume()
+                                }
+                            } while (true)
+                        }
+                    }
+            )
+        }
+
         val morphTrack = currentTrack
         val anchors = morphAnchors
         if (morphTrack != null && anchors != null) {
@@ -888,6 +1046,7 @@ fun LibraryScreen(
                 viewModel = viewModel,
                 currentTrack = morphTrack,
                 expandedFraction = expandedFraction,
+                dismissOffsetY = dismissOffsetY,
                 collapsedSheetRootYPx = anchors.sheetRootYPx,
                 sheetRootYPx = anchors.sheetRootYPx,
                 fullTitleTopPx = anchors.titleTopPx,
@@ -1077,6 +1236,21 @@ private fun smootherstep(t: Float): Float {
     return x * x * x * (x * (x * 6f - 15f) + 10f)
 }
 
+/**
+ * Gesture-tuning values for the swipe-down-to-remove flick detector, recomputed every
+ * recomposition from [LocalDensity]/[containerHeightPx]/[MorphAnchors] but read inside a
+ * `pointerInput(Unit)` block whose coroutine is NOT relaunched on recomposition. Wrapped in
+ * `rememberUpdatedState` (like [onFlickState]) so a live resize (e.g. multi-window) can't leave
+ * the running gesture loop using stale distances — see CLAUDE.md's "stale lambda in
+ * pointerInput" rule.
+ */
+private data class DismissGestureTuning(
+    val flickDistancePx: Float,
+    val flickVelocityPx: Float,
+    val touchSlopPx: Float,
+    val offscreenTargetPx: Float,
+)
+
 private data class MorphAnchors(
     val sheetRootYPx: Float,
     val titleTopPx: Float,
@@ -1115,6 +1289,7 @@ private fun QueueMorphLayer(
     viewModel: MainViewModel,
     currentTrack: Track,
     expandedFraction: Float,
+    dismissOffsetY: Animatable<Float, AnimationVector1D>,
     collapsedSheetRootYPx: Float,
     sheetRootYPx: Float,
     fullTitleTopPx: Float,
@@ -1138,6 +1313,10 @@ private fun QueueMorphLayer(
 
     // Reading value HERE instead of in LibraryScreen is the performance fix.
     val queueProg = queueAnimatable.value
+
+    // Swipe-down-to-remove: 1 at collapsed rest, snaps to 0 the instant any morph begins, so
+    // dismissOffsetY (layer-only) never perturbs the mini<->full or full->queue transitions.
+    val miniWeight = (1f - expandedFraction / 0.05f).coerceIn(0f, 1f)
 
     val isStable = (expandedFraction < 0.05f && queueProg < 0.05f) ||
                    (expandedFraction > 0.95f && queueProg < 0.05f) ||
@@ -1277,7 +1456,8 @@ private fun QueueMorphLayer(
         isScrolling = isStable,
         modifier = Modifier
             .offset(x = finalTitleLeft, y = finalTitleTop)
-            .widthIn(max = finalTitleMaxWidthDp),
+            .widthIn(max = finalTitleMaxWidthDp)
+            .graphicsLayer { translationY = dismissOffsetY.value * miniWeight },
     )
 
     // ── Artist morph overlay ───────────────────────────────────────────
@@ -1302,7 +1482,8 @@ private fun QueueMorphLayer(
         isScrolling = isStable,
         modifier = Modifier
             .offset(x = finalArtistLeft, y = finalArtistTop)
-            .widthIn(max = finalTitleMaxWidthDp),
+            .widthIn(max = finalTitleMaxWidthDp)
+            .graphicsLayer { translationY = dismissOffsetY.value * miniWeight },
     )
 
     // ── Album art morph overlay ────────────────────────────────────────
@@ -1323,6 +1504,7 @@ private fun QueueMorphLayer(
             .graphicsLayer {
                 scaleX = animatedPulse
                 scaleY = animatedPulse
+                translationY = dismissOffsetY.value * miniWeight
             },
         contentAlignment = Alignment.Center
     ) {
@@ -1425,7 +1607,10 @@ private fun QueueMorphLayer(
             modifier = Modifier
                 .offset(x = prevCX - prevNextIconSize / 2, y = prevCY - prevNextIconSize / 2)
                 .size(prevNextIconSize)
-                .graphicsLayer { alpha = prevNextAlpha },
+                .graphicsLayer {
+                    alpha = prevNextAlpha
+                    translationY = dismissOffsetY.value * miniWeight
+                },
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -1440,6 +1625,7 @@ private fun QueueMorphLayer(
         modifier = Modifier
             .offset(x = playCX - playContainerSize / 2, y = playCY - playContainerSize / 2)
             .size(playContainerSize)
+            .graphicsLayer { translationY = dismissOffsetY.value * miniWeight }
             .clip(CircleShape)
             .background(animatedBtnColor.copy(alpha = circleAlpha))
             .clickable { viewModel.togglePlayPause() },
@@ -1458,7 +1644,10 @@ private fun QueueMorphLayer(
             modifier = Modifier
                 .offset(x = nextCX - prevNextIconSize / 2, y = nextCY - prevNextIconSize / 2)
                 .size(prevNextIconSize)
-                .graphicsLayer { alpha = prevNextAlpha },
+                .graphicsLayer {
+                    alpha = prevNextAlpha
+                    translationY = dismissOffsetY.value * miniWeight
+                },
             contentAlignment = Alignment.Center
         ) {
             Icon(
