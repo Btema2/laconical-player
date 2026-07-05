@@ -100,6 +100,7 @@ import com.laconical.player.ui.screens.SearchResultsPanel
 import com.laconical.player.core.data.db.entity.Playlist
 import com.laconical.player.ui.LocalAppBackground
 import com.laconical.player.ui.LocalAppSurface
+import kotlin.math.abs
 
 // Symmetric open/close duration for the queue morph (ms). Material standard easing
 // (FastOutSlowInEasing) is used in both directions so the motion feels the same in and out.
@@ -119,7 +120,20 @@ private const val DISMISS_TERMINAL_ANIM_MS = 280
 private const val DISMISS_HAPTIC_STAGE1_MS = 18L
 private const val DISMISS_HAPTIC_STAGE2_MS = 55L
 private const val DISMISS_HAPTIC_STAGE3_MS = 900L
+
+// ── Swipe-left/right-to-skip-track tuning ───────────────────────────────────
+private const val SKIP_FLICK_DISTANCE_DP = 64
+private const val SKIP_FLICK_VELOCITY_DP = 500
+// Capped drag at a hard edge (no adjacent track) — the strip resists past this point instead
+// of following the finger 1:1, signalling "nothing there" without fully locking the gesture.
+private const val SKIP_RUBBER_BAND_MAX_DP = 48
+private const val SKIP_OFFSCREEN_ANIM_MS = 200
+private const val SKIP_RETURN_ANIM_MS = 260
+private const val SKIP_HAPTIC_MS = 12L
 private val sortOrders = SortOrder.entries.toTypedArray()
+
+/** Which axis a diagonal drag has committed to — set once and held for the rest of the gesture. */
+private enum class DragAxis { VERTICAL, HORIZONTAL }
 
 /**
  * Main library screen.
@@ -236,6 +250,16 @@ fun LibraryScreen(
     val dismissOffsetY = remember { Animatable(0f) }
     var warningStage by remember { mutableIntStateOf(0) } // 0=rest,1=pink,2=red,3=terminal
     var terminating by remember { mutableStateOf(false) }
+
+    // ── Swipe-left/right-to-skip-track (miniplayer) ─────────────────────────
+    // skipOffsetX mirrors dismissOffsetY exactly: sole source of truth for horizontal strip
+    // displacement, applied ONLY via graphicsLayer.translationX on MiniPlayer + the
+    // QueueMorphLayer mini-side ghosts — same layer-only discipline that protects the frozen
+    // morph anchors (see the dismissOffsetY comment above / CLAUDE.md "Animation Pitfalls").
+    val skipOffsetX = remember { Animatable(0f) }
+    // True for the duration of the slide-out -> track-change -> slide-in sequence, so a new
+    // gesture can't race an in-flight skip.
+    var skipping by remember { mutableStateOf(false) }
 
     LaunchedEffect(isSearchOpen) {
         if (isSearchOpen) {
@@ -436,14 +460,18 @@ fun LibraryScreen(
     // Placed after morphAnchors so the off-screen terminal target can use the frozen anchor's
     // sheetRootYPx. Reads only vars declared above (density, containerHeightPx, morphAnchors,
     // scope, context, viewModel) — all already in scope by this point in the function.
-    val dismissTuning = rememberUpdatedState(
-        DismissGestureTuning(
+    val gestureTuning = rememberUpdatedState(
+        MiniPlayerGestureTuning(
             flickDistancePx = with(density) { DISMISS_FLICK_DISTANCE_DP.dp.toPx() },
             flickVelocityPx = with(density) { DISMISS_FLICK_VELOCITY_DP.dp.toPx() },
             touchSlopPx = with(density) { DISMISS_TOUCH_SLOP_DP.dp.toPx() },
             offscreenTargetPx = (containerHeightPx - (morphAnchors?.sheetRootYPx ?: 0f))
                 .coerceAtLeast(0f) + with(density) { DISMISS_OFFSCREEN_MARGIN_DP.dp.toPx() },
             liveBounceMaxPx = with(density) { DISMISS_LIVE_BOUNCE_MAX_DP.dp.toPx() },
+            skipFlickDistancePx = with(density) { SKIP_FLICK_DISTANCE_DP.dp.toPx() },
+            skipFlickVelocityPx = with(density) { SKIP_FLICK_VELOCITY_DP.dp.toPx() },
+            screenWidthPx = with(density) { screenWidthDp.toPx() },
+            skipRubberBandMaxPx = with(density) { SKIP_RUBBER_BAND_MAX_DP.dp.toPx() },
         )
     )
 
@@ -462,7 +490,7 @@ fun LibraryScreen(
                 val flickedTrackId = currentTrack?.id
                 scope.launch {
                     dismissOffsetY.animateTo(
-                        targetValue = dismissTuning.value.offscreenTargetPx,
+                        targetValue = gestureTuning.value.offscreenTargetPx,
                         animationSpec = tween(DISMISS_TERMINAL_ANIM_MS, easing = FastOutLinearInEasing)
                     )
                     if (viewModel.currentTrack.value?.id == flickedTrackId) {
@@ -474,6 +502,37 @@ fun LibraryScreen(
         }
     }
     val onFlickState = rememberUpdatedState(onFlick)
+
+    // ── Swipe-left/right-to-skip-track: commit sequence ─────────────────────
+    // forward=true -> next track (strip exits left), forward=false -> previous (exits right).
+    // The track change happens between the two animations, while the strip is fully off-screen,
+    // so the swap never flashes at the wrong position. `skipping` blocks a second gesture from
+    // racing this sequence; currentTrack recomposes mid-sequence (that's the whole point), so
+    // this deliberately does NOT touch the LaunchedEffect(currentTrack) resets above/below.
+    val onSkipCommit: (Boolean) -> Unit = { forward ->
+        skipping = true
+        context.vibrateOneShot(SKIP_HAPTIC_MS)
+        val screenWidthPx = gestureTuning.value.screenWidthPx
+        val exitTarget = if (forward) -screenWidthPx else screenWidthPx
+        val enterFrom = -exitTarget
+        // Guard against a natural auto-advance (onMediaItemTransition) racing the ~200ms slide-out
+        // — same class of race the vertical dismiss flow guards against with flickedTrackId above.
+        // Without this, nextTrack()/previousTrack() would fire against whatever track happens to be
+        // current once the animation completes, not the one the user actually swiped away from,
+        // causing a double-skip. If the track already changed on its own, trust that change instead
+        // of compounding it — the visual sequence still reflects whatever currentTrack ends up as.
+        val startTrackId = viewModel.currentTrack.value?.id
+        scope.launch {
+            skipOffsetX.animateTo(exitTarget, tween(SKIP_OFFSCREEN_ANIM_MS, easing = FastOutLinearInEasing))
+            if (viewModel.currentTrack.value?.id == startTrackId) {
+                if (forward) viewModel.nextTrack() else viewModel.previousTrack()
+            }
+            skipOffsetX.snapTo(enterFrom)
+            skipOffsetX.animateTo(0f, tween(SKIP_RETURN_ANIM_MS, easing = FastOutSlowInEasing))
+            skipping = false
+        }
+    }
+    val onSkipCommitState = rememberUpdatedState(onSkipCommit)
 
     // No flick within 1s of the last one aborts back to rest (no haptic on abort).
     LaunchedEffect(warningStage) {
@@ -622,6 +681,7 @@ fun LibraryScreen(
                                     .graphicsLayer {
                                         alpha = miniAlpha
                                         translationY = dismissOffsetY.value * dismissMiniWeight
+                                        translationX = skipOffsetX.value * dismissMiniWeight
                                     },
                                 onClick = {
                                     if (hasPermission) {
@@ -986,14 +1046,21 @@ fun LibraryScreen(
         // flash). All full-side values come from one consistent layout snapshot, so the
         // sheet-relative math never disagrees with itself.
 
-        // ── Swipe-down-to-remove-playback gesture surface ───────────────────────
+        // ── Miniplayer gesture surface: swipe-down-to-remove + swipe-left/right-to-skip ────
         // Topmost sibling over the collapsed strip's LEFT region only (padding(end=120dp)
         // mirrors MiniPlayer's own clickable region, staying clear of the prev/play/next
-        // buttons QueueMorphLayer draws on top). Fully consumes DOWNWARD drags so the
-        // framework sheet never overscroll-bounces. A plain tap (no engaged drag) explicitly
-        // triggers expand itself — this surface sits above MiniPlayer's own clickable, so
-        // tap-to-expand must not depend on the tap passing through to it underneath.
-        if (currentTrack != null && morphAnchors != null && expandedFraction < 0.05f && !terminating) {
+        // buttons QueueMorphLayer draws on top). ONE gesture handler for both directions —
+        // adding a second competing pointerInput is exactly what would let a diagonal drag
+        // trigger both a skip and a remove action. Instead, the first axis whose accumulated
+        // movement crosses touch slop is LOCKED for the rest of the gesture; the other axis is
+        // ignored entirely, so a diagonal drag always resolves to a single clean direction.
+        // Fully consumes drags on the locked axis so the framework sheet never overscroll-
+        // bounces. A plain tap (never crosses slop on either axis) explicitly triggers expand —
+        // this surface sits above MiniPlayer's own clickable, so tap-to-expand must not depend
+        // on the tap passing through to it underneath.
+        if (currentTrack != null && morphAnchors != null && expandedFraction < 0.05f &&
+            !terminating && !skipping
+        ) {
             val stripTopDp = with(density) { (morphAnchors?.sheetRootYPx ?: 0f).toDp() }
             Box(
                 modifier = Modifier
@@ -1006,63 +1073,123 @@ fun LibraryScreen(
                             val down = awaitFirstDown(requireUnconsumed = false)
                             val tracker = VelocityTracker()
                             tracker.addPosition(down.uptimeMillis, down.position)
-                            var engaged = false
+                            var lockedAxis: DragAxis? = null
+                            var totalDx = 0f
                             var totalDy = 0f
                             do {
                                 val event = awaitPointerEvent()
                                 val change = event.changes.firstOrNull() ?: break
                                 if (!change.pressed) {
-                                    if (engaged) {
-                                        val tuning = dismissTuning.value
-                                        val velocityY = tracker.calculateVelocity().y
-                                        val isFlick = totalDy > tuning.flickDistancePx ||
-                                            velocityY > tuning.flickVelocityPx
-                                        if (isFlick) onFlickState.value()
-                                        // Stage 3's own animation already drives dismissOffsetY
-                                        // off-screen (started inside onFlick) — don't spring it
-                                        // back under that.
-                                        if (!(isFlick && warningStage >= 3)) {
-                                            scope.launch {
-                                                dismissOffsetY.animateTo(
-                                                    0f,
-                                                    spring(stiffness = Spring.StiffnessMedium)
-                                                )
+                                    when (lockedAxis) {
+                                        DragAxis.VERTICAL -> {
+                                            val tuning = gestureTuning.value
+                                            val velocityY = tracker.calculateVelocity().y
+                                            val isFlick = totalDy > tuning.flickDistancePx ||
+                                                velocityY > tuning.flickVelocityPx
+                                            if (isFlick) onFlickState.value()
+                                            // Stage 3's own animation already drives dismissOffsetY
+                                            // off-screen (started inside onFlick) — don't spring it
+                                            // back under that.
+                                            if (!(isFlick && warningStage >= 3)) {
+                                                scope.launch {
+                                                    dismissOffsetY.animateTo(
+                                                        0f,
+                                                        spring(stiffness = Spring.StiffnessMedium)
+                                                    )
+                                                }
                                             }
                                         }
-                                    } else if (hasPermission) {
-                                        // Plain tap, no meaningful drag -> expand to full player.
-                                        scope.launch { scaffoldState.bottomSheetState.expand() }
+                                        DragAxis.HORIZONTAL -> {
+                                            val tuning = gestureTuning.value
+                                            val velocityX = tracker.calculateVelocity().x
+                                            val isFlick = abs(totalDx) > tuning.skipFlickDistancePx ||
+                                                abs(velocityX) > tuning.skipFlickVelocityPx
+                                            // A fast final flick can reverse a small net displacement
+                                            // (e.g. drag right a little, then flick left) — when
+                                            // velocity alone is what crossed the flick threshold,
+                                            // its sign is the real intent, not the net drag position.
+                                            val forward = if (abs(velocityX) > tuning.skipFlickVelocityPx)
+                                                velocityX < 0f else totalDx < 0f
+                                            val canMove = if (forward) viewModel.hasNextTrack()
+                                                          else viewModel.hasPreviousTrack()
+                                            if (isFlick && canMove) {
+                                                // onSkipCommit owns skipOffsetX's animation from
+                                                // here (slide-out -> swap -> slide-in) — don't
+                                                // spring it back under that sequence.
+                                                onSkipCommitState.value(forward)
+                                            } else {
+                                                scope.launch {
+                                                    skipOffsetX.animateTo(
+                                                        0f,
+                                                        spring(stiffness = Spring.StiffnessMedium)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        null -> {
+                                            // Plain tap, never crossed slop -> expand to full player.
+                                            if (hasPermission) {
+                                                scope.launch { scaffoldState.bottomSheetState.expand() }
+                                            }
+                                        }
                                     }
                                     break
                                 }
+                                val dx = change.positionChange().x
                                 val dy = change.positionChange().y
+                                totalDx += dx
                                 totalDy += dy
-                                val touchSlopPx = dismissTuning.value.touchSlopPx
-                                if (!engaged) {
-                                    if (totalDy < -touchSlopPx) {
-                                        // Upward intent: same issue as the tap case above — this
-                                        // surface sits above the sheet's own drag handler, so an
-                                        // unconsumed upward move does not reliably bubble down to
-                                        // it either. Self-handle by expanding directly.
-                                        if (hasPermission) {
-                                            scope.launch { scaffoldState.bottomSheetState.expand() }
+                                val touchSlopPx = gestureTuning.value.touchSlopPx
+                                if (lockedAxis == null) {
+                                    if (abs(totalDx) > touchSlopPx || abs(totalDy) > touchSlopPx) {
+                                        lockedAxis = if (abs(totalDx) > abs(totalDy))
+                                            DragAxis.HORIZONTAL else DragAxis.VERTICAL
+                                        if (lockedAxis == DragAxis.VERTICAL && totalDy < 0f) {
+                                            // Upward intent: same issue as the tap case above — this
+                                            // surface sits above the sheet's own drag handler, so an
+                                            // unconsumed upward move does not reliably bubble down to
+                                            // it either. Self-handle by expanding directly.
+                                            if (hasPermission) {
+                                                scope.launch { scaffoldState.bottomSheetState.expand() }
+                                            }
+                                            break
                                         }
-                                        break
                                     }
-                                    if (totalDy > touchSlopPx) engaged = true
                                 }
-                                if (engaged) {
-                                    tracker.addPosition(change.uptimeMillis, change.position)
-                                    // Flick 1/2 only bounce a short, fixed distance (matches the
-                                    // original small overscroll bounce, clear of the nav bar);
-                                    // only flick 3's drag (warningStage already 2, about to
-                                    // become 3) is allowed to travel the full off-screen distance.
-                                    val tuning = dismissTuning.value
-                                    val liveMax = if (warningStage < 2) tuning.liveBounceMaxPx
-                                                  else tuning.offscreenTargetPx
-                                    val next = (dismissOffsetY.value + dy).coerceIn(0f, liveMax)
-                                    scope.launch { dismissOffsetY.snapTo(next) }
-                                    change.consume()
+                                when (lockedAxis) {
+                                    DragAxis.VERTICAL -> {
+                                        // Only reached for downward drags — upward already broke above.
+                                        tracker.addPosition(change.uptimeMillis, change.position)
+                                        // Flick 1/2 only bounce a short, fixed distance (matches the
+                                        // original small overscroll bounce, clear of the nav bar);
+                                        // only flick 3's drag (warningStage already 2, about to
+                                        // become 3) is allowed to travel the full off-screen distance.
+                                        val tuning = gestureTuning.value
+                                        val liveMax = if (warningStage < 2) tuning.liveBounceMaxPx
+                                                      else tuning.offscreenTargetPx
+                                        val next = (dismissOffsetY.value + dy).coerceIn(0f, liveMax)
+                                        scope.launch { dismissOffsetY.snapTo(next) }
+                                        change.consume()
+                                    }
+                                    DragAxis.HORIZONTAL -> {
+                                        tracker.addPosition(change.uptimeMillis, change.position)
+                                        val tuning = gestureTuning.value
+                                        val forward = totalDx < 0f
+                                        val canMove = if (forward) viewModel.hasNextTrack()
+                                                      else viewModel.hasPreviousTrack()
+                                        val next = if (canMove) {
+                                            (skipOffsetX.value + dx)
+                                                .coerceIn(-tuning.screenWidthPx, tuning.screenWidthPx)
+                                        } else {
+                                            // Hard edge: damped rubber-band, capped well short of a
+                                            // full travel — signals "nothing there" without a hard lock.
+                                            (skipOffsetX.value + dx * 0.5f)
+                                                .coerceIn(-tuning.skipRubberBandMaxPx, tuning.skipRubberBandMaxPx)
+                                        }
+                                        scope.launch { skipOffsetX.snapTo(next) }
+                                        change.consume()
+                                    }
+                                    null -> {} // still within slop on both axes, nothing to apply yet
                                 }
                             } while (true)
                         }
@@ -1080,6 +1207,7 @@ fun LibraryScreen(
                 currentTrack = morphTrack,
                 expandedFraction = expandedFraction,
                 dismissOffsetY = dismissOffsetY,
+                skipOffsetX = skipOffsetX,
                 collapsedSheetRootYPx = anchors.sheetRootYPx,
                 sheetRootYPx = anchors.sheetRootYPx,
                 fullTitleTopPx = anchors.titleTopPx,
@@ -1270,19 +1398,27 @@ private fun smootherstep(t: Float): Float {
 }
 
 /**
- * Gesture-tuning values for the swipe-down-to-remove flick detector, recomputed every
- * recomposition from [LocalDensity]/[containerHeightPx]/[MorphAnchors] but read inside a
+ * Gesture-tuning values for the miniplayer's unified gesture surface — both the swipe-down-to-
+ * remove flick detector and the swipe-left/right-to-skip detector share this one snapshot (one
+ * gesture surface, one `awaitEachGesture`, one tuning value). Recomputed every recomposition
+ * from [LocalDensity]/[containerHeightPx]/[MorphAnchors]/[screenWidthDp] but read inside a
  * `pointerInput(Unit)` block whose coroutine is NOT relaunched on recomposition. Wrapped in
- * `rememberUpdatedState` (like [onFlickState]) so a live resize (e.g. multi-window) can't leave
- * the running gesture loop using stale distances — see CLAUDE.md's "stale lambda in
- * pointerInput" rule.
+ * `rememberUpdatedState` (like [onFlickState]/[onSkipCommitState]) so a live resize (e.g.
+ * multi-window) can't leave the running gesture loop using stale distances — see CLAUDE.md's
+ * "stale lambda in pointerInput" rule.
  */
-private data class DismissGestureTuning(
+private data class MiniPlayerGestureTuning(
     val flickDistancePx: Float,
     val flickVelocityPx: Float,
     val touchSlopPx: Float,
     val offscreenTargetPx: Float,
     val liveBounceMaxPx: Float,
+    // Swipe-left/right-to-skip fields — bundled into the same rememberUpdatedState-wrapped
+    // tuning value as the swipe-down fields above (one gesture surface, one tuning snapshot).
+    val skipFlickDistancePx: Float,
+    val skipFlickVelocityPx: Float,
+    val screenWidthPx: Float,
+    val skipRubberBandMaxPx: Float,
 )
 
 private data class MorphAnchors(
@@ -1324,6 +1460,7 @@ private fun QueueMorphLayer(
     currentTrack: Track,
     expandedFraction: Float,
     dismissOffsetY: Animatable<Float, AnimationVector1D>,
+    skipOffsetX: Animatable<Float, AnimationVector1D>,
     collapsedSheetRootYPx: Float,
     sheetRootYPx: Float,
     fullTitleTopPx: Float,
@@ -1491,7 +1628,10 @@ private fun QueueMorphLayer(
         modifier = Modifier
             .offset(x = finalTitleLeft, y = finalTitleTop)
             .widthIn(max = finalTitleMaxWidthDp)
-            .graphicsLayer { translationY = dismissOffsetY.value * miniWeight },
+            .graphicsLayer {
+                translationY = dismissOffsetY.value * miniWeight
+                translationX = skipOffsetX.value * miniWeight
+            },
     )
 
     // ── Artist morph overlay ───────────────────────────────────────────
@@ -1517,7 +1657,10 @@ private fun QueueMorphLayer(
         modifier = Modifier
             .offset(x = finalArtistLeft, y = finalArtistTop)
             .widthIn(max = finalTitleMaxWidthDp)
-            .graphicsLayer { translationY = dismissOffsetY.value * miniWeight },
+            .graphicsLayer {
+                translationY = dismissOffsetY.value * miniWeight
+                translationX = skipOffsetX.value * miniWeight
+            },
     )
 
     // ── Album art morph overlay ────────────────────────────────────────
@@ -1539,6 +1682,7 @@ private fun QueueMorphLayer(
                 scaleX = animatedPulse
                 scaleY = animatedPulse
                 translationY = dismissOffsetY.value * miniWeight
+                translationX = skipOffsetX.value * miniWeight
             },
         contentAlignment = Alignment.Center
     ) {
@@ -1644,6 +1788,7 @@ private fun QueueMorphLayer(
                 .graphicsLayer {
                     alpha = prevNextAlpha
                     translationY = dismissOffsetY.value * miniWeight
+                    translationX = skipOffsetX.value * miniWeight
                 },
             contentAlignment = Alignment.Center
         ) {
@@ -1659,7 +1804,10 @@ private fun QueueMorphLayer(
         modifier = Modifier
             .offset(x = playCX - playContainerSize / 2, y = playCY - playContainerSize / 2)
             .size(playContainerSize)
-            .graphicsLayer { translationY = dismissOffsetY.value * miniWeight }
+            .graphicsLayer {
+                translationY = dismissOffsetY.value * miniWeight
+                translationX = skipOffsetX.value * miniWeight
+            }
             .clip(CircleShape)
             .background(animatedBtnColor.copy(alpha = circleAlpha))
             .clickable { viewModel.togglePlayPause() },
@@ -1681,6 +1829,7 @@ private fun QueueMorphLayer(
                 .graphicsLayer {
                     alpha = prevNextAlpha
                     translationY = dismissOffsetY.value * miniWeight
+                    translationX = skipOffsetX.value * miniWeight
                 },
             contentAlignment = Alignment.Center
         ) {

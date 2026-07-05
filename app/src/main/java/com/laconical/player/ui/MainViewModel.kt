@@ -587,6 +587,16 @@ class MainViewModel @Inject constructor(
         fun skipToPrevious() { musicPlayer.skipToPrevious() }
         fun skipToNext() { musicPlayer.skipToNext() }
 
+        /**
+         * Always-adjacent-track variants for the miniplayer's swipe-left/right-to-skip gesture —
+         * unlike [skipToPrevious], never restarts the current track, so the slide always shows a
+         * different song. [hasNextTrack]/[hasPreviousTrack] gate the gesture's rubber-band edges.
+         */
+        fun nextTrack() { musicPlayer.nextTrack() }
+        fun previousTrack() { musicPlayer.previousTrack() }
+        fun hasNextTrack(): Boolean = musicPlayer.hasNext()
+        fun hasPreviousTrack(): Boolean = musicPlayer.hasPrevious()
+
         fun seekTo(progress: Float) {
             val dur = musicPlayer.duration.value
             if (dur > 0) musicPlayer.seekTo((progress * dur).toLong())

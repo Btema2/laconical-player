@@ -49,6 +49,19 @@ interface MusicPlayer {
     fun clear()
     fun skipToPrevious()
     fun skipToNext()
+
+    /**
+     * Always moves to the true adjacent track (unlike [skipToPrevious], which restarts the
+     * current track if more than a few seconds have played). Used by the miniplayer's
+     * swipe-left/right-to-skip gesture, where the slide must always show a different song.
+     */
+    fun nextTrack()
+    fun previousTrack()
+
+    /** Whether an adjacent track exists in the given direction, honoring repeat mode + shuffle. */
+    fun hasNext(): Boolean
+    fun hasPrevious(): Boolean
+
     fun seekTo(position: Long)
 
     /** Load an entire playlist and start playing from [startIndex]. */
@@ -207,6 +220,20 @@ class MusicPlayerImpl @Inject constructor(
     override fun skipToNext() {
         try { mediaController?.seekToNext() } catch (e: Exception) { e.printStackTrace() }
     }
+
+    override fun nextTrack() {
+        try { mediaController?.seekToNextMediaItem() } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    override fun previousTrack() {
+        try { mediaController?.seekToPreviousMediaItem() } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    override fun hasNext(): Boolean =
+        try { mediaController?.hasNextMediaItem() ?: false } catch (e: Exception) { e.printStackTrace(); false }
+
+    override fun hasPrevious(): Boolean =
+        try { mediaController?.hasPreviousMediaItem() ?: false } catch (e: Exception) { e.printStackTrace(); false }
 
     override fun seekTo(position: Long) {
         try { mediaController?.seekTo(position) } catch (e: Exception) { e.printStackTrace() }
