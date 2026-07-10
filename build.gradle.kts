@@ -6,12 +6,12 @@ buildscript {
             add("classpath", "org.jdom:jdom2:2.0.6.1")
             // Netty vulnerabilities (Dependabot #10–#15, #17, #19–#20, #24–#29, #31–#39).
             // All Netty modules must be pinned to the same version.
-            add("classpath", "io.netty:netty-codec:4.2.15.Final")
-            add("classpath", "io.netty:netty-codec-http:4.2.15.Final")
-            add("classpath", "io.netty:netty-codec-http2:4.2.15.Final")
-            add("classpath", "io.netty:netty-common:4.2.15.Final")
-            add("classpath", "io.netty:netty-handler:4.2.15.Final")
-            add("classpath", "io.netty:netty-handler-proxy:4.2.15.Final")
+            add("classpath", "io.netty:netty-codec:4.2.16.Final")
+            add("classpath", "io.netty:netty-codec-http:4.2.16.Final")
+            add("classpath", "io.netty:netty-codec-http2:4.2.16.Final")
+            add("classpath", "io.netty:netty-common:4.2.16.Final")
+            add("classpath", "io.netty:netty-handler:4.2.16.Final")
+            add("classpath", "io.netty:netty-handler-proxy:4.2.16.Final")
             // Bouncy Castle vulnerabilities (Dependabot #21–#23).
             add("classpath", "org.bouncycastle:bcprov-jdk18on:1.84")
             add("classpath", "org.bouncycastle:bcpkix-jdk18on:1.84")
