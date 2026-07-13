@@ -97,6 +97,7 @@ import com.laconical.player.ui.screens.FavoritesScreen
 import com.laconical.player.ui.screens.PlaylistDetailScreen
 import com.laconical.player.ui.screens.PlaylistsScreen
 import com.laconical.player.ui.screens.SearchResultsPanel
+import com.laconical.player.ui.screens.SettingsScreen
 import com.laconical.player.core.data.db.entity.Playlist
 import com.laconical.player.ui.LocalAppBackground
 import com.laconical.player.ui.LocalAppSurface
@@ -724,7 +725,7 @@ fun LibraryScreen(
                 },
                 containerColor = Color.Transparent,
                 topBar = {
-                    if (hasPermission) {
+                    if (hasPermission && rawRoute != NavRoute.SETTINGS) {
                         LaconicalTopBar(
                             isSearchOpen = isSearchOpen,
                             searchQuery = searchQuery,
@@ -734,6 +735,7 @@ fun LibraryScreen(
                                 isSearchOpen = false
                             },
                             onQueryChange = viewModel::updateSearchQuery,
+                            onSettingsClick = { navController.navigate(NavRoute.SETTINGS) },
                             dominantColor = playingTrackDominantColor
                         )
                     }
@@ -947,6 +949,16 @@ fun LibraryScreen(
                                         )
                                     }
                                 }
+                                composable(NavRoute.SETTINGS) {
+                                    val allTracks by viewModel.tracks.collectAsState()
+                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
+                                        SettingsScreen(
+                                            allTracks = allTracks,
+                                            dominantColor = playingTrackDominantColor,
+                                            onBack = { navController.popBackStack() }
+                                        )
+                                    }
+                                }
                             }
 
                             if (isTransitioning) {
@@ -989,7 +1001,7 @@ fun LibraryScreen(
         }
 
         // ── Bottom Navigation (fixed outside sheet so it doesn't ride up during drag) ──
-        if (hasPermission && expandedFraction < 0.99f) {
+        if (hasPermission && expandedFraction < 0.99f && rawRoute != NavRoute.SETTINGS) {
             val navBarHeightPx = with(density) { (bottomNavHeight + bottomInsets).toPx() }
             LaconicalBottomNav(
                 selectedRoute = when {
