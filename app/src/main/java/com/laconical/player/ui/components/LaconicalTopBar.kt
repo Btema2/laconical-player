@@ -53,6 +53,7 @@ fun LaconicalTopBar(
     onSearchOpen: () -> Unit,
     onSearchClose: () -> Unit,
     onQueryChange: (String) -> Unit,
+    onSettingsClick: () -> Unit = {},
     dominantColor: Color? = null,
     modifier: Modifier = Modifier
 ) {
@@ -118,7 +119,7 @@ fun LaconicalTopBar(
             modifier = Modifier.align(Alignment.CenterEnd)
         ) {
             IconButton(
-                onClick = { /* TODO: Settings */ },
+                onClick = onSettingsClick,
                 modifier = Modifier.graphicsLayer {
                     val p = (expandProgress.value / 0.55f).coerceIn(0f, 1f)
                     alpha = lerp(1f, 0f, p)
