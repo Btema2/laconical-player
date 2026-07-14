@@ -30,7 +30,9 @@ Laconical Player — open-source Android music player (Namida-inspired). Local a
 
 ## Architecture
 
-**State:** Single `@HiltViewModel` — `MainViewModel`. One screen (`LibraryScreen`) in `MainActivity.setContent`. NavHost with bottom-nav routes (Tracks, Albums, Artists, Playlists, Favorites).
+**State:** Single `@HiltViewModel` — `MainViewModel`. One screen (`LibraryScreen`) in `MainActivity.setContent`. NavHost with bottom-nav routes (Tracks, Albums, Artists, Playlists, Favorites) **plus** a full-screen `SETTINGS` route.
+
+**Settings route:** `NavRoute.SETTINGS` is a full-screen destination inside the same `NavHost`. It enters/exits via the normal horizontal slide (`navEnterTransition`/`navPopExitTransition`). The main chrome (top bar + bottom nav) fades out as the slide happens — driven by `chromeAlpha` (an `Animatable<Float>`) that is animated in a `LaunchedEffect(onSettings)` in sync with `SLIDE_DURATION_MS = 250 ms`. See Animation Pitfalls → TopBar decoupling for why the top bar must be a floating overlay, not in the scaffold `topBar` slot.
 
 **Key `StateFlow`s in `MainViewModel`:** `tracks`, `currentTrack`, `playingTrackDominantColor`, `isPlaying`, `currentPosition`, `duration`, `progress`, `queue` (backed by `_currentQueue` — context-specific, not global `_allTracks`), `currentQueueIndex`, `shuffleModeEnabled`, `repeatMode`, `waveform`, `beatPulse`, `_waveformData`, `_currentNormalizedAmplitude` (60 fps ticker, decays to zero when paused — zero CPU at idle), `searchedAlbums`, `searchedArtists`, `searchedPlaylists`, `playlistArtTracks`.
 
@@ -73,7 +75,7 @@ app/.../
     PlaylistBottomSheet.kt     # ModalBottomSheet for create/rename playlist
     TrackMenuOverlay.kt        # Unified track menu — morphs to playlist picker in-place
     LaconicalBottomNav.kt      # Bottom nav with selection indicator pill
-    NavTransitions.kt          # Directional slide transition specs
+    NavTransitions.kt          # Directional slide transition specs (SLIDE_DURATION_MS = 250 ms, internal→exported)
     StaggeredEntrance.kt       # Staggered list-item entrance modifier
   ui/screens/
     AlbumsScreen.kt / AlbumDetailScreen.kt
@@ -81,6 +83,7 @@ app/.../
     FavoritesScreen.kt
     PlaylistsScreen.kt / PlaylistDetailScreen.kt
     SearchScreen.kt            # Search results overlay (inline in LibraryScreen)
+    SettingsScreen.kt          # Full-screen settings — About card, Statistics card, dominant-color accent/separator
   ui/viewmodels/
     AlbumsViewModel.kt / ArtistsViewModel.kt
     PlaylistsViewModel.kt / PlaylistDetailViewModel.kt
@@ -112,6 +115,9 @@ Kotlin + Jetpack Compose (M3) · Hilt · Media3/ExoPlayer · Room · Coil 3 (cus
 - Dominant album art color tints UI via `playingTrackDominantColor`.
 - `Color.toHsl()` defined once in `ColorUtils.kt` — no inline duplicates.
 - All motion: compositor-only (`scale`, `alpha`, `offset` via `lerp`).
+- **Settings accent color:** HSV from dominant hue, saturation 0.45, value 0.75 — vibrant but controlled.
+- **Settings separator color:** HSV from dominant hue, saturation 0.15, value 0.40, alpha 0.80 — grayish tinted line.
+- **Settings icon adaptive-icon caveat:** `R.mipmap.ic_launcher` resolves to an `<adaptive-icon>` XML on API 26+. `painterResource` cannot decode it (throws `IllegalArgumentException`). Rasterize via `ContextCompat.getDrawable(...).toBitmap(192, 192).asImageBitmap()` and display with `Image(bitmap = ...)` instead.
 
 ## Memory Safety
 
@@ -154,7 +160,18 @@ translationY = when {
 
 **Stale lambda in `pointerInput`:** Never read a composition snapshot inside a `pointerInput` lambda. Read live source (`animatable.value`) or use `rememberUpdatedState`.
 
-**TopBar decoupling for full-screen transitions:** Do not put `LaconicalTopBar` in `BottomSheetScaffold`'s `topBar` slot if you have full-screen routes (like Settings) inside the content area. Because `BottomSheetScaffold` places its content below the topBar, dynamically showing/hiding topBar in the slot causes the content height to snap, resulting in vertical teleportation at the end of the slide transition. Instead, keep the scaffold `topBar` slot empty, draw `LaconicalTopBar` as a floating overlay inside the content Box, and apply static top padding (`topBarHeight = statusBarPadding + 60.dp`) individually to the main content screens inside the `NavHost` (but not the full-screen Settings screen).
+**TopBar decoupling for full-screen nav routes (Settings pattern — PR #48):** Do NOT place `LaconicalTopBar` in `BottomSheetScaffold`'s `topBar` slot when any `NavHost` route is full-screen (e.g. Settings). Root cause chain:
+1. `BottomSheetScaffold` offsets its entire content area below the `topBar` slot height.
+2. Conditionally composing/deconstructing the topBar (even with an alpha fade) causes the Scaffold to recompute content height, snapping the content by `topBarHeight` in one frame — visible as the Settings screen teleporting up/down at transition edges.
+3. A secondary double-padding bug arises if you also manually add `topBarHeight` to the content Box: the Scaffold already offsets for the slot, so you pay the height twice.
+
+**Correct pattern:**
+- Leave `BottomSheetScaffold`'s `topBar` slot absent (or `null`).
+- Render `LaconicalTopBar` as a `Box` overlay (`Alignment.TopCenter`) inside the Scaffold content lambda.
+- Control visibility with `chromeAlpha: Animatable<Float>` — fade-only via `graphicsLayer { alpha = chromeAlpha.value }` (draw-time only, no layout reflow).
+- Animate `chromeAlpha` in a `LaunchedEffect(onSettings)` synced to `SLIDE_DURATION_MS`.
+- Apply a *static* `padding(top = topBarHeight)` where `topBarHeight = statusBarPadding + 60.dp` individually to every main-tab composable inside `NavHost`. Full-screen routes (Settings) do **not** get this padding — they handle `statusBarPadding` themselves.
+- The `chromeAlpha` driver also gates `BottomNav` visibility (`if (chromeAlpha.value > 0f)`) and multiplies its `graphicsLayer` alpha (`navBarVisualAlpha * chromeAlpha.value`) so both chrome elements fade together with the transition.
 
 ## Visual Design
 
