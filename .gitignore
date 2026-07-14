@@ -34,3 +34,8 @@ build_log.txt
 .claude/
 .openclaude/
 .superpowers/
+.codex/
+.github/hooks/
+
+# graphify knowledge graph (regenerable)
+graphify-out/
