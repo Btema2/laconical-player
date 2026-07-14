@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.height
@@ -222,7 +221,7 @@ fun TrackListItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     fontWeight = if (isActiveTrack) FontWeight.ExtraBold else FontWeight.Normal,
-                    color = if (isActiveTrack) titleColor else MaterialTheme.colorScheme.onSurface
+                    color = if (isActiveTrack) titleColor else Color.White
                 )
                 Text(
                     text = track.artist,
