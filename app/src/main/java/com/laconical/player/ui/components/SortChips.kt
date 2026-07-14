@@ -46,7 +46,7 @@ fun <T : SortLabel> SortChipRow(
     trailing: (@Composable () -> Unit)? = null
 ) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Bottom,
         modifier = modifier.padding(vertical = 4.dp)
     ) {
         LazyRow(
@@ -83,9 +83,16 @@ fun <T : SortLabel> SortChipRow(
 }
 
 /**
- * Large brightened-dominant-color shuffle circle, 1.5x the height of a
- * FilterChip (~32.dp chip height -> 48.dp). Uses the same HSL-brighten
- * formula as the FullPlayer play/pause button.
+ * Large brightened-dominant-color shuffle circle, 1.4x the height of a
+ * FilterChip's visual pill (~32.dp chip height -> 44.8.dp). Uses the same
+ * HSL-brighten formula as the FullPlayer play/pause button.
+ *
+ * FilterChip reserves Material's 48.dp minimum touch target around its
+ * 32.dp visual pill (8.dp invisible padding above and below), so its
+ * *layout* bottom sits 8.dp below its *visual* bottom. This circle has no
+ * such padding, so a bottom padding of 8.dp is added here to keep its
+ * visual bottom flush with the chips' visual bottom when the row is
+ * bottom-aligned (see [SortChipRow]).
  */
 @Composable
 fun ShuffleFab(
@@ -102,7 +109,8 @@ fun ShuffleFab(
 
     Box(
         modifier = modifier
-            .size(48.dp)
+            .padding(bottom = 8.dp)
+            .size(44.8.dp)
             .clip(CircleShape)
             .background(animatedColor)
             .clickable(onClick = onClick),
