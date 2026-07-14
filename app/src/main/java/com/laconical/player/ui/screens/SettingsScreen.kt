@@ -68,6 +68,14 @@ fun SettingsScreen(
         } ?: Color(0xFF9E9E9E)
     }
 
+    val separatorColor = remember(dominantColor) {
+        dominantColor?.let {
+            val hsl = it.toHsl()
+            Color(android.graphics.Color.HSVToColor(floatArrayOf(hsl[0] * 360f, 0.15f, 0.4f)))
+                .copy(alpha = 0.8f)
+        } ?: Color(0xCC444444)
+    }
+
     val appIconBitmap = remember {
         ContextCompat.getDrawable(context, R.mipmap.ic_launcher)!!
             .toBitmap(width = 192, height = 192)
@@ -110,6 +118,28 @@ fun SettingsScreen(
         }
 
         Spacer(Modifier.height(12.dp))
+
+        Text(
+            text = "Kinda empty here... Return after update to (probably 🤓) see more!",
+            color = Color(0xFF777777),
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 32.dp)
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        Spacer(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .height(1.dp)
+                .background(separatorColor)
+        )
+
+        Spacer(Modifier.height(16.dp))
 
         // ── About card ───────────────────────────────────────────
         SettingsSection(title = "About", icon = Icons.Filled.Info, accent = accent) {
@@ -173,19 +203,7 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(Modifier.height(32.dp))
-
-        Text(
-            text = "Kinda empty here... Return after update to (probably 🤓) see more!",
-            color = Color(0xFF777777),
-            fontSize = 13.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 32.dp)
-        )
-
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(180.dp))
     }
 }
 
