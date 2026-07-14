@@ -71,9 +71,12 @@ import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import com.laconical.player.core.model.Track
 import com.laconical.player.ui.AudioArtData
+import com.laconical.player.ui.SortOrder
+import com.laconical.player.ui.applySort
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.laconical.player.ui.components.PlaylistCoverMosaic
+import com.laconical.player.ui.components.SortChipRow
 import com.laconical.player.ui.viewmodels.PlaylistDetailViewModel
 import kotlin.math.roundToInt
 import com.laconical.player.ui.LocalAppBackground
@@ -90,6 +93,12 @@ fun PlaylistDetailScreen(
 ) {
     val playlist by viewModel.playlist.collectAsState()
     val tracks by viewModel.tracks.collectAsState()
+    var sortOrder by remember { mutableStateOf(SortOrder.DEFAULT) }
+    // DEFAULT preserves the saved manual (drag) order; any other sort is display-only.
+    val displayTracks = remember(tracks, sortOrder) {
+        if (sortOrder == SortOrder.DEFAULT) tracks else tracks.applySort(sortOrder)
+    }
+    val dragEnabled = sortOrder == SortOrder.DEFAULT
 
     val context = LocalContext.current
     var accentColor by remember { mutableStateOf(Color(0xFF4338CA)) }
@@ -123,6 +132,7 @@ fun PlaylistDetailScreen(
     val dragFromIndexState = remember { mutableIntStateOf(-1) }
     val dragOffsetYState = remember { mutableFloatStateOf(0f) }
     val listState = rememberLazyListState()
+    LaunchedEffect(sortOrder) { listState.scrollToItem(0) }
     val density = LocalDensity.current
     val itemHeightPx = with(density) { DETAIL_ITEM_HEIGHT.toPx() }
 
@@ -211,7 +221,16 @@ fun PlaylistDetailScreen(
             }
         }
 
-        if (tracks.isEmpty()) {
+        if (tracks.isNotEmpty()) {
+            SortChipRow(
+                options = SortOrder.entries.toList(),
+                selected = sortOrder,
+                onSelect = { sortOrder = it },
+                dominantColor = accentColor
+            )
+        }
+
+        if (displayTracks.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -230,16 +249,17 @@ fun PlaylistDetailScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = bottomPadding + 16.dp)
             ) {
-                itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
+                itemsIndexed(displayTracks, key = { _, track -> track.id }) { index, track ->
                     PlaylistDetailTrackRow(
                         track = track,
                         index = index,
-                        trackCount = tracks.size,
+                        trackCount = displayTracks.size,
                         itemHeightPx = itemHeightPx,
+                        dragEnabled = dragEnabled,
                         dragFromIndexState = dragFromIndexState,
                         dragOffsetYState = dragOffsetYState,
                         firstVisibleIndex = { listState.firstVisibleItemIndex },
-                        onTrackClick = { onPlayTracks(tracks, index) },
+                        onTrackClick = { onPlayTracks(displayTracks, index) },
                         onDragStart = {
                             dragFromIndexState.intValue = index
                             dragOffsetYState.floatValue = 0f
@@ -250,7 +270,7 @@ fun PlaylistDetailScreen(
                             val dy = dragOffsetYState.floatValue
                             if (from >= 0) {
                                 val to = (from + (dy / itemHeightPx).roundToInt())
-                                    .coerceIn(0, tracks.lastIndex)
+                                    .coerceIn(0, displayTracks.lastIndex)
                                 if (to != from) viewModel.moveTrack(from, to)
                             }
                             dragFromIndexState.intValue = -1
@@ -281,6 +301,7 @@ private fun PlaylistDetailTrackRow(
     index: Int,
     trackCount: Int,
     itemHeightPx: Float,
+    dragEnabled: Boolean,
     dragFromIndexState: MutableIntState,
     dragOffsetYState: MutableFloatState,
     firstVisibleIndex: () -> Int,
@@ -391,22 +412,28 @@ private fun PlaylistDetailTrackRow(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .pointerInput(track.id) {
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = { latestOnDragStart() },
-                            onDrag = { _, offset -> latestOnDragDelta(offset.y) },
-                            onDragEnd = { latestOnDragEnd() },
-                            onDragCancel = { latestOnDragCancel() }
-                        )
-                    },
+                    .then(
+                        if (dragEnabled) {
+                            Modifier.pointerInput(track.id) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { latestOnDragStart() },
+                                    onDrag = { _, offset -> latestOnDragDelta(offset.y) },
+                                    onDragEnd = { latestOnDragEnd() },
+                                    onDragCancel = { latestOnDragCancel() }
+                                )
+                            }
+                        } else Modifier
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.DragHandle,
-                    contentDescription = "Hold to reorder",
-                    tint = Color.Gray.copy(alpha = if (isDraggingThis) 0.85f else 0.40f),
-                    modifier = Modifier.size(20.dp)
-                )
+                if (dragEnabled) {
+                    Icon(
+                        imageVector = Icons.Default.DragHandle,
+                        contentDescription = "Hold to reorder",
+                        tint = Color.Gray.copy(alpha = if (isDraggingThis) 0.85f else 0.40f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }

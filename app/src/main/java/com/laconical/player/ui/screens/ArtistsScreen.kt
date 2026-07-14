@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import com.laconical.player.ui.components.staggeredEntrance
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -24,9 +25,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,30 +44,51 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.SingletonImageLoader
 import coil3.compose.SubcomposeAsyncImage
+import com.laconical.player.ui.ArtistSortOrder
 import com.laconical.player.ui.AudioArtData
+import com.laconical.player.ui.components.SortChipRow
 import com.laconical.player.ui.viewmodels.ArtistsViewModel
+
+private fun List<com.laconical.player.ui.viewmodels.Artist>.applySort(order: ArtistSortOrder) = when (order) {
+    ArtistSortOrder.NAME -> sortedBy { it.name.lowercase() }
+    ArtistSortOrder.TRACKS -> sortedByDescending { it.trackCount }
+    ArtistSortOrder.ALBUMS -> sortedByDescending { it.albumCount }
+}
 
 @Composable
 fun ArtistsScreen(
     onArtistClick: (String) -> Unit,
+    dominantColor: Color? = null,
     modifier: Modifier = Modifier,
     viewModel: ArtistsViewModel = hiltViewModel()
 ) {
-    val artists by viewModel.artists.collectAsState()
+    val allArtists by viewModel.artists.collectAsState()
+    var sortOrder by remember { mutableStateOf(ArtistSortOrder.NAME) }
+    val artists = remember(allArtists, sortOrder) { allArtists.applySort(sortOrder) }
+    val listState = rememberLazyListState()
+    LaunchedEffect(sortOrder) { listState.scrollToItem(0) }
     val context = LocalContext.current
 
-    if (artists.isEmpty()) {
+    if (allArtists.isEmpty()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("No artists found", style = MaterialTheme.typography.bodyLarge, color = Color.White)
         }
         return
     }
 
-    LazyColumn(
-        contentPadding = PaddingValues(vertical = 8.dp),
-        modifier = modifier.fillMaxSize()
-    ) {
-        itemsIndexed(artists, key = { _, artist -> artist.name }) { index, artist ->
+    Column(modifier = modifier.fillMaxSize()) {
+        SortChipRow(
+            options = ArtistSortOrder.entries.toList(),
+            selected = sortOrder,
+            onSelect = { sortOrder = it },
+            dominantColor = dominantColor
+        )
+        LazyColumn(
+            state = listState,
+            contentPadding = PaddingValues(vertical = 8.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            itemsIndexed(artists, key = { _, artist -> artist.name }) { index, artist ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -120,6 +145,7 @@ fun ArtistsScreen(
                     )
                 }
             }
+        }
         }
     }
 }
