@@ -35,12 +35,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.core.net.toUri
 import com.laconical.player.BuildConfig
 import com.laconical.player.R
@@ -64,6 +66,12 @@ fun SettingsScreen(
             val hsl = it.toHsl()
             Color(android.graphics.Color.HSVToColor(floatArrayOf(hsl[0] * 360f, 0.45f, 0.75f)))
         } ?: Color(0xFF9E9E9E)
+    }
+
+    val appIconBitmap = remember {
+        ContextCompat.getDrawable(context, R.mipmap.ic_launcher)!!
+            .toBitmap(width = 192, height = 192)
+            .asImageBitmap()
     }
 
     val trackCount = allTracks.size
@@ -107,7 +115,7 @@ fun SettingsScreen(
         SettingsSection(title = "About", icon = Icons.Filled.Info, accent = accent) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Image(
-                    painter = painterResource(R.mipmap.ic_launcher),
+                    bitmap = appIconBitmap,
                     contentDescription = "Laconical Player icon",
                     modifier = Modifier
                         .size(72.dp)
