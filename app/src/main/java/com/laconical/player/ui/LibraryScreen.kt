@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -58,6 +59,8 @@ import com.laconical.player.ui.components.QueueSheet
 import com.laconical.player.ui.components.FadingMarqueeText
 import com.laconical.player.ui.components.TrackMenuOverlay
 import com.laconical.player.ui.components.PlaylistMenuOverlay
+import com.laconical.player.ui.components.SortChipRow
+import com.laconical.player.ui.components.ShuffleFab
 import com.laconical.player.ui.components.PlaylistBottomSheet
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
@@ -771,38 +774,32 @@ fun LibraryScreen(
                             ) {
                                 composable(NavRoute.TRACKS) {
                                     val sortOrder by viewModel.sortOrder.collectAsState()
-    
+                                    val tracksListState = rememberLazyListState()
+                                    LaunchedEffect(sortOrder) { tracksListState.scrollToItem(0) }
+
                                     Column(
                                         modifier = Modifier
                                             .fillMaxSize()
                                             .background(LocalAppBackground.current)
                                             .padding(top = topBarHeight)
                                     ) {
-                                        LazyRow(
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 16.dp),
-                                            modifier = Modifier.padding(vertical = 4.dp)
-                                        ) {
-                                            items(sortOrders, key = { it.name }) { order ->
-                                                FilterChip(
-                                                    selected = sortOrder == order,
-                                                    onClick = { viewModel.setSortOrder(order) },
-                                                    label = { Text(order.label, style = MaterialTheme.typography.labelSmall) },
-                                                    colors = FilterChipDefaults.filterChipColors(
-                                                        selectedContainerColor = (playingTrackDominantColor ?: Color(0xFF404040)).copy(alpha = 0.35f),
-                                                        selectedLabelColor = Color.White,
-                                                        containerColor = Color.Transparent,
-                                                        labelColor = Color(0xFF888888)
-                                                    ),
-                                                    border = FilterChipDefaults.filterChipBorder(
-                                                        enabled = true,
-                                                        selected = sortOrder == order,
-                                                        borderColor = Color(0xFF444444),
-                                                        selectedBorderColor = Color.Transparent
-                                                    )
+                                        SortChipRow(
+                                            options = sortOrders.toList(),
+                                            selected = sortOrder,
+                                            onSelect = { viewModel.setSortOrder(it) },
+                                            dominantColor = playingTrackDominantColor,
+                                            trailing = {
+                                                ShuffleFab(
+                                                    dominantColor = playingTrackDominantColor,
+                                                    onClick = {
+                                                        if (tracks.isNotEmpty()) {
+                                                            val shuffled = tracks.shuffled()
+                                                            viewModel.playTracks(shuffled, 0)
+                                                        }
+                                                    }
                                                 )
                                             }
-                                        }
+                                        )
     
                                         if (tracks.isEmpty()) {
                                             Box(modifier = Modifier.fillMaxSize()) {
@@ -814,6 +811,7 @@ fun LibraryScreen(
                                             }
                                         } else {
                                             LazyColumn(
+                                                state = tracksListState,
                                                 modifier = Modifier.fillMaxSize(),
                                                 contentPadding = PaddingValues(bottom = trackListBottomPadding)
                                             ) {
@@ -855,7 +853,8 @@ fun LibraryScreen(
                                         AlbumsScreen(
                                             onAlbumClick = { albumName ->
                                                 navController.navigate(NavRoute.albumDetailRoute(albumName))
-                                            }
+                                            },
+                                            dominantColor = playingTrackDominantColor
                                         )
                                     }
                                 }
@@ -882,6 +881,7 @@ fun LibraryScreen(
                                             favoriteIds = favoriteIds,
                                             onFavoriteToggle = { viewModel.toggleFavorite(it) },
                                             onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
+                                            dominantColor = playingTrackDominantColor,
                                             bottomPadding = trackListBottomPadding
                                         )
                                     }
@@ -896,7 +896,8 @@ fun LibraryScreen(
                                         ArtistsScreen(
                                             onArtistClick = { artistName ->
                                                 navController.navigate(NavRoute.artistDetailRoute(artistName))
-                                            }
+                                            },
+                                            dominantColor = playingTrackDominantColor
                                         )
                                     }
                                 }
@@ -923,6 +924,7 @@ fun LibraryScreen(
                                             favoriteIds = favoriteIds,
                                             onFavoriteToggle = { viewModel.toggleFavorite(it) },
                                             onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
+                                            dominantColor = playingTrackDominantColor,
                                             bottomPadding = trackListBottomPadding
                                         )
                                     }

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Favorite
@@ -26,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,9 +47,17 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.laconical.player.core.data.db.entity.Playlist
 import com.laconical.player.core.model.Track
+import com.laconical.player.ui.PlaylistSortOrder
 import com.laconical.player.ui.components.PlaylistCoverMosaic
+import com.laconical.player.ui.components.SortChipRow
 import com.laconical.player.ui.components.staggeredEntrance
 import com.laconical.player.ui.viewmodels.PlaylistsViewModel
+
+private fun List<Playlist>.applySort(order: PlaylistSortOrder, trackCounts: Map<Long, Int>): List<Playlist> = when (order) {
+    PlaylistSortOrder.RECENT -> this
+    PlaylistSortOrder.NAME -> sortedBy { it.name.lowercase() }
+    PlaylistSortOrder.TRACKS -> sortedByDescending { trackCounts[it.id] ?: 0 }
+}
 
 @Composable
 fun PlaylistsScreen(
@@ -70,12 +80,20 @@ fun PlaylistsScreen(
     } else Color.White
     val playlists by viewModel.playlists.collectAsState()
     val artMap by viewModel.playlistArtTracks.collectAsState()
+    val trackCounts by viewModel.playlistTrackCounts.collectAsState()
+    var sortOrder by remember { mutableStateOf(PlaylistSortOrder.RECENT) }
+    val sortedPlaylists = remember(playlists, sortOrder, trackCounts) {
+        playlists.applySort(sortOrder, trackCounts)
+    }
+    val listState = rememberLazyListState()
+    LaunchedEffect(sortOrder) { listState.scrollToItem(0) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = Color.Transparent,
     ) { innerPadding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 top = innerPadding.calculateTopPadding(),
@@ -142,7 +160,15 @@ fun PlaylistsScreen(
                     }
                 }
             } else {
-                itemsIndexed(playlists, key = { _, playlist -> playlist.id }) { index, playlist ->
+                item {
+                    SortChipRow(
+                        options = PlaylistSortOrder.entries.toList(),
+                        selected = sortOrder,
+                        onSelect = { sortOrder = it },
+                        dominantColor = dominantColor
+                    )
+                }
+                itemsIndexed(sortedPlaylists, key = { _, playlist -> playlist.id }) { index, playlist ->
                     Box(modifier = Modifier.staggeredEntrance(index)) {
                         PlaylistRow(
                             playlist = playlist,

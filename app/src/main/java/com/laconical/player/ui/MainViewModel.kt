@@ -216,12 +216,7 @@ class MainViewModel @Inject constructor(
             it.title.contains(query, ignoreCase = true) ||
             it.artist.contains(query, ignoreCase = true)
         }
-        when (sort) {
-            SortOrder.DEFAULT -> filtered
-            SortOrder.TITLE -> filtered.sortedBy { it.title.lowercase() }
-            SortOrder.ARTIST -> filtered.sortedBy { it.artist.lowercase() }
-            SortOrder.DURATION -> filtered.sortedByDescending { it.durationMs }
-        }
+        filtered.applySort(sort)
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val searchedAlbums: StateFlow<List<Track>> = combine(_allTracks, _searchQuery) { allTracks, query ->

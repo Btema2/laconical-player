@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -36,6 +37,10 @@ class PlaylistsViewModel @Inject constructor(
             .groupBy { it.playlistId }
             .mapValues { (_, pts) -> pts.take(4).mapNotNull { trackMap[it.trackId] } }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    val playlistTrackCounts: StateFlow<Map<Long, Int>> = userDataRepository.getAllPlaylistTracks()
+        .map { pts -> pts.groupingBy { it.playlistId }.eachCount() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     init {
         viewModelScope.launch { _allTracks.value = mediaRepository.getTracks() }
