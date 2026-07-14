@@ -9,7 +9,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.navigation.NavBackStackEntry
 
-private const val SLIDE_DURATION_MS = 250
+internal const val SLIDE_DURATION_MS = 250
 
 internal val TAB_ORDER = mapOf(
     NavRoute.TRACKS    to 0,

@@ -154,6 +154,18 @@ translationY = when {
 
 **Stale lambda in `pointerInput`:** Never read a composition snapshot inside a `pointerInput` lambda. Read live source (`animatable.value`) or use `rememberUpdatedState`.
 
+**TopBar decoupling for full-screen transitions:** Do not put `LaconicalTopBar` in `BottomSheetScaffold`'s `topBar` slot if you have full-screen routes (like Settings) inside the content area. Because `BottomSheetScaffold` places its content below the topBar, dynamically showing/hiding topBar in the slot causes the content height to snap, resulting in vertical teleportation at the end of the slide transition. Instead, keep the scaffold `topBar` slot empty, draw `LaconicalTopBar` as a floating overlay inside the content Box, and apply static top padding (`topBarHeight = statusBarPadding + 60.dp`) individually to the main content screens inside the `NavHost` (but not the full-screen Settings screen).
+
 ## Visual Design
 
 Aesthetic-first (Namida-inspired): dominant-color gradients/glows · particle effects on active track · morphing mini↔full player · pulsating album art from waveform amplitude · compositor-only animations.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

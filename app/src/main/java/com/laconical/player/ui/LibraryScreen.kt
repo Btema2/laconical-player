@@ -89,6 +89,7 @@ import com.laconical.player.ui.navigation.navExitTransition
 import com.laconical.player.ui.navigation.navPopEnterTransition
 import com.laconical.player.ui.navigation.navPopExitTransition
 import com.laconical.player.ui.navigation.NavRoute
+import com.laconical.player.ui.navigation.SLIDE_DURATION_MS
 import com.laconical.player.ui.screens.AlbumDetailScreen
 import com.laconical.player.ui.screens.AlbumsScreen
 import com.laconical.player.ui.screens.ArtistDetailScreen
@@ -97,6 +98,7 @@ import com.laconical.player.ui.screens.FavoritesScreen
 import com.laconical.player.ui.screens.PlaylistDetailScreen
 import com.laconical.player.ui.screens.PlaylistsScreen
 import com.laconical.player.ui.screens.SearchResultsPanel
+import com.laconical.player.ui.screens.SettingsScreen
 import com.laconical.player.core.data.db.entity.Playlist
 import com.laconical.player.ui.LocalAppBackground
 import com.laconical.player.ui.LocalAppSurface
@@ -287,6 +289,24 @@ fun LibraryScreen(
     val rawRoute = navController.currentBackStackEntryAsState().value?.destination?.route
         ?: NavRoute.TRACKS
 
+    // Transition-synced chrome visibility driver — mirrors the frozen-anchor idiom
+    // used for the morph overlay: never hard-cut on rawRoute directly, since it flips
+    // instantly at navigate() while the actual slide takes SLIDE_DURATION_MS. Hard-cutting
+    // TopBar composition collapses calculateTopPadding() in one frame, reflowing the
+    // content underneath mid-slide. Keep TopBar/BottomNav composed at full height and
+    // fade them via graphicsLayer alpha (draw-time only, doesn't affect measurement).
+    val onSettings = rawRoute == NavRoute.SETTINGS
+    val chromeAlpha = remember { Animatable(if (onSettings) 0f else 1f) }
+    LaunchedEffect(onSettings) {
+        chromeAlpha.animateTo(
+            targetValue = if (onSettings) 0f else 1f,
+            animationSpec = tween(
+                SLIDE_DURATION_MS,
+                easing = if (onSettings) FastOutSlowInEasing else FastOutLinearInEasing
+            )
+        )
+    }
+
     val density = LocalDensity.current
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
     val configuration = LocalConfiguration.current
@@ -295,6 +315,7 @@ fun LibraryScreen(
     val miniPlayerHeight = (75 + 12).dp
     val bottomInsets = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val topBarHeight = statusBarPadding + 60.dp
     // logicalPeekHeight drives maxOffset (must stay stable during IME animation).
     // sheetPeekHeight is the animated value passed to BottomSheetScaffold.
     val logicalPeekHeight = if (currentTrack != null)
@@ -722,27 +743,10 @@ fun LibraryScreen(
 
                     }
                 },
-                containerColor = Color.Transparent,
-                topBar = {
-                    if (hasPermission) {
-                        LaconicalTopBar(
-                            isSearchOpen = isSearchOpen,
-                            searchQuery = searchQuery,
-                            onSearchOpen = { isSearchOpen = true },
-                            onSearchClose = {
-                                viewModel.updateSearchQuery("")
-                                isSearchOpen = false
-                            },
-                            onQueryChange = viewModel::updateSearchQuery,
-                            dominantColor = playingTrackDominantColor
-                        )
-                    }
-                }
+                containerColor = Color.Transparent
             ) { paddingValues ->
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = paddingValues.calculateTopPadding())
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     if (hasPermission) {
                         Box(
@@ -768,7 +772,12 @@ fun LibraryScreen(
                                 composable(NavRoute.TRACKS) {
                                     val sortOrder by viewModel.sortOrder.collectAsState()
     
-                                    Column(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(LocalAppBackground.current)
+                                            .padding(top = topBarHeight)
+                                    ) {
                                         LazyRow(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                                             contentPadding = PaddingValues(horizontal = 16.dp),
@@ -837,7 +846,12 @@ fun LibraryScreen(
                                     }
                                 }
                                 composable(NavRoute.ALBUMS) {
-                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(LocalAppBackground.current)
+                                            .padding(top = topBarHeight)
+                                    ) {
                                         AlbumsScreen(
                                             onAlbumClick = { albumName ->
                                                 navController.navigate(NavRoute.albumDetailRoute(albumName))
@@ -854,7 +868,12 @@ fun LibraryScreen(
                                     val albumName = backStackEntry.arguments?.getString("albumName") ?: ""
                                     val isPlaybackActive by viewModel.isPlaying.collectAsState()
                                     val favoriteIds by viewModel.favoriteIds.collectAsState()
-                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(LocalAppBackground.current)
+                                            .padding(top = topBarHeight)
+                                    ) {
                                         AlbumDetailScreen(
                                             albumName = albumName,
                                             onBack = { navController.popBackStack() },
@@ -868,7 +887,12 @@ fun LibraryScreen(
                                     }
                                 }
                                 composable(NavRoute.ARTISTS) {
-                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(LocalAppBackground.current)
+                                            .padding(top = topBarHeight)
+                                    ) {
                                         ArtistsScreen(
                                             onArtistClick = { artistName ->
                                                 navController.navigate(NavRoute.artistDetailRoute(artistName))
@@ -885,7 +909,12 @@ fun LibraryScreen(
                                     val artistName = backStackEntry.arguments?.getString("artistName") ?: ""
                                     val isPlaybackActive by viewModel.isPlaying.collectAsState()
                                     val favoriteIds by viewModel.favoriteIds.collectAsState()
-                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(LocalAppBackground.current)
+                                            .padding(top = topBarHeight)
+                                    ) {
                                         ArtistDetailScreen(
                                             artistName = artistName,
                                             onBack = { navController.popBackStack() },
@@ -899,7 +928,12 @@ fun LibraryScreen(
                                     }
                                 }
                                 composable(NavRoute.PLAYLISTS) {
-                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(LocalAppBackground.current)
+                                            .padding(top = topBarHeight)
+                                    ) {
                                         PlaylistsScreen(
                                             onFavoritesClick = {
                                                 navController.navigate(NavRoute.FAVORITES)
@@ -922,7 +956,12 @@ fun LibraryScreen(
                                     route = NavRoute.PLAYLIST_DETAIL,
                                     arguments = listOf(navArgument("playlistId") { type = androidx.navigation.NavType.LongType })
                                 ) {
-                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(LocalAppBackground.current)
+                                            .padding(top = topBarHeight)
+                                    ) {
                                         PlaylistDetailScreen(
                                             onBack = { navController.popBackStack() },
                                             onPlayTracks = { list, idx -> viewModel.playTracks(list, idx) },
@@ -934,7 +973,12 @@ fun LibraryScreen(
                                     val allTracks by viewModel.tracks.collectAsState()
                                     val favoriteIds by viewModel.favoriteIds.collectAsState()
                                     val isPlaybackActive by viewModel.isPlaying.collectAsState()
-                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(LocalAppBackground.current)
+                                            .padding(top = topBarHeight)
+                                    ) {
                                         FavoritesScreen(
                                             allTracks = allTracks,
                                             favoriteIds = favoriteIds,
@@ -944,6 +988,16 @@ fun LibraryScreen(
                                             onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
                                             onBack = { navController.popBackStack() },
                                             bottomPadding = trackListBottomPadding
+                                        )
+                                    }
+                                }
+                                composable(NavRoute.SETTINGS) {
+                                    val allTracks by viewModel.tracks.collectAsState()
+                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
+                                        SettingsScreen(
+                                            allTracks = allTracks,
+                                            dominantColor = playingTrackDominantColor,
+                                            onBack = { navController.popBackStack() }
                                         )
                                     }
                                 }
@@ -963,6 +1017,24 @@ fun LibraryScreen(
                                         }
                                 )
                             }
+                        }
+
+                        if (chromeAlpha.value > 0f) {
+                            LaconicalTopBar(
+                                isSearchOpen = isSearchOpen,
+                                searchQuery = searchQuery,
+                                onSearchOpen = { isSearchOpen = true },
+                                onSearchClose = {
+                                    viewModel.updateSearchQuery("")
+                                    isSearchOpen = false
+                                },
+                                onQueryChange = viewModel::updateSearchQuery,
+                                onSettingsClick = { navController.navigate(NavRoute.SETTINGS) },
+                                dominantColor = playingTrackDominantColor,
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .graphicsLayer { alpha = chromeAlpha.value }
+                            )
                         }
                     } else {
                         Column(
@@ -989,7 +1061,7 @@ fun LibraryScreen(
         }
 
         // ── Bottom Navigation (fixed outside sheet so it doesn't ride up during drag) ──
-        if (hasPermission && expandedFraction < 0.99f) {
+        if (hasPermission && expandedFraction < 0.99f && chromeAlpha.value > 0f) {
             val navBarHeightPx = with(density) { (bottomNavHeight + bottomInsets).toPx() }
             LaconicalBottomNav(
                 selectedRoute = when {
@@ -1015,7 +1087,7 @@ fun LibraryScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .graphicsLayer {
-                        alpha = navBarVisualAlpha
+                        alpha = navBarVisualAlpha * chromeAlpha.value
                         translationY = (1f - navBarVisualAlpha) * navBarHeightPx
                     }
             )
