@@ -154,6 +154,8 @@ translationY = when {
 
 **Stale lambda in `pointerInput`:** Never read a composition snapshot inside a `pointerInput` lambda. Read live source (`animatable.value`) or use `rememberUpdatedState`.
 
+**TopBar decoupling for full-screen transitions:** Do not put `LaconicalTopBar` in `BottomSheetScaffold`'s `topBar` slot if you have full-screen routes (like Settings) inside the content area. Because `BottomSheetScaffold` places its content below the topBar, dynamically showing/hiding topBar in the slot causes the content height to snap, resulting in vertical teleportation at the end of the slide transition. Instead, keep the scaffold `topBar` slot empty, draw `LaconicalTopBar` as a floating overlay inside the content Box, and apply static top padding (`topBarHeight = statusBarPadding + 60.dp`) individually to the main content screens inside the `NavHost` (but not the full-screen Settings screen).
+
 ## Visual Design
 
 Aesthetic-first (Namida-inspired): dominant-color gradients/glows · particle effects on active track · morphing mini↔full player · pulsating album art from waveform amplitude · compositor-only animations.
