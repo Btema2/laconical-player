@@ -32,3 +32,31 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.room) apply false
 }
+
+// Force netty/bcprov versions across every project configuration in every module, including
+// AGP's internal `unified-test-platform-*` tooling configs (Dependabot #3,9,13,19,20,28,29,31-34,37)
+// and Robolectric's testImplementation pull of bcprov 1.79/1.81 (Dependabot #40,#41). The
+// buildscript{} constraints block above only reaches the root buildscript classpath and does NOT
+// reach these — confirmed via GitHub SBOM + local `:app:dependencies`/`:core:media:dependencies`,
+// both still showing old netty/bcprov on these edges despite that pin.
+allprojects {
+    configurations.all {
+        resolutionStrategy {
+            force(
+                "io.netty:netty-common:4.1.135.Final",
+                "io.netty:netty-buffer:4.1.135.Final",
+                "io.netty:netty-transport:4.1.135.Final",
+                "io.netty:netty-resolver:4.1.135.Final",
+                "io.netty:netty-codec:4.1.135.Final",
+                "io.netty:netty-codec-http:4.1.135.Final",
+                "io.netty:netty-codec-http2:4.1.135.Final",
+                "io.netty:netty-codec-socks:4.1.135.Final",
+                "io.netty:netty-handler:4.1.135.Final",
+                "io.netty:netty-handler-proxy:4.1.135.Final",
+                "io.netty:netty-transport-native-unix-common:4.1.135.Final",
+                "org.bouncycastle:bcprov-jdk18on:1.85",
+                "org.bouncycastle:bcpkix-jdk18on:1.85",
+            )
+        }
+    }
+}
