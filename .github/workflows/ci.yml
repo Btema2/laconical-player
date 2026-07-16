@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 jobs:
@@ -56,6 +56,10 @@ jobs:
 
       - name: Assemble debug APK
         run: ./gradlew assembleDebug --no-daemon --parallel --stacktrace
+
+      - name: Submit dependency graph
+        if: github.event_name == 'push'
+        uses: gradle/actions/dependency-submission@v6
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v7
