@@ -31,7 +31,8 @@ build_log.txt
 .worktrees/
 
 #Agent
-.claude/
+.claude/*
+!.claude/skills
 .openclaude/
 .superpowers/
 .codex/
