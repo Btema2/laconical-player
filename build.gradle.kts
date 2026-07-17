@@ -43,17 +43,17 @@ allprojects {
     configurations.all {
         resolutionStrategy {
             force(
-                "io.netty:netty-common:4.1.135.Final",
-                "io.netty:netty-buffer:4.1.135.Final",
-                "io.netty:netty-transport:4.1.135.Final",
-                "io.netty:netty-resolver:4.1.135.Final",
-                "io.netty:netty-codec:4.1.135.Final",
-                "io.netty:netty-codec-http:4.1.135.Final",
-                "io.netty:netty-codec-http2:4.1.135.Final",
-                "io.netty:netty-codec-socks:4.1.135.Final",
-                "io.netty:netty-handler:4.1.135.Final",
-                "io.netty:netty-handler-proxy:4.1.135.Final",
-                "io.netty:netty-transport-native-unix-common:4.1.135.Final",
+                "io.netty:netty-common:4.2.16.Final",
+                "io.netty:netty-buffer:4.2.16.Final",
+                "io.netty:netty-transport:4.2.16.Final",
+                "io.netty:netty-resolver:4.2.16.Final",
+                "io.netty:netty-codec:4.2.16.Final",
+                "io.netty:netty-codec-http:4.2.16.Final",
+                "io.netty:netty-codec-http2:4.2.16.Final",
+                "io.netty:netty-codec-socks:4.2.16.Final",
+                "io.netty:netty-handler:4.2.16.Final",
+                "io.netty:netty-handler-proxy:4.2.16.Final",
+                "io.netty:netty-transport-native-unix-common:4.2.16.Final",
                 "org.bouncycastle:bcprov-jdk18on:1.85",
                 "org.bouncycastle:bcpkix-jdk18on:1.85",
             )
