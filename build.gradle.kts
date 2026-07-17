@@ -33,12 +33,15 @@ plugins {
     alias(libs.plugins.room) apply false
 }
 
-// Force netty/bcprov versions across every project configuration in every module, including
-// AGP's internal `unified-test-platform-*` tooling configs (Dependabot #3,9,13,19,20,28,29,31-34,37)
-// and Robolectric's testImplementation pull of bcprov 1.79/1.81 (Dependabot #40,#41). The
-// buildscript{} constraints block above only reaches the root buildscript classpath and does NOT
-// reach these — confirmed via GitHub SBOM + local `:app:dependencies`/`:core:media:dependencies`,
-// both still showing old netty/bcprov on these edges despite that pin.
+// Force netty/bcprov/commons-lang3/httpclient versions across every project configuration in
+// every module, including AGP's internal `unified-test-platform-*` tooling configs
+// (Dependabot #3,9,13,19,20,28,29,31-34,37) and Robolectric's testImplementation pull of bcprov
+// 1.79/1.81 (Dependabot #40,#41). The buildscript{} constraints block above only reaches the root
+// buildscript classpath and does NOT reach these — confirmed via GitHub SBOM + local
+// `:app:dependencies`/`:core:media:dependencies`, both still showing old versions on these edges
+// despite that pin. commons-lang3/httpclient (Dependabot #12, #1) come from the same UTP edge:
+// com.android.tools:sdk-common -> commons-compress:1.27.1 -> commons-lang3:3.16.0, and
+// -> httpmime:4.5.6 -> httpclient:4.5.6.
 allprojects {
     configurations.all {
         resolutionStrategy {
@@ -56,6 +59,8 @@ allprojects {
                 "io.netty:netty-transport-native-unix-common:4.1.135.Final",
                 "org.bouncycastle:bcprov-jdk18on:1.85",
                 "org.bouncycastle:bcpkix-jdk18on:1.85",
+                "org.apache.commons:commons-lang3:3.20.0",
+                "org.apache.httpcomponents:httpclient:4.5.14",
             )
         }
     }
