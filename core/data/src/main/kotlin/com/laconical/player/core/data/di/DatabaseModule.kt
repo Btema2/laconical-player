@@ -2,9 +2,11 @@ package com.laconical.player.core.data.di
 
 import android.content.Context
 import androidx.room.Room
+import com.laconical.player.core.data.db.MIGRATION_1_2
 import com.laconical.player.core.data.db.MusicDatabase
 import com.laconical.player.core.data.db.dao.FavoriteDao
 import com.laconical.player.core.data.db.dao.HistoryDao
+import com.laconical.player.core.data.db.dao.LyricsDao
 import com.laconical.player.core.data.db.dao.PlaylistDao
 import dagger.Module
 import dagger.Provides
@@ -20,7 +22,9 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideMusicDatabase(@ApplicationContext context: Context): MusicDatabase =
-        Room.databaseBuilder(context, MusicDatabase::class.java, "music_database.db").build()
+        Room.databaseBuilder(context, MusicDatabase::class.java, "music_database.db")
+            .addMigrations(MIGRATION_1_2)
+            .build()
 
     @Provides
     @Singleton
@@ -33,4 +37,8 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideHistoryDao(db: MusicDatabase): HistoryDao = db.historyDao()
+
+    @Provides
+    @Singleton
+    fun provideLyricsDao(db: MusicDatabase): LyricsDao = db.lyricsDao()
 }

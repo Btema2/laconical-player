@@ -49,6 +49,14 @@ android {
     room {
         schemaDirectory("$projectDir/schemas")
     }
+
+    // MigrationTestHelper reads exported schemas as test assets;
+    // room { schemaDirectory(...) } only controls where KSP writes them.
+    sourceSets {
+        getByName("test") {
+            assets.srcDirs("$projectDir/schemas")
+        }
+    }
 }
 
 dependencies {
