@@ -8,4 +8,5 @@ kotlin {
 
 dependencies {
     // Pure Kotlin module
+    testImplementation(libs.junit4)
 }
