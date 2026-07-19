@@ -4,6 +4,7 @@
 **Dependency docs (MANDATORY):** Deps are bumped aggressively via Dependabot (Compose BOM, Media3, Coil 3, Kotlin/KSP, AGP are often months ahead of training data). APIs and behavior shift between these versions. Before using or debugging ANY library API here, fetch current docs via **context7 MCP** (`resolve-library-id` → `query-docs`) — do NOT rely on memory. This is how the morph regression below was diagnosed.
 **Worktrees:** Use `.worktrees/` for git worktree dirs.
 **SDK pin:** compileSdk/targetSdk stay at 36. Bump to 37 tried once (`5e2d44a`) and reverted (`9afe984`) — do not redo it, including as a side effect of a dependency bump, without checking why it broke first.
+**Release checklist:** Before tagging/publishing a GitHub release, bump `versionCode`/`versionName` in `app/build.gradle.kts` FIRST, commit it, then `./gradlew assembleRelease` from that commit, then tag. v1.2 shipped with the APK still reporting `versionName "1.1"` (`versionCode=2`) because the bump was skipped — fixed after the fact by re-cutting the APK and replacing the release asset.
 
 ## Project Overview
 
