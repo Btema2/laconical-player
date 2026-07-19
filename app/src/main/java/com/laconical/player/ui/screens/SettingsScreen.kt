@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,11 +24,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.QueryStats
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.outlined.Masks
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Switch
@@ -40,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -62,21 +66,14 @@ fun SettingsScreen(
     allTracks: List<Track>,
     dominantColor: Color?,
     onBack: () -> Unit,
+    onOpenPrivacy: () -> Unit = {},
+    onOpenMiscellaneous: () -> Unit = {},
     lyricsNetworkEnabled: Boolean = false,
-    onLyricsNetworkEnabledChange: (Boolean) -> Unit = {},
-    lyricsSourcePriority: LyricsSourcePriority = LyricsSourcePriority.EMBEDDED_FIRST,
-    onLyricsSourcePriorityChange: (LyricsSourcePriority) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val accent = remember(dominantColor) {
-        dominantColor?.let {
-            val hsl = it.toHsl()
-            Color(android.graphics.Color.HSVToColor(floatArrayOf(hsl[0] * 360f, 0.45f, 0.75f)))
-        } ?: Color(0xFF9E9E9E)
-    }
-
+    val accent = settingsAccent(dominantColor)
     val separatorColor = remember(dominantColor) {
         dominantColor?.let {
             val hsl = it.toHsl()
@@ -96,6 +93,9 @@ fun SettingsScreen(
     val artistCount = remember(allTracks) { allTracks.map { it.artist }.distinct().size }
     val totalDuration = remember(allTracks) {
         formatDuration(allTracks.sumOf { it.durationMs })
+    }
+    val privacyLevel = remember(lyricsNetworkEnabled) {
+        computePrivacyLevel(privacyTradeoffs(lyricsNetworkEnabled))
     }
 
     Column(
@@ -126,27 +126,32 @@ fun SettingsScreen(
             )
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        Text(
-            text = "Kinda empty here... Return after update to (probably 🤓) see more!",
-            color = Color(0xFF777777),
-            fontSize = 13.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 32.dp)
-        )
-
         Spacer(Modifier.height(16.dp))
 
-        Spacer(
+        // ── Settings submenus (grouped in one card) ────────
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .height(1.dp)
-                .background(separatorColor)
-        )
+                .clip(RoundedCornerShape(16.dp))
+                .background(LocalAppSurface.current)
+        ) {
+            SettingsNavRow(
+                icon = Icons.Outlined.Masks,
+                title = "Privacy",
+                subtitle = privacyLevel.displaySubtitle(),
+                accent = accent,
+                onClick = onOpenPrivacy
+            )
+            Divider(color = separatorColor)
+            SettingsNavRow(
+                icon = Icons.Filled.Tune,
+                title = "Miscellaneous",
+                subtitle = "More settings",
+                accent = accent,
+                onClick = onOpenMiscellaneous
+            )
+        }
 
         Spacer(Modifier.height(16.dp))
 
@@ -212,42 +217,79 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
-
-        // ── Lyrics card ──────────────────────────────────────────
-        SettingsSection(title = "Lyrics", icon = Icons.Filled.Lyrics, accent = accent) {
-            SettingsToggleRow(
-                icon = Icons.Filled.Cloud,
-                label = "Online lyrics (LRCLIB)",
-                description = "Fetch missing lyrics from lrclib.net. Off = fully offline.",
-                checked = lyricsNetworkEnabled,
-                onCheckedChange = onLyricsNetworkEnabledChange,
-                accent = accent
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(text = "Source priority", color = Color.White, fontSize = 14.sp)
-            Spacer(Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LyricsSourcePriority.entries.forEach { priority ->
-                    PriorityChip(
-                        label = priority.displayLabel(),
-                        selected = priority == lyricsSourcePriority,
-                        accent = accent,
-                        onClick = { onLyricsSourcePriorityChange(priority) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-
         Spacer(Modifier.height(180.dp))
     }
 }
 
 @Composable
-private fun SettingsSection(
+internal fun settingsAccent(dominantColor: Color?): Color = remember(dominantColor) {
+    dominantColor?.let {
+        val hsl = it.toHsl()
+        Color(android.graphics.Color.HSVToColor(floatArrayOf(hsl[0] * 360f, 0.45f, 0.75f)))
+    } ?: Color(0xFF9E9E9E)
+}
+
+/**
+ * Material 3–style settings navigation row: circular accent icon + title/subtitle + chevron.
+ */
+@Composable
+internal fun SettingsNavRow(
+    icon: ImageVector,
     title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    subtitle: String,
+    accent: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(accent.copy(alpha = 0.18f))
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                color = Color(0xFF999999),
+                fontSize = 12.sp
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = Color(0xFF777777),
+            modifier = Modifier.size(22.dp)
+        )
+    }
+}
+
+@Composable
+internal fun SettingsSection(
+    title: String,
+    icon: ImageVector,
     accent: Color,
     content: @Composable () -> Unit
 ) {
@@ -271,7 +313,7 @@ private fun SettingsSection(
 
 @Composable
 private fun SettingsRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     label: String,
     value: String,
     onClick: (() -> Unit)? = null
@@ -293,8 +335,8 @@ private fun SettingsRow(
 }
 
 @Composable
-private fun SettingsToggleRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+internal fun SettingsToggleRow(
+    icon: ImageVector,
     label: String,
     description: String,
     checked: Boolean,
@@ -329,7 +371,7 @@ private fun SettingsToggleRow(
 }
 
 @Composable
-private fun PriorityChip(
+internal fun PriorityChip(
     label: String,
     selected: Boolean,
     accent: Color,
@@ -354,7 +396,7 @@ private fun PriorityChip(
     }
 }
 
-private fun LyricsSourcePriority.displayLabel(): String = when (this) {
+internal fun LyricsSourcePriority.displayLabel(): String = when (this) {
     LyricsSourcePriority.EMBEDDED_FIRST -> "Embedded first"
     LyricsSourcePriority.LOCAL_FIRST -> "Local first"
     LyricsSourcePriority.API_FIRST -> "Online first"

@@ -102,6 +102,8 @@ import com.laconical.player.ui.screens.ArtistsScreen
 import com.laconical.player.ui.screens.FavoritesScreen
 import com.laconical.player.ui.screens.PlaylistDetailScreen
 import com.laconical.player.ui.screens.PlaylistsScreen
+import com.laconical.player.ui.screens.PrivacySettingsScreen
+import com.laconical.player.ui.screens.MiscellaneousSettingsScreen
 import com.laconical.player.ui.screens.SearchResultsPanel
 import com.laconical.player.ui.screens.SettingsScreen
 import com.laconical.player.core.data.db.entity.Playlist
@@ -307,7 +309,7 @@ fun LibraryScreen(
     // TopBar composition collapses calculateTopPadding() in one frame, reflowing the
     // content underneath mid-slide. Keep TopBar/BottomNav composed at full height and
     // fade them via graphicsLayer alpha (draw-time only, doesn't affect measurement).
-    val onSettings = rawRoute == NavRoute.SETTINGS
+    val onSettings = rawRoute == NavRoute.SETTINGS || rawRoute == NavRoute.SETTINGS_PRIVACY || rawRoute == NavRoute.SETTINGS_MISCELLANEOUS
     val chromeAlpha = remember { Animatable(if (onSettings) 0f else 1f) }
     LaunchedEffect(onSettings) {
         chromeAlpha.animateTo(
@@ -1056,16 +1058,36 @@ fun LibraryScreen(
                                 composable(NavRoute.SETTINGS) {
                                     val allTracks by viewModel.tracks.collectAsState()
                                     val lyricsNetworkEnabled by viewModel.lyricsNetworkEnabled.collectAsState()
-                                    val lyricsSourcePriority by viewModel.lyricsSourcePriority.collectAsState()
                                     Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
                                         SettingsScreen(
                                             allTracks = allTracks,
                                             dominantColor = playingTrackDominantColor,
                                             onBack = { navController.popBackStack() },
+                                            onOpenPrivacy = { navController.navigate(NavRoute.SETTINGS_PRIVACY) },
+                                            onOpenMiscellaneous = { navController.navigate(NavRoute.SETTINGS_MISCELLANEOUS) },
+                                            lyricsNetworkEnabled = lyricsNetworkEnabled
+                                        )
+                                    }
+                                }
+                                composable(NavRoute.SETTINGS_PRIVACY) {
+                                    val lyricsNetworkEnabled by viewModel.lyricsNetworkEnabled.collectAsState()
+                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
+                                        PrivacySettingsScreen(
+                                            dominantColor = playingTrackDominantColor,
                                             lyricsNetworkEnabled = lyricsNetworkEnabled,
                                             onLyricsNetworkEnabledChange = viewModel::setLyricsNetworkEnabled,
+                                            onBack = { navController.popBackStack() }
+                                        )
+                                    }
+                                }
+                                composable(NavRoute.SETTINGS_MISCELLANEOUS) {
+                                    val lyricsSourcePriority by viewModel.lyricsSourcePriority.collectAsState()
+                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
+                                        MiscellaneousSettingsScreen(
+                                            dominantColor = playingTrackDominantColor,
                                             lyricsSourcePriority = lyricsSourcePriority,
-                                            onLyricsSourcePriorityChange = viewModel::setLyricsSourcePriority
+                                            onLyricsSourcePriorityChange = viewModel::setLyricsSourcePriority,
+                                            onBack = { navController.popBackStack() }
                                         )
                                     }
                                 }
