@@ -25,7 +25,7 @@ Laconical Player — open-source Android music player (Namida-inspired). Local a
 |--------|------|
 | `:app` | UI — `LibraryScreen`, `MainViewModel`, `MainActivity` |
 | `:core:model` | `Track` data class |
-| `:core:data` | `MediaRepository` + `LocalMediaRepositoryImpl` (MediaStore) |
+| `:core:data` | `MediaRepository` + `LocalMediaRepositoryImpl` (MediaStore); lyrics chain (`lyrics/`), Room DB |
 | `:core:media` | `MusicPlayer`, `PlaybackService`, `AudioVisualizerManager`, `WaveformExtractor` |
 | `:core:designsystem` | `LaconicalTheme` (M3), color/type tokens |
 
@@ -44,6 +44,17 @@ Laconical Player — open-source Android music player (Namida-inspired). Local a
 - **`MediaPreWarmer`** — pre-warms `PlaybackService` at `LaconicalApp.onCreate`; controller released immediately, ExoPlayer survives.
 - **`AudioVisualizerManager`** — Android `Visualizer` on ExoPlayer's `audioSessionId`. Sine-wave fallback on silence. `@Volatile` on `isVisualizerGeneratingRealData`.
 - **`WaveformExtractor`** — Amplituda via `ContentResolver.openInputStream(uri)`. `Mutex` serializes concurrent calls.
+
+### Lyrics (feature/lyrics)
+
+Chain: **memory LRU(100) → Room (`lyrics` table, DB v2) → local sources (embedded tags, sibling `.lrc`) → LRCLIB API (opt-in, default OFF)**. Inspired by PixelPlayerOSS + Namida (see `docs/superpowers/specs/2026-07-19-lyrics-retrieval-design.md`).
+
+- `core:model/lyrics` — pure-JVM `LrcParser`, `Id3UsltParser` (Media3's Id3Decoder does NOT parse USLT; MP3 needs the hand-rolled parser), `currentLineIndex` binary search.
+- `core:data/lyrics` — `LyricsRepositoryImpl` (persist Found/Instrumental, never NotFound), `LrcLibClient` (scored matching, never first-result), `LyricsSettingsStore` (DataStore `lyrics_settings`).
+- **Dep edge `core:media → core:data`** (acyclic): `Media3EmbeddedFormatLyricsExtractor` implements the `core:data` port `EmbeddedFormatLyricsExtractor`. Media3 1.10: `MetadataRetriever.Builder` instance API; VorbisComment moved to `androidx.media3.extractor.metadata.vorbis`.
+- **Privacy rule:** track changes run local chain only (`lyricsJob` in MainViewModel, same cancel-restart pattern as waveform/color); LRCLIB fires only from `openLyrics()`/`refreshLyrics()`.
+- UI: `LyricsSheet.kt` overlay — TrackMenuOverlay composition pattern in LibraryScreen, NOT part of the morph system. Settings "Lyrics" card holds the network Switch + source-priority chips.
+- `.lrc` sibling is best-effort on API 29+ (scoped storage); works fully on API ≤ 28.
 
 ### Morphing Player Transition (3-Phase, No Shared Element API)
 
@@ -75,6 +86,7 @@ app/.../
     PlaylistCoverMosaic.kt     # 2×2 mosaic art (AudioArtData + Coil)
     PlaylistBottomSheet.kt     # ModalBottomSheet for create/rename playlist
     TrackMenuOverlay.kt        # Unified track menu — morphs to playlist picker in-place
+    LyricsSheet.kt             # Full-screen lyrics overlay (synced highlight, tap-to-seek)
     LaconicalBottomNav.kt      # Bottom nav with selection indicator pill
     NavTransitions.kt          # Directional slide transition specs (SLIDE_DURATION_MS = 250 ms, internal→exported)
     StaggeredEntrance.kt       # Staggered list-item entrance modifier
@@ -100,10 +112,12 @@ core/media/.../
 core/data/.../
   LocalMediaRepositoryImpl.kt  # MediaStore (content URIs, no DATA column)
   UserDataRepository.kt / UserDataRepositoryImpl.kt
-  db/entity/  FavoriteTrack, Playlist, PlaylistTrack, PlayHistory
-  db/dao/     FavoriteDao, PlaylistDao, HistoryDao
-  db/MusicDatabase.kt
-  di/DatabaseModule.kt / DataModule.kt
+  db/entity/  FavoriteTrack, Playlist, PlaylistTrack, PlayHistory, LyricsEntity
+  db/dao/     FavoriteDao, PlaylistDao, HistoryDao, LyricsDao
+  db/MusicDatabase.kt          # v2; Migrations.kt holds MIGRATION_1_2
+  di/DatabaseModule.kt / DataModule.kt / LyricsModule.kt / LyricsNetworkModule.kt
+  lyrics/     LyricsRepository[Impl], EmbeddedLyricsSource, SiblingLrcSource,
+              LrcLibClient, LrcLibScorer, LyricsSettingsStore, EmbeddedFormatLyricsExtractor
 ```
 
 ## Tech Stack
