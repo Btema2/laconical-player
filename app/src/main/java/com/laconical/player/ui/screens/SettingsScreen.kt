@@ -23,11 +23,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -46,6 +50,7 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.core.net.toUri
 import com.laconical.player.BuildConfig
 import com.laconical.player.R
+import com.laconical.player.core.data.lyrics.LyricsSourcePriority
 import com.laconical.player.core.model.Track
 import com.laconical.player.ui.LocalAppSurface
 import com.laconical.player.ui.toHsl
@@ -57,6 +62,10 @@ fun SettingsScreen(
     allTracks: List<Track>,
     dominantColor: Color?,
     onBack: () -> Unit,
+    lyricsNetworkEnabled: Boolean = false,
+    onLyricsNetworkEnabledChange: (Boolean) -> Unit = {},
+    lyricsSourcePriority: LyricsSourcePriority = LyricsSourcePriority.EMBEDDED_FIRST,
+    onLyricsSourcePriorityChange: (LyricsSourcePriority) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -203,6 +212,34 @@ fun SettingsScreen(
             }
         }
 
+        Spacer(Modifier.height(16.dp))
+
+        // ── Lyrics card ──────────────────────────────────────────
+        SettingsSection(title = "Lyrics", icon = Icons.Filled.Lyrics, accent = accent) {
+            SettingsToggleRow(
+                icon = Icons.Filled.Cloud,
+                label = "Online lyrics (LRCLIB)",
+                description = "Fetch missing lyrics from lrclib.net. Off = fully offline.",
+                checked = lyricsNetworkEnabled,
+                onCheckedChange = onLyricsNetworkEnabledChange,
+                accent = accent
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(text = "Source priority", color = Color.White, fontSize = 14.sp)
+            Spacer(Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LyricsSourcePriority.entries.forEach { priority ->
+                    PriorityChip(
+                        label = priority.displayLabel(),
+                        selected = priority == lyricsSourcePriority,
+                        accent = accent,
+                        onClick = { onLyricsSourcePriorityChange(priority) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
         Spacer(Modifier.height(180.dp))
     }
 }
@@ -253,6 +290,74 @@ private fun SettingsRow(
             Text(text = value, color = Color(0xFF999999), fontSize = 12.sp)
         }
     }
+}
+
+@Composable
+private fun SettingsToggleRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    accent: Color
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 8.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = Color(0xFF999999), modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = label, color = Color.White, fontSize = 14.sp)
+            Text(text = description, color = Color(0xFF999999), fontSize = 12.sp)
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = accent,
+                uncheckedThumbColor = Color(0xFF999999),
+                uncheckedTrackColor = Color.White.copy(alpha = 0.08f)
+            )
+        )
+    }
+}
+
+@Composable
+private fun PriorityChip(
+    label: String,
+    selected: Boolean,
+    accent: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (selected) accent.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.06f))
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 8.dp)
+    ) {
+        Text(
+            text = label,
+            color = if (selected) accent else Color(0xFF999999),
+            fontSize = 12.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+private fun LyricsSourcePriority.displayLabel(): String = when (this) {
+    LyricsSourcePriority.EMBEDDED_FIRST -> "Embedded first"
+    LyricsSourcePriority.LOCAL_FIRST -> "Local first"
+    LyricsSourcePriority.API_FIRST -> "Online first"
 }
 
 @Composable

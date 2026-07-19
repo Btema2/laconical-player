@@ -1001,11 +1001,17 @@ fun LibraryScreen(
                                 }
                                 composable(NavRoute.SETTINGS) {
                                     val allTracks by viewModel.tracks.collectAsState()
+                                    val lyricsNetworkEnabled by viewModel.lyricsNetworkEnabled.collectAsState()
+                                    val lyricsSourcePriority by viewModel.lyricsSourcePriority.collectAsState()
                                     Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
                                         SettingsScreen(
                                             allTracks = allTracks,
                                             dominantColor = playingTrackDominantColor,
-                                            onBack = { navController.popBackStack() }
+                                            onBack = { navController.popBackStack() },
+                                            lyricsNetworkEnabled = lyricsNetworkEnabled,
+                                            onLyricsNetworkEnabledChange = viewModel::setLyricsNetworkEnabled,
+                                            lyricsSourcePriority = lyricsSourcePriority,
+                                            onLyricsSourcePriorityChange = viewModel::setLyricsSourcePriority
                                         )
                                     }
                                 }
