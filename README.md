@@ -14,7 +14,7 @@ Built with **Kotlin**, **Jetpack Compose (Material 3)**, and **Android Media3 (E
 
 <p align="center">
   <img src="otherAssets/screenshot-fullplayer.png" width="23%" alt="Full Player with waveform seek bar" />
-  <img src="otherAssets/screenshot-lyrics.png" width="23%" alt="Morphing lyrics view" />
+  <img src="https://github.com/Btema2/laconical-player/releases/download/v1.2/screenshot-lyrics2.png" width="23%" alt="Morphing lyrics view" />
   <img src="otherAssets/screenshot-tracks-sort-shuffle.png" width="23%" alt="Tracks list with sorting and shuffle" />
   <img src="otherAssets/screenshot-queue.png" width="23%" alt="Drag-to-reorder queue" />
 </p>
