@@ -65,6 +65,7 @@ fun FullPlayer(
     onPlayControlsPositioned: (prevX: Float, prevY: Float, playX: Float, playY: Float, nextX: Float, nextY: Float) -> Unit = { _, _, _, _, _, _ -> },
     onAlbumArtPositioned: (x: Float, y: Float, sizePx: Float) -> Unit = { _, _, _ -> },
     onShowQueue: () -> Unit = {},
+    onOpenLyrics: () -> Unit = {},
     /** Live delta (px) of an in-progress swipe-up-to-queue drag, follow-finger. */
     onQueueDragDelta: (dy: Float) -> Unit = {},
     /** Fired on release of a swipe-up-to-queue drag, with the final vertical velocity (px/s). */
@@ -381,8 +382,8 @@ fun FullPlayer(
                     TextButton(onClick = onShowQueue) {
                         Text("UP NEXT", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
-                    TextButton(onClick = { }) {
-                        Text("LYRICS", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    TextButton(onClick = onOpenLyrics) {
+                        Text("LYRICS", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                     TextButton(onClick = { viewModel.cycleRepeatMode() }) {
                         val repeatIcon = when (repeatMode) {

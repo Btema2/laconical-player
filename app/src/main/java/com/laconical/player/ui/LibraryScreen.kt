@@ -57,6 +57,7 @@ import com.laconical.player.ui.components.TrackListItem
 import com.laconical.player.ui.components.CreatePlaylistDialog
 import com.laconical.player.ui.components.QueueSheet
 import com.laconical.player.ui.components.FadingMarqueeText
+import com.laconical.player.ui.components.LyricsSheet
 import com.laconical.player.ui.components.TrackMenuOverlay
 import com.laconical.player.ui.components.PlaylistMenuOverlay
 import com.laconical.player.ui.components.SortChipRow
@@ -621,10 +622,14 @@ fun LibraryScreen(
         }
     }
 
+    // Lyrics overlay visibility — auto-closed when playback is removed.
+    var showLyrics by remember { mutableStateOf(false) }
+
     // Collapse the sheet when playback stops so the invisible full-player
     // cannot block input while nothing is showing.
     LaunchedEffect(currentTrack) {
         if (currentTrack == null) {
+            showLyrics = false
             scaffoldState.bottomSheetState.partialExpand()
         }
     }
@@ -686,6 +691,7 @@ fun LibraryScreen(
                                     )
                                 }
                             },
+                            onOpenLyrics = { showLyrics = true },
                             onQueueDragDelta = { dy ->
                                 val screenH = with(density) { configuration.screenHeightDp.dp.toPx() }
                                 val newProg = (queueAnimatable.value - dy / screenH).coerceIn(0f, 1f)
@@ -1470,6 +1476,22 @@ fun LibraryScreen(
                     viewModel.createPlaylist(name)
                     showCreateFromPlaylistsTab = false
                 },
+            )
+        }
+        // ── Lyrics overlay ──────────────────────────────────────────────────
+        if (showLyrics && currentTrack != null) {
+            // Fires on open and again on track change while open — runs the network
+            // stage (if the user opted in) for the newly visible track.
+            LaunchedEffect(currentTrack) { viewModel.openLyrics() }
+            val lyricsUiState by viewModel.lyricsUiState.collectAsState()
+            val lyricsLineIndex by viewModel.currentLyricsLineIndex.collectAsState()
+            LyricsSheet(
+                uiState = lyricsUiState,
+                currentLineIndex = lyricsLineIndex,
+                dominantColor = playingTrackDominantColor,
+                onLineTap = viewModel::seekToMs,
+                onRefresh = viewModel::refreshLyrics,
+                onDismiss = { showLyrics = false },
             )
         }
         PlaylistAddedToast(
