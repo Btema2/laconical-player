@@ -45,7 +45,7 @@ Built with **Kotlin**, **Jetpack Compose (Material 3)**, and **Android Media3 (E
   Two separate visualization layers: a static pre-decoded waveform seek bar powered by Amplituda, and a real-time audio visualizer driven by the Android `Visualizer` API. Fails safe to a smooth sine-wave when silent so it never looks dead.
 * **Physics Particles**
   Floating particle fields on active track list rows and the full player, tied directly to playback state and audio amplitude.
-* **60fps Pulsating Art**
+* **Pulsating Art**
   The album artwork scales and pulses in real time, synced perfectly to decoded waveform amplitude and playback.
 * **Gesture-First Mini Player**
   Swipe left/right on the mini player to skip tracks, swipe down to dismiss, swipe up (from anywhere on the full player) to open the queue.
