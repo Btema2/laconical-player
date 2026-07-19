@@ -8,9 +8,16 @@ import com.laconical.player.core.data.PlaybackSessionStore
 import com.laconical.player.core.data.resolveSession
 import com.laconical.player.core.data.UserDataRepository
 import com.laconical.player.core.data.db.entity.Playlist
+import com.laconical.player.core.data.lyrics.LyricsRepository
+import com.laconical.player.core.data.lyrics.LyricsResult
+import com.laconical.player.core.data.lyrics.LyricsSettingsStore
+import com.laconical.player.core.data.lyrics.LyricsSourcePriority
 import com.laconical.player.core.media.MusicPlayer
 import com.laconical.player.core.media.AudioVisualizerManager
 import com.laconical.player.core.model.Track
+import com.laconical.player.core.model.lyrics.Lyrics
+import com.laconical.player.core.model.lyrics.LyricsSource
+import com.laconical.player.core.model.lyrics.currentLineIndex
 import com.laconical.player.core.media.WaveformExtractor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -187,6 +194,20 @@ class AudioAlbumArtKeyer : Keyer<AudioArtData> {
     }
 }
 
+/** UI state for the lyrics sheet. Network-related states only occur after user opt-in. */
+sealed interface LyricsUiState {
+    data object Idle : LyricsUiState
+    data object LoadingLocal : LyricsUiState
+    data object LoadingNetwork : LyricsUiState
+    data class Loaded(val lyrics: Lyrics, val source: LyricsSource) : LyricsUiState
+    data object Instrumental : LyricsUiState
+    data object NotFound : LyricsUiState
+
+    /** Nothing found locally and the LRCLIB toggle is off — hint the user at Settings. */
+    data object NetworkDisabledHint : LyricsUiState
+    data object NetworkError : LyricsUiState
+}
+
 @HiltViewModel
 class MainViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -195,7 +216,9 @@ class MainViewModel @Inject constructor(
     private val visualizerManager: AudioVisualizerManager,
     private val waveformExtractor: WaveformExtractor,
     private val userDataRepository: UserDataRepository,
-    private val sessionStore: PlaybackSessionStore
+    private val sessionStore: PlaybackSessionStore,
+    private val lyricsRepository: LyricsRepository,
+    private val lyricsSettingsStore: LyricsSettingsStore
 ) : ViewModel() {
 
     private val _allTracks = MutableStateFlow<List<Track>>(emptyList())
@@ -257,6 +280,23 @@ class MainViewModel @Inject constructor(
     private val _currentQueue = MutableStateFlow<List<Track>>(emptyList())
     val queue: StateFlow<List<Track>> = _currentQueue.asStateFlow()
     val currentQueueIndex: StateFlow<Int> = musicPlayer.currentMediaItemIndex
+
+    private val _lyricsUiState = MutableStateFlow<LyricsUiState>(LyricsUiState.Idle)
+    val lyricsUiState: StateFlow<LyricsUiState> = _lyricsUiState.asStateFlow()
+
+    val lyricsNetworkEnabled: StateFlow<Boolean> = lyricsSettingsStore.networkEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val lyricsSourcePriority: StateFlow<LyricsSourcePriority> = lyricsSettingsStore.sourcePriority
+        .stateIn(viewModelScope, SharingStarted.Eagerly, LyricsSourcePriority.EMBEDDED_FIRST)
+
+    /** Index into the loaded synced lines at the current playback position; -1 = none.
+     *  WhileSubscribed so the 50 ms position combine only runs while the sheet is open. */
+    val currentLyricsLineIndex: StateFlow<Int> =
+        combine(musicPlayer.currentPosition, _lyricsUiState) { pos, state ->
+            val lines = (state as? LyricsUiState.Loaded)?.lyrics?.lines
+            if (lines.isNullOrEmpty()) -1 else currentLineIndex(lines, pos)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), -1)
 
     val waveform: StateFlow<FloatArray> = visualizerManager.waveform
     val beatPulse: StateFlow<Float> = visualizerManager.beatPulse
@@ -331,6 +371,7 @@ class MainViewModel @Inject constructor(
     // Tracked so playTrack() can cancel them when the user switches tracks rapidly.
     private var waveformJob: Job? = null
     private var colorJob: Job? = null
+    private var lyricsJob: Job? = null
     private val favoriteMutex = kotlinx.coroutines.sync.Mutex()
 
     init {
@@ -352,6 +393,7 @@ class MainViewModel @Inject constructor(
             val liveIds = lastBatch.map { it.id }.toSet()
             if (liveIds.isNotEmpty()) {
                 userDataRepository.purgeStaleTrackIds(liveIds)
+                lyricsRepository.purgeStaleTrackIds(liveIds)
             }
             restorePlaybackSession(lastBatch)
             startSessionPersistence()
@@ -415,6 +457,7 @@ class MainViewModel @Inject constructor(
                     resetAmplitudeState()
                     launchWaveformExtraction(track)
                     launchColorExtraction(track)
+                    launchLyricsLookup(track, allowNetworkIfEnabled = false)
                 }
             }
         }
@@ -437,6 +480,7 @@ class MainViewModel @Inject constructor(
 
                 launchWaveformExtraction(track)
                 launchColorExtraction(track)
+                launchLyricsLookup(track, allowNetworkIfEnabled = false)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -451,6 +495,7 @@ class MainViewModel @Inject constructor(
             musicPlayer.seekToQueueIndex(index)
             launchWaveformExtraction(track)
             launchColorExtraction(track)
+            launchLyricsLookup(track, allowNetworkIfEnabled = false)
         }
 
         /**
@@ -461,10 +506,12 @@ class MainViewModel @Inject constructor(
         fun removePlayback() {
             waveformJob?.cancel()
             colorJob?.cancel()
+            lyricsJob?.cancel()
             musicPlayer.clear()
             _currentQueue.value = emptyList()
             _currentTrack.value = null
             _playingTrackDominantColor.value = null
+            _lyricsUiState.value = LyricsUiState.Idle
             resetAmplitudeState()
         }
 
@@ -522,11 +569,67 @@ class MainViewModel @Inject constructor(
             }
         }
 
+        /**
+         * Runs the local-only lyrics chain (memory → Room → embedded → .lrc). The network
+         * stage is reserved for [openLyrics]/[refreshLyrics] so track-skipping never leaks
+         * listening history to LRCLIB. Cancel-before-restart like waveform/color jobs.
+         */
+        private fun launchLyricsLookup(
+            track: Track,
+            allowNetworkIfEnabled: Boolean,
+            forceRefresh: Boolean = false
+        ) {
+            lyricsJob?.cancel()
+            _lyricsUiState.value =
+                if (allowNetworkIfEnabled) LyricsUiState.LoadingNetwork else LyricsUiState.LoadingLocal
+            lyricsJob = viewModelScope.launch {
+                val networkEnabled = lyricsSettingsStore.networkEnabled.first()
+                val result = lyricsRepository.getLyrics(
+                    track,
+                    allowNetwork = allowNetworkIfEnabled && networkEnabled,
+                    forceRefresh = forceRefresh
+                )
+                _lyricsUiState.value = when (result) {
+                    is LyricsResult.Found -> LyricsUiState.Loaded(result.lyrics, result.source)
+                    LyricsResult.Instrumental -> LyricsUiState.Instrumental
+                    LyricsResult.NetworkError -> LyricsUiState.NetworkError
+                    LyricsResult.NotFound ->
+                        if (allowNetworkIfEnabled && !networkEnabled) LyricsUiState.NetworkDisabledHint
+                        else LyricsUiState.NotFound
+                }
+            }
+        }
+
+        /** Called when the lyrics sheet opens — may hit LRCLIB if the user opted in. */
+        fun openLyrics() {
+            val track = _currentTrack.value ?: return
+            val state = _lyricsUiState.value
+            if (state is LyricsUiState.Loaded || state == LyricsUiState.Instrumental) return
+            launchLyricsLookup(track, allowNetworkIfEnabled = true)
+        }
+
+        /** Manual refresh — bypasses memory + Room caches and re-runs the full chain. */
+        fun refreshLyrics() {
+            val track = _currentTrack.value ?: return
+            launchLyricsLookup(track, allowNetworkIfEnabled = true, forceRefresh = true)
+        }
+
+        fun seekToMs(positionMs: Long) { musicPlayer.seekTo(positionMs) }
+
+        fun setLyricsNetworkEnabled(enabled: Boolean) {
+            viewModelScope.launch { lyricsSettingsStore.setNetworkEnabled(enabled) }
+        }
+
+        fun setLyricsSourcePriority(priority: LyricsSourcePriority) {
+            viewModelScope.launch { lyricsSettingsStore.setSourcePriority(priority) }
+        }
+
         private fun seedCurrentTrack(track: Track) {
             _currentTrack.value = track
             resetAmplitudeState()
             launchWaveformExtraction(track)
             launchColorExtraction(track)
+            launchLyricsLookup(track, allowNetworkIfEnabled = false)
         }
 
         private suspend fun restorePlaybackSession(allTracks: List<Track>) {
@@ -613,6 +716,7 @@ class MainViewModel @Inject constructor(
             super.onCleared()
             waveformJob?.cancel()
             colorJob?.cancel()
+            lyricsJob?.cancel()
             visualizerManager.destroy()
             musicPlayer.release()
         }
