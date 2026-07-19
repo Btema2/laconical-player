@@ -58,6 +58,7 @@ import com.laconical.player.ui.components.CreatePlaylistDialog
 import com.laconical.player.ui.components.QueueSheet
 import com.laconical.player.ui.components.FadingMarqueeText
 import com.laconical.player.ui.components.LyricsSheet
+import com.laconical.player.ui.components.VisualizerSeekBar
 import com.laconical.player.ui.components.TrackMenuOverlay
 import com.laconical.player.ui.components.PlaylistMenuOverlay
 import com.laconical.player.ui.components.SortChipRow
@@ -249,6 +250,13 @@ fun LibraryScreen(
     val navController = rememberNavController()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val queueAnimatable = remember { Animatable(0f) }
+    // Lyrics morph driver — mirrors queueAnimatable exactly. Queue and lyrics are mutually
+    // exclusive (both are a `full → X` stage-2 transition sharing the same frozen full-side
+    // anchors), enforced at the two open triggers below (onShowQueue / onOpenLyrics), not by
+    // branching the lerp math: with only one driver ever > 0 at a time, the two stage-2 lerps
+    // chain safely (queueProg's stage evaluates to a no-op while lyricsProg drives, and
+    // vice-versa). See QueueMorphLayer.
+    val lyricsAnimatable = remember { Animatable(0f) }
     var isSearchOpen by remember { mutableStateOf(false) }
     val contentFadeProgress = remember { Animatable(0f) }
 
@@ -354,6 +362,15 @@ fun LibraryScreen(
     var fullArtTopPx  by remember { mutableFloatStateOf(-1f) }
     var fullArtLeftPx by remember { mutableFloatStateOf(-1f) }
     var fullArtSizePx by remember { mutableFloatStateOf(-1f) }
+    // Seek-bar full-side anchor — same class as the art/title/controls anchors above: FullPlayer
+    // lays this out at full size even while the sheet is collapsed (only its alpha/contentAlpha
+    // is 0), so it is captured at the same COLLAPSED rest as everything else, not at expanded
+    // rest. Used by the lyrics morph (full → lyrics) to lerp a real VisualizerSeekBar from its
+    // full-player position into the lyrics view's bottom cluster.
+    var fullSeekBarLeftPx   by remember { mutableFloatStateOf(-1f) }
+    var fullSeekBarTopPx    by remember { mutableFloatStateOf(-1f) }
+    var fullSeekBarWidthPx  by remember { mutableFloatStateOf(-1f) }
+    var fullSeekBarHeightPx by remember { mutableFloatStateOf(-1f) }
 
     // expandedFraction computed at this level so both sheetContent and outer Box can use it
     val maxOffset = if (containerHeightPx > 0f)
@@ -455,6 +472,7 @@ fun LibraryScreen(
         fullTitleTopPx, fullArtistLeftPx, fullArtistTopPx,
         fullPrevCenterXPx, fullPrevCenterYPx, fullPlayCenterXPx, fullPlayCenterYPx,
         fullNextCenterXPx, fullNextCenterYPx, fullArtTopPx, fullArtLeftPx, fullArtSizePx,
+        fullSeekBarLeftPx, fullSeekBarTopPx, fullSeekBarWidthPx, fullSeekBarHeightPx,
     ) {
         if (currentTrack == null) {
             morphAnchors = null
@@ -464,7 +482,9 @@ fun LibraryScreen(
             fullTitleTopPx >= 0f && fullArtistTopPx >= 0f && fullArtistLeftPx >= 0f &&
             fullPrevCenterYPx >= 0f && fullPlayCenterYPx >= 0f && fullNextCenterYPx >= 0f &&
             fullPrevCenterXPx >= 0f && fullPlayCenterXPx >= 0f && fullNextCenterXPx >= 0f &&
-            fullArtTopPx >= 0f && fullArtLeftPx >= 0f && fullArtSizePx >= 0f
+            fullArtTopPx >= 0f && fullArtLeftPx >= 0f && fullArtSizePx >= 0f &&
+            fullSeekBarLeftPx >= 0f && fullSeekBarTopPx >= 0f &&
+            fullSeekBarWidthPx >= 0f && fullSeekBarHeightPx >= 0f
         // Capture only at rest so every value comes from one settled layout pass. Structural
         // equality on the data class makes re-capturing identical values a no-op (no churn),
         // and re-measures naturally after a configuration change once the sheet settles again.
@@ -483,6 +503,10 @@ fun LibraryScreen(
                 artTopPx = fullArtTopPx,
                 artLeftPx = fullArtLeftPx,
                 artSizePx = fullArtSizePx,
+                seekBarLeftPx = fullSeekBarLeftPx,
+                seekBarTopPx = fullSeekBarTopPx,
+                seekBarWidthPx = fullSeekBarWidthPx,
+                seekBarHeightPx = fullSeekBarHeightPx,
             )
         }
     }
@@ -622,15 +646,22 @@ fun LibraryScreen(
         }
     }
 
-    // Lyrics overlay visibility — auto-closed when playback is removed.
-    var showLyrics by remember { mutableStateOf(false) }
-
     // Collapse the sheet when playback stops so the invisible full-player
     // cannot block input while nothing is showing.
     LaunchedEffect(currentTrack) {
         if (currentTrack == null) {
-            showLyrics = false
+            lyricsAnimatable.snapTo(0f)
             scaffoldState.bottomSheetState.partialExpand()
+        }
+    }
+
+    // Auto-collapse lyrics if the player collapses — mirrors the queue's identical effect
+    // below. One-off reads of .value inside a LaunchedEffect body (not the composable body)
+    // do not subscribe LibraryScreen to per-frame recomposition — see the lyricsAnimatable
+    // declaration comment above.
+    LaunchedEffect(expandedFraction) {
+        if (expandedFraction < 0.3f && lyricsAnimatable.value > 0f) {
+            lyricsAnimatable.animateTo(0f, tween(QUEUE_ANIM_MS, easing = FastOutSlowInEasing))
         }
     }
 
@@ -683,15 +714,38 @@ fun LibraryScreen(
                                 fullArtTopPx  = y
                                 fullArtSizePx = sizePx
                             },
+                            onSeekBarPositioned = { x, y, w, h ->
+                                fullSeekBarLeftPx = x
+                                fullSeekBarTopPx = y
+                                fullSeekBarWidthPx = w
+                                fullSeekBarHeightPx = h
+                            },
+                            lyricsProg = lyricsAnimatable,
                             onShowQueue = {
                                 scope.launch {
+                                    // Mutual exclusion: queue and lyrics are both a `full → X`
+                                    // stage-2 transition sharing the same frozen anchors, so the
+                                    // mode may only change once the other is fully back at rest —
+                                    // collapse it first instead of lerping toward a target that
+                                    // changes mid-flight.
+                                    if (lyricsAnimatable.value > 0f) {
+                                        lyricsAnimatable.animateTo(0f, tween(QUEUE_ANIM_MS, easing = FastOutSlowInEasing))
+                                    }
                                     queueAnimatable.animateTo(
                                         1f,
                                         tween(QUEUE_ANIM_MS, easing = FastOutSlowInEasing)
                                     )
                                 }
                             },
-                            onOpenLyrics = { showLyrics = true },
+                            onOpenLyrics = {
+                                scope.launch {
+                                    if (queueAnimatable.value > 0f) {
+                                        queueAnimatable.animateTo(0f, tween(QUEUE_ANIM_MS, easing = FastOutSlowInEasing))
+                                    }
+                                    viewModel.openLyrics()
+                                    lyricsAnimatable.animateTo(1f, tween(QUEUE_ANIM_MS, easing = FastOutSlowInEasing))
+                                }
+                            },
                             onQueueDragDelta = { dy ->
                                 val screenH = with(density) { configuration.screenHeightDp.dp.toPx() }
                                 val newProg = (queueAnimatable.value - dy / screenH).coerceIn(0f, 1f)
@@ -1317,6 +1371,7 @@ fun LibraryScreen(
         if (morphTrack != null && anchors != null) {
             QueueMorphLayer(
                 queueAnimatable = queueAnimatable,
+                lyricsAnimatable = lyricsAnimatable,
                 prewarm = queuePrewarm,
                 viewModel = viewModel,
                 currentTrack = morphTrack,
@@ -1337,6 +1392,14 @@ fun LibraryScreen(
                 fullArtTopPx  = anchors.artTopPx,
                 fullArtLeftPx = anchors.artLeftPx,
                 fullArtSizePx = anchors.artSizePx,
+                fullSeekBarLeftPx = anchors.seekBarLeftPx,
+                fullSeekBarTopPx = anchors.seekBarTopPx,
+                fullSeekBarWidthPx = anchors.seekBarWidthPx,
+                fullSeekBarHeightPx = anchors.seekBarHeightPx,
+                onShowLyricsMenu = {
+                    contextMenuTrack = currentTrack
+                    isMenuFromFullPlayer = true
+                },
                 scope = scope,
             )
         }
@@ -1484,22 +1547,6 @@ fun LibraryScreen(
                 },
             )
         }
-        // ── Lyrics overlay ──────────────────────────────────────────────────
-        if (showLyrics && currentTrack != null) {
-            // Fires on open and again on track change while open — runs the network
-            // stage (if the user opted in) for the newly visible track.
-            LaunchedEffect(currentTrack) { viewModel.openLyrics() }
-            val lyricsUiState by viewModel.lyricsUiState.collectAsState()
-            val lyricsLineIndex by viewModel.currentLyricsLineIndex.collectAsState()
-            LyricsSheet(
-                uiState = lyricsUiState,
-                currentLineIndex = lyricsLineIndex,
-                dominantColor = playingTrackDominantColor,
-                onLineTap = viewModel::seekToMs,
-                onRefresh = viewModel::refreshLyrics,
-                onDismiss = { showLyrics = false },
-            )
-        }
         PlaylistAddedToast(
             data = playlistToastData,
             onDismiss = { playlistToastData = null },
@@ -1566,6 +1613,10 @@ private data class MorphAnchors(
     val artTopPx: Float,
     val artLeftPx: Float,
     val artSizePx: Float,
+    val seekBarLeftPx: Float,
+    val seekBarTopPx: Float,
+    val seekBarWidthPx: Float,
+    val seekBarHeightPx: Float,
 )
 
 /**
@@ -1586,6 +1637,7 @@ private data class MorphAnchors(
 @Composable
 private fun QueueMorphLayer(
     queueAnimatable: Animatable<Float, AnimationVector1D>,
+    lyricsAnimatable: Animatable<Float, AnimationVector1D>,
     prewarm: Boolean,
     viewModel: MainViewModel,
     currentTrack: Track,
@@ -1606,23 +1658,45 @@ private fun QueueMorphLayer(
     fullArtTopPx: Float = -1f,
     fullArtLeftPx: Float = -1f,
     fullArtSizePx: Float = -1f,
+    fullSeekBarLeftPx: Float = -1f,
+    fullSeekBarTopPx: Float = -1f,
+    fullSeekBarWidthPx: Float = -1f,
+    fullSeekBarHeightPx: Float = -1f,
+    onShowLyricsMenu: () -> Unit = {},
     scope: CoroutineScope,
 ) {
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val screenWidthDp = configuration.screenWidthDp.dp
+    val screenHeightDp = configuration.screenHeightDp.dp
+    val navBarInsetDp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     // Reading value HERE instead of in LibraryScreen is the performance fix.
     val queueProg = queueAnimatable.value
+    val lyricsProg = lyricsAnimatable.value
+
+    // Back press while lyrics is open dismisses lyrics only (not the whole player). Gated on
+    // lyricsProg so this BackHandler only ENTERS composition once the user actually opens
+    // lyrics — mirrors how the old fullscreen LyricsSheet's BackHandler was conditionally
+    // mounted. AndroidX's OnBackPressedDispatcher gives priority to the most-recently-added
+    // callback, so a handler that only appears now (well after the always-mounted `isExpanded`
+    // collapse handler in LibraryScreen) correctly takes precedence.
+    if (lyricsProg > 0.001f) {
+        BackHandler {
+            scope.launch {
+                lyricsAnimatable.animateTo(0f, tween(QUEUE_ANIM_MS, easing = FastOutSlowInEasing))
+            }
+        }
+    }
 
     // Swipe-down-to-remove: 1 at collapsed rest, snaps to 0 the instant any morph begins, so
     // dismissOffsetY (layer-only) never perturbs the mini<->full or full->queue transitions.
     val miniWeight = (1f - expandedFraction / 0.05f).coerceIn(0f, 1f)
 
-    val isStable = (expandedFraction < 0.05f && queueProg < 0.05f) ||
-                   (expandedFraction > 0.95f && queueProg < 0.05f) ||
-                   (queueProg > 0.95f)
+    val isStable = (expandedFraction < 0.05f && queueProg < 0.05f && lyricsProg < 0.05f) ||
+                   (expandedFraction > 0.95f && queueProg < 0.05f && lyricsProg < 0.05f) ||
+                   (queueProg > 0.95f) || (lyricsProg > 0.95f)
 
     // ── Queue Sheet (rendered first = below morph overlay) ───────────────────
     // Fade + small 80dp slide instead of a full-screen-height slide. This keeps
@@ -1668,6 +1742,68 @@ private fun QueueMorphLayer(
         )
     }
 
+    val dominantColor by viewModel.playingTrackDominantColor.collectAsState()
+
+    // ── Lyrics view geometry (top bar + bottom cluster) ───────────────────────
+    // All lyrics-side coordinates are computed from dp constants, never reported via a new
+    // onGloballyPositioned — every extra live-reported position is another throttled-callback
+    // dependency that can desync per-frame (see CLAUDE.md morph pitfalls). Only the FULL-side
+    // seek-bar rect is a reported-and-frozen anchor (captured at collapsed rest, same class as
+    // the art/title/controls anchors) — everything below is a deterministic fixed layout.
+    val lyricsTopBarHeightDp = statusBarPadding + 48.dp
+    val lyricsControlsRowHeightDp = 56.dp
+    val lyricsClusterRowHeightDp = 64.dp
+    val lyricsClusterBottomGapDp = 18.dp
+    val lyricsScreenBottomMarginDp = 20.dp + navBarInsetDp
+
+    val lyricsControlsRowTopDp = screenHeightDp - lyricsScreenBottomMarginDp - lyricsControlsRowHeightDp
+    val lyricsClusterRowTopDp = lyricsControlsRowTopDp - lyricsClusterBottomGapDp - lyricsClusterRowHeightDp
+
+    val lyricsThumbLeftDp = 24.dp
+    val lyricsThumbSizeDp = 64.dp
+    val lyricsThumbTopDp = lyricsClusterRowTopDp
+
+    val lyricsSeekLeftDp = lyricsThumbLeftDp + lyricsThumbSizeDp + 16.dp
+    val lyricsSeekRightMarginDp = 24.dp
+    val lyricsSeekWidthDp = screenWidthDp - lyricsSeekLeftDp - lyricsSeekRightMarginDp
+    val lyricsSeekHeightDp = 28.dp
+    val lyricsSeekTopDp = lyricsClusterRowTopDp + (lyricsClusterRowHeightDp - lyricsSeekHeightDp - 18.dp) / 2f
+    val lyricsTimeRowTopDp = lyricsSeekTopDp + lyricsSeekHeightDp + 4.dp
+
+    val lyricsControlsCenterYDp = lyricsControlsRowTopDp + lyricsControlsRowHeightDp / 2f
+    val lyricsControlsLeftDp = 24.dp
+    val lyricsControlsRightDp = screenWidthDp - 24.dp
+    val lyricsControlsSlotWidthDp = (lyricsControlsRightDp - lyricsControlsLeftDp) / 5f
+    val lyricsShuffleCenterXDp = lyricsControlsLeftDp + lyricsControlsSlotWidthDp * 0.5f
+    val lyricsPrevCenterXDp    = lyricsControlsLeftDp + lyricsControlsSlotWidthDp * 1.5f
+    val lyricsPlayCenterXDp    = lyricsControlsLeftDp + lyricsControlsSlotWidthDp * 2.5f
+    val lyricsNextCenterXDp    = lyricsControlsLeftDp + lyricsControlsSlotWidthDp * 3.5f
+    val lyricsRepeatCenterXDp  = lyricsControlsLeftDp + lyricsControlsSlotWidthDp * 4.5f
+
+    // ── Lyrics layer (rendered first = below morph overlay, mirrors QueueSheet) ──────────────
+    if (lyricsProg > 0.001f) {
+        // Fires on open and again on track change while open — same policy the old teleporting
+        // overlay used (network stage only from an explicit open/refresh, never a bare skip).
+        LaunchedEffect(currentTrack.id) { viewModel.openLyrics() }
+        LyricsSheet(
+            viewModel = viewModel,
+            currentTrack = currentTrack,
+            progress = lyricsProg,
+            dominantColor = dominantColor,
+            onDismiss = {
+                scope.launch {
+                    lyricsAnimatable.animateTo(0f, tween(QUEUE_ANIM_MS, easing = FastOutSlowInEasing))
+                }
+            },
+            onShowMenu = onShowLyricsMenu,
+            topInset = lyricsTopBarHeightDp + 8.dp,
+            bottomInset = screenHeightDp - lyricsClusterRowTopDp + 8.dp,
+            shuffleCenterX = lyricsShuffleCenterXDp,
+            repeatCenterX = lyricsRepeatCenterXDp,
+            controlsCenterY = lyricsControlsCenterYDp,
+        )
+    }
+
     // ── Morph overlay (rendered second = above QueueSheet) ───────────────────
     val context = LocalContext.current
     val loadTarget = currentTrack.mediaUri
@@ -1677,7 +1813,6 @@ private fun QueueMorphLayer(
             .size(Size.ORIGINAL)
             .build()
     }
-    val dominantColor by viewModel.playingTrackDominantColor.collectAsState()
     val themeColor = dominantColor ?: Color(0xFF1E1E1E)
     val currentAmplitude by viewModel.currentNormalizedAmplitude.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
@@ -1735,12 +1870,18 @@ private fun QueueMorphLayer(
 
     val queueTitleLeftDp = 88.dp
     val queueTitleTopDp  = statusBarPadding + 26.dp
+    // Lyrics top bar: left-aligned (clears the down-arrow), same pattern the queue header
+    // already uses — FadingMarqueeText has no centered-text mode, so true centering (as in
+    // the Namida reference) isn't available without a new component capability; left-aligned
+    // stays consistent with the app's one existing morph-header precedent.
+    val lyricsTitleLeftDp = 64.dp
+    val lyricsTitleTopDp  = statusBarPadding + 6.dp
 
     val playerTitleLeft = lerp(miniTitleLeftDp.value, fullTitleLeftDp.value, expandedFraction).dp
     val playerTitleTop  = lerp(miniTitleTopDp.value,  fullTitleTopDp.value,  expandedFraction).dp
-    val finalTitleLeft  = lerp(playerTitleLeft.value, queueTitleLeftDp.value, queueProg).dp
-    val finalTitleTop   = lerp(playerTitleTop.value,  queueTitleTopDp.value,  queueProg).dp
-    val finalTitleSize  = lerp(lerp(15f, 20f, expandedFraction), 16f, queueProg).sp
+    val finalTitleLeft  = lerp(lerp(playerTitleLeft.value, queueTitleLeftDp.value, queueProg), lyricsTitleLeftDp.value, lyricsProg).dp
+    val finalTitleTop   = lerp(lerp(playerTitleTop.value,  queueTitleTopDp.value,  queueProg), lyricsTitleTopDp.value, lyricsProg).dp
+    val finalTitleSize  = lerp(lerp(lerp(15f, 20f, expandedFraction), 16f, queueProg), 15f, lyricsProg).sp
 
     val playerTitleMaxWidthDp = lerp(
         (screenWidthDp - miniTitleLeftDp - 170.dp).value,
@@ -1748,7 +1889,8 @@ private fun QueueMorphLayer(
         expandedFraction
     ).dp
     val queueTitleMaxWidthDp  = screenWidthDp - 88.dp - 80.dp
-    val finalTitleMaxWidthDp  = lerp(playerTitleMaxWidthDp.value, queueTitleMaxWidthDp.value, queueProg).dp
+    val lyricsTitleMaxWidthDp = screenWidthDp - lyricsTitleLeftDp - 96.dp
+    val finalTitleMaxWidthDp  = lerp(lerp(playerTitleMaxWidthDp.value, queueTitleMaxWidthDp.value, queueProg), lyricsTitleMaxWidthDp.value, lyricsProg).dp
 
     FadingMarqueeText(
         text = currentTrack.title,
@@ -1772,12 +1914,14 @@ private fun QueueMorphLayer(
     val fullArtistTopDp  = if (fullArtistTopPx >= 0f) with(density) { (fullArtistTopPx - sheetRootYPx).toDp() } else fullTitleTopDp + 20.dp
     val queueArtistLeftDp = 88.dp
     val queueArtistTopDp  = statusBarPadding + 46.dp
+    val lyricsArtistLeftDp = lyricsTitleLeftDp
+    val lyricsArtistTopDp  = lyricsTitleTopDp + 20.dp
 
     val playerArtistLeft = lerp(miniArtistLeftDp.value, fullArtistLeftDp.value, expandedFraction).dp
     val playerArtistTop  = lerp(miniArtistTopDp.value,  fullArtistTopDp.value,  expandedFraction).dp
-    val finalArtistLeft  = lerp(playerArtistLeft.value, queueArtistLeftDp.value, queueProg).dp
-    val finalArtistTop   = lerp(playerArtistTop.value,  queueArtistTopDp.value,  queueProg).dp
-    val finalArtistSize  = lerp(lerp(13f, 14f, expandedFraction), 13f, queueProg).sp
+    val finalArtistLeft  = lerp(lerp(playerArtistLeft.value, queueArtistLeftDp.value, queueProg), lyricsArtistLeftDp.value, lyricsProg).dp
+    val finalArtistTop   = lerp(lerp(playerArtistTop.value,  queueArtistTopDp.value,  queueProg), lyricsArtistTopDp.value, lyricsProg).dp
+    val finalArtistSize  = lerp(lerp(lerp(13f, 14f, expandedFraction), 13f, queueProg), 12f, lyricsProg).sp
 
     FadingMarqueeText(
         text = currentTrack.artist,
@@ -1800,10 +1944,10 @@ private fun QueueMorphLayer(
     val playerArtLeft = lerp(miniArtLeftDp.value, fullArtLeftDp.value, expandedFraction).dp
     val playerArtTop  = lerp(miniArtTopDp.value,  fullArtTopDp.value,  expandedFraction).dp
 
-    val finalArtSize   = lerp(playerArtSize.value, queueArtSizeDp.value, queueProg).dp
-    val finalArtLeft   = lerp(playerArtLeft.value, queueArtLeftDp.value, queueProg).dp
-    val finalArtTop    = lerp(playerArtTop.value,  queueArtTopDp.value,  queueProg).dp
-    val finalArtCorner = lerp(lerp(10f, 24f, expandedFraction), 12f, queueProg).dp
+    val finalArtSize   = lerp(lerp(playerArtSize.value, queueArtSizeDp.value, queueProg), lyricsThumbSizeDp.value, lyricsProg).dp
+    val finalArtLeft   = lerp(lerp(playerArtLeft.value, queueArtLeftDp.value, queueProg), lyricsThumbLeftDp.value, lyricsProg).dp
+    val finalArtTop    = lerp(lerp(playerArtTop.value,  queueArtTopDp.value,  queueProg), lyricsThumbTopDp.value, lyricsProg).dp
+    val finalArtCorner = lerp(lerp(lerp(10f, 24f, expandedFraction), 12f, queueProg), 16f, lyricsProg).dp
 
     Box(
         modifier = Modifier
@@ -1890,17 +2034,24 @@ private fun QueueMorphLayer(
     val p1NextCX = lerp(miniNextCenterXDp.value, fullNextCenterXDp.value, expandedFraction)
     val p1NextCY = lerp(miniCtrlCenterYDp.value, fullNextCenterYDp.value, expandedFraction)
 
-    val playCX = lerp(p1PlayCX, queuePlayCenterXDp.value, queueProg).dp
-    val playCY = lerp(p1PlayCY, queuePlayCenterYDp.value, queueProg).dp
-    val prevCX = lerp(p1PrevCX, queuePlayCenterXDp.value, queueProg).dp
-    val prevCY = lerp(p1PrevCY, queuePlayCenterYDp.value, queueProg).dp
-    val nextCX = lerp(p1NextCX, queuePlayCenterXDp.value, queueProg).dp
-    val nextCY = lerp(p1NextCY, queuePlayCenterYDp.value, queueProg).dp
+    // Lyrics stage chains on top of the existing queue stage exactly like the title/artist/art
+    // lerps above: queueProg and lyricsProg are mutually exclusive (enforced at the two open
+    // triggers in LibraryScreen), so whichever driver is 0 leaves its own stage a no-op.
+    val playCX = lerp(lerp(p1PlayCX, queuePlayCenterXDp.value, queueProg), lyricsPlayCenterXDp.value, lyricsProg).dp
+    val playCY = lerp(lerp(p1PlayCY, queuePlayCenterYDp.value, queueProg), lyricsControlsCenterYDp.value, lyricsProg).dp
+    val prevCX = lerp(lerp(p1PrevCX, queuePlayCenterXDp.value, queueProg), lyricsPrevCenterXDp.value, lyricsProg).dp
+    val prevCY = lerp(lerp(p1PrevCY, queuePlayCenterYDp.value, queueProg), lyricsControlsCenterYDp.value, lyricsProg).dp
+    val nextCX = lerp(lerp(p1NextCX, queuePlayCenterXDp.value, queueProg), lyricsNextCenterXDp.value, lyricsProg).dp
+    val nextCY = lerp(lerp(p1NextCY, queuePlayCenterYDp.value, queueProg), lyricsControlsCenterYDp.value, lyricsProg).dp
 
-    val prevNextIconSize  = lerp(24f, 48f, expandedFraction).dp
-    val playContainerSize = lerp(lerp(48f, 72f, expandedFraction), 48f, queueProg).dp
-    val playIconSize      = lerp(lerp(36f, 42f, expandedFraction), 36f, queueProg).dp
+    val prevNextIconSize  = lerp(lerp(24f, 48f, expandedFraction), 26f, lyricsProg).dp
+    val playContainerSize = lerp(lerp(lerp(48f, 72f, expandedFraction), 48f, queueProg), 56f, lyricsProg).dp
+    val playIconSize      = lerp(lerp(lerp(36f, 42f, expandedFraction), 36f, queueProg), 28f, lyricsProg).dp
     val circleAlpha       = smootherstep(expandedFraction) * (1f - queueProg)
+    // Base value is already 1 whenever lyricsProg > 0 (queueProg is pinned to 0 by mutual
+    // exclusion), so prev/next stay visible through the lyrics stage with no extra term needed
+    // — the full transport (shuffle-prev-play-next-repeat) the user asked for falls out of this
+    // for free.
     val prevNextAlpha     = (1f - queueProg * 1.4f).coerceIn(0f, 1f)
 
     val buttonBgColor = remember(themeColor) {
@@ -1971,6 +2122,71 @@ private fun QueueMorphLayer(
             )
         }
     }
+
+    // ── Seek bar + time (lyrics stage only — full/queue never show this) ─────────────────
+    // The one morph element FullPlayer doesn't already ghost-report on its own: reuses the
+    // real VisualizerSeekBar component, lerping from the frozen full-side anchor (captured at
+    // collapsed rest, same as art/title/controls) to the lyrics-side computed rect. At
+    // lyricsProg≈0 this coincides with FullPlayer's own (fading-out) bar position — seamless
+    // handoff, no cross-fade pop. Drag + waveform-phase animation are frozen mid-morph so a
+    // scrub can't fight a bar that's simultaneously moving/resizing underneath it.
+    if (lyricsProg > 0.001f) {
+        val waveform by viewModel.waveform.collectAsState()
+        val playProgress by viewModel.progress.collectAsState()
+        val duration by viewModel.duration.collectAsState()
+        val currentPosition by viewModel.currentPosition.collectAsState()
+        val morphSettled = lyricsProg <= 0.001f || lyricsProg >= 0.999f
+
+        val fullSeekLeftDp   = if (fullSeekBarLeftPx >= 0f) with(density) { fullSeekBarLeftPx.toDp() } else lyricsSeekLeftDp
+        val fullSeekTopDp    = if (fullSeekBarTopPx >= 0f) with(density) { (fullSeekBarTopPx - sheetRootYPx).toDp() } else lyricsSeekTopDp
+        val fullSeekWidthDp  = if (fullSeekBarWidthPx >= 0f) with(density) { fullSeekBarWidthPx.toDp() } else lyricsSeekWidthDp
+        val fullSeekHeightDp = if (fullSeekBarHeightPx >= 0f) with(density) { fullSeekBarHeightPx.toDp() } else lyricsSeekHeightDp
+
+        val seekLeftDp   = lerp(fullSeekLeftDp.value,   lyricsSeekLeftDp.value,   lyricsProg).dp
+        val seekTopDp    = lerp(fullSeekTopDp.value,    lyricsSeekTopDp.value,    lyricsProg).dp
+        val seekWidthDp  = lerp(fullSeekWidthDp.value,  lyricsSeekWidthDp.value,  lyricsProg).dp
+        val seekHeightDp = lerp(fullSeekHeightDp.value, lyricsSeekHeightDp.value, lyricsProg).dp
+        val timeRowTopDp = lerp((fullSeekTopDp + fullSeekHeightDp + 8.dp).value, lyricsTimeRowTopDp.value, lyricsProg).dp
+
+        VisualizerSeekBar(
+            modifier = Modifier
+                .offset(x = seekLeftDp, y = seekTopDp)
+                .size(width = seekWidthDp, height = seekHeightDp)
+                .graphicsLayer {
+                    translationY = dismissOffsetY.value * miniWeight
+                    translationX = skipOffsetX.value * miniWeight
+                },
+            waveform = waveform,
+            progress = playProgress,
+            duration = duration,
+            onSeek = { viewModel.seekTo(it) },
+            activeColor = animatedBtnColor,
+            isPlaying = isPlaying,
+            // Reuses the existing `isPlaying && expandedFraction > 0.01f` phase-scroll gate to
+            // freeze the waveform mid-morph, instead of adding a new param.
+            expandedFraction = if (morphSettled) 1f else 0f,
+            enabled = morphSettled,
+        )
+
+        Row(
+            modifier = Modifier
+                .offset(x = seekLeftDp, y = timeRowTopDp)
+                .width(seekWidthDp)
+                .graphicsLayer {
+                    translationY = dismissOffsetY.value * miniWeight
+                    translationX = skipOffsetX.value * miniWeight
+                },
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(text = formatLyricsClusterTime(currentPosition), color = Color(0xFFBBBBBB), fontSize = 11.sp)
+            Text(text = formatLyricsClusterTime(duration), color = Color(0xFFBBBBBB), fontSize = 11.sp)
+        }
+    }
+}
+
+private fun formatLyricsClusterTime(ms: Long): String {
+    val totalSeconds = ms / 1000
+    return "%d:%02d".format(totalSeconds / 60, totalSeconds % 60)
 }
 
 @Composable

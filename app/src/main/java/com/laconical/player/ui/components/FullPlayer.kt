@@ -64,6 +64,15 @@ fun FullPlayer(
     /** Reports root-space center (x, y) of Prev, Play, Next buttons for the morphing overlay. */
     onPlayControlsPositioned: (prevX: Float, prevY: Float, playX: Float, playY: Float, nextX: Float, nextY: Float) -> Unit = { _, _, _, _, _, _ -> },
     onAlbumArtPositioned: (x: Float, y: Float, sizePx: Float) -> Unit = { _, _, _ -> },
+    /** Reports root-space (x, y, widthPx, heightPx) of the seek bar for the lyrics morph. */
+    onSeekBarPositioned: (x: Float, y: Float, widthPx: Float, heightPx: Float) -> Unit = { _, _, _, _ -> },
+    /** 0 = lyrics closed, 1 = lyrics fully open. Fades THIS player's own seek bar + time row
+     *  out (graphicsLayer only, never a layout change) while the morph overlay draws a real
+     *  VisualizerSeekBar over the frozen full-side anchor and lerps it into the lyrics view's
+     *  bottom cluster — see LibraryScreen's QueueMorphLayer. Reading .value inside a
+     *  graphicsLayer lambda is a draw-phase read, so this does not recompose FullPlayer at
+     *  60fps during the lyrics morph (same discipline as dismissOffsetY/skipOffsetX). */
+    lyricsProg: Animatable<Float, AnimationVector1D> = Animatable(0f),
     onShowQueue: () -> Unit = {},
     onOpenLyrics: () -> Unit = {},
     /** Live delta (px) of an in-progress swipe-up-to-queue drag, follow-finger. */
@@ -312,31 +321,44 @@ fun FullPlayer(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Visualizer Seek Bar
-                VisualizerSeekBar(
+                // Seek bar + time — wrapped together so both fade out as one unit while the
+                // lyrics view is open. onGloballyPositioned still fires while alpha=0 (alpha is
+                // draw-only, layout is unaffected), so this remains the source of the frozen
+                // full-side seek-bar anchor the lyrics morph lerps from, exactly like the
+                // always-laid-out-but-sometimes-transparent art/title/controls ghosts above.
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(32.dp)
-                        .padding(horizontal = 24.dp),
-                    waveform = waveform,
-                    progress = progress,
-                    duration = duration,
-                    onSeek = { viewModel.seekTo(it) },
-                    activeColor = seekBarActiveColor,
-                    isPlaying = isPlaying,
-                    expandedFraction = expandedFraction
-                )
-
-                // Time Row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .graphicsLayer { alpha = 1f - lyricsProg.value }
                 ) {
-                    Text(text = formatTime(currentPosition), color = Color.Gray, fontSize = 12.sp)
-                    Text(text = formatTime(duration), color = Color.Gray, fontSize = 12.sp)
+                    VisualizerSeekBar(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(32.dp)
+                            .padding(horizontal = 24.dp)
+                            .onGloballyPositioned { coords ->
+                                val p = coords.positionInRoot()
+                                onSeekBarPositioned(p.x, p.y, coords.size.width.toFloat(), coords.size.height.toFloat())
+                            },
+                        waveform = waveform,
+                        progress = progress,
+                        duration = duration,
+                        onSeek = { viewModel.seekTo(it) },
+                        activeColor = seekBarActiveColor,
+                        isPlaying = isPlaying,
+                        expandedFraction = expandedFraction
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = formatTime(currentPosition), color = Color.Gray, fontSize = 12.sp)
+                        Text(text = formatTime(duration), color = Color.Gray, fontSize = 12.sp)
+                    }
                 }
 
                 // Playback Controls ghost — invisible layout spacer that reports root-space
@@ -468,7 +490,11 @@ fun VisualizerSeekBar(
     onSeek: (Float) -> Unit,
     activeColor: Color,
     isPlaying: Boolean,
-    expandedFraction: Float
+    expandedFraction: Float,
+    /** False while the lyrics morph is mid-transition — a scrub started on a moving/resizing
+     *  bar would fight the lerp every frame (see CLAUDE.md morph pitfalls). Tap/drag re-enable
+     *  once the bar is settled at either end (full player or the lyrics view). */
+    enabled: Boolean = true,
 ) {
     var isDragging by remember { mutableStateOf(false) }
     var dragProgress by remember { mutableFloatStateOf(0f) }
@@ -504,30 +530,34 @@ fun VisualizerSeekBar(
 
     BoxWithConstraints(
         modifier = modifier
-            .pointerInput(Unit) {
-                detectTapGestures { offset ->
-                    val p = (offset.x / size.width).coerceIn(0f, 1f)
-                    seekTarget = p; stableProgress = p; onSeek(p)
-                }
-            }
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        isDragging = true
-                        frozenProgress = stableProgress
-                        seekTarget = -1f
-                        dragProgress = (offset.x / size.width).coerceIn(0f, 1f)
-                    },
-                    onDragEnd = {
-                        seekTarget = dragProgress; stableProgress = dragProgress
-                        onSeek(dragProgress); isDragging = false
-                    },
-                    onDragCancel = { isDragging = false },
-                    onDrag = { change, _ ->
-                        dragProgress = (change.position.x / size.width).coerceIn(0f, 1f)
+            .then(
+                if (enabled) Modifier
+                    .pointerInput(Unit) {
+                        detectTapGestures { offset ->
+                            val p = (offset.x / size.width).coerceIn(0f, 1f)
+                            seekTarget = p; stableProgress = p; onSeek(p)
+                        }
                     }
-                )
-            }
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = { offset ->
+                                isDragging = true
+                                frozenProgress = stableProgress
+                                seekTarget = -1f
+                                dragProgress = (offset.x / size.width).coerceIn(0f, 1f)
+                            },
+                            onDragEnd = {
+                                seekTarget = dragProgress; stableProgress = dragProgress
+                                onSeek(dragProgress); isDragging = false
+                            },
+                            onDragCancel = { isDragging = false },
+                            onDrag = { change, _ ->
+                                dragProgress = (change.position.x / size.width).coerceIn(0f, 1f)
+                            }
+                        )
+                    }
+                else Modifier
+            )
     ) {
         val cWidth = constraints.maxWidth.toFloat()
         val cHeight = constraints.maxHeight.toFloat()
