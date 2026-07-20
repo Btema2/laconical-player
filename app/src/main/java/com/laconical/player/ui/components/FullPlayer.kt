@@ -389,6 +389,10 @@ fun FullPlayer(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        // Sibling of the seek-bar anchor above, not the outer BoxWithConstraints —
+                        // lifts only this row above the system nav bar without moving any
+                        // onGloballyPositioned-reported morph anchor (see CLAUDE.md Animation Pitfalls).
+                        .navigationBarsPadding()
                         .padding(vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
