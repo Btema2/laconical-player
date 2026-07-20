@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -38,6 +39,8 @@ fun FavoritesScreen(
     onFavoriteToggle: (Long) -> Unit,
     onTrackClick: (List<Track>, Int) -> Unit,
     onBack: () -> Unit,
+    /** Opens the shared TrackMenuOverlay (kebab menu) hosted at LibraryScreen, mirroring the Tracks screen. */
+    onTrackMenuOpen: (Track, Offset, Float) -> Unit = { _, _, _ -> },
     bottomPadding: Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
@@ -85,7 +88,8 @@ fun FavoritesScreen(
                         isPlaybackActive = isPlaying,
                         isFavorite = true,
                         onFavoriteToggle = { onFavoriteToggle(track.id) },
-                        onClick = { onTrackClick(favoriteTracks, index) }
+                        onClick = { onTrackClick(favoriteTracks, index) },
+                        onMenuOpen = { offset, size -> onTrackMenuOpen(track, offset, size) }
                     )
                 }
             }
