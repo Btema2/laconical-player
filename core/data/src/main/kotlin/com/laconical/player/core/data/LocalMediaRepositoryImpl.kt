@@ -24,7 +24,9 @@ class LocalMediaRepositoryImpl @Inject constructor(
         MediaStore.Audio.Media.ARTIST,
         MediaStore.Audio.Media.ALBUM,
         MediaStore.Audio.Media.DURATION,
-        MediaStore.Audio.Media.ALBUM_ID
+        MediaStore.Audio.Media.ALBUM_ID,
+        // disc*1000 + track when tagged (e.g. 2003 = disc 2, track 3); 0/absent when untagged.
+        MediaStore.Audio.Media.TRACK
     )
 
     private val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
@@ -42,8 +44,9 @@ class LocalMediaRepositoryImpl @Inject constructor(
             val albumCol    = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val albumIdCol  = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+            val trackCol    = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
             while (cursor.moveToNext()) {
-                tracks.add(rowToTrack(cursor, idCol, titleCol, artistCol, albumCol, durationCol, albumIdCol))
+                tracks.add(rowToTrack(cursor, idCol, titleCol, artistCol, albumCol, durationCol, albumIdCol, trackCol))
             }
         }
         tracks
@@ -62,8 +65,9 @@ class LocalMediaRepositoryImpl @Inject constructor(
             val albumCol    = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val albumIdCol  = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+            val trackCol    = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
             while (cursor.moveToNext()) {
-                tracks.add(rowToTrack(cursor, idCol, titleCol, artistCol, albumCol, durationCol, albumIdCol))
+                tracks.add(rowToTrack(cursor, idCol, titleCol, artistCol, albumCol, durationCol, albumIdCol, trackCol))
                 if (tracks.size % batchSize == 0) emit(tracks.toList())
             }
         }
@@ -73,7 +77,7 @@ class LocalMediaRepositoryImpl @Inject constructor(
     private fun rowToTrack(
         cursor: android.database.Cursor,
         idCol: Int, titleCol: Int, artistCol: Int,
-        albumCol: Int, durationCol: Int, albumIdCol: Int
+        albumCol: Int, durationCol: Int, albumIdCol: Int, trackCol: Int
     ): Track {
         val id      = cursor.getLong(idCol)
         val albumId = cursor.getLong(albumIdCol)
@@ -89,7 +93,8 @@ class LocalMediaRepositoryImpl @Inject constructor(
             albumArtUri = ContentUris.withAppendedId(
                 android.net.Uri.parse("content://media/external/audio/albumart"), albumId
             ).toString(),
-            dataPath  = null  // DATA column deprecated since API 29; content URI is used for all access
+            dataPath  = null,  // DATA column deprecated since API 29; content URI is used for all access
+            trackNumber = cursor.getInt(trackCol)
         )
     }
 }

@@ -55,7 +55,11 @@ fun AlbumDetailScreen(
 ) {
     val albumsState by viewModel.albums.collectAsState()
     val albumTracks = remember(albumName, albumsState) {
+        // Disc-aware track-number order: MediaStore.Audio.Media.TRACK encodes disc*1000+track,
+        // so plain ascending covers "cd1: 1,2,3... cd2: 1,2,3..." and untagged (trackNumber=0)
+        // sinks to the bottom instead of sorting to the top.
         viewModel.getTracksForAlbum(albumName)
+            .sortedWith(compareBy({ it.trackNumber <= 0 }, { it.trackNumber }))
     }
     var sortOrder by remember { mutableStateOf(SortOrder.DEFAULT) }
     val tracks = remember(albumTracks, sortOrder) { albumTracks.applySort(sortOrder) }
