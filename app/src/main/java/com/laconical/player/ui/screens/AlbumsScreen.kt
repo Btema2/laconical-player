@@ -28,9 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,7 +61,7 @@ fun AlbumsScreen(
     viewModel: AlbumsViewModel = hiltViewModel()
 ) {
     val allAlbums by viewModel.albums.collectAsState()
-    var sortOrder by remember { mutableStateOf(AlbumSortOrder.NAME) }
+    val sortOrder by viewModel.albumSortOrder.collectAsState()
     val albums = remember(allAlbums, sortOrder) { allAlbums.applySort(sortOrder) }
     val gridState = rememberLazyGridState()
     LaunchedEffect(sortOrder) { gridState.scrollToItem(0) }
@@ -80,7 +78,7 @@ fun AlbumsScreen(
         SortChipRow(
             options = AlbumSortOrder.entries.toList(),
             selected = sortOrder,
-            onSelect = { sortOrder = it },
+            onSelect = { viewModel.setAlbumSortOrder(it) },
             dominantColor = dominantColor
         )
         LazyVerticalGrid(
