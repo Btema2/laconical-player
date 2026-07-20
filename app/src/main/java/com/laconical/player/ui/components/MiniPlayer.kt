@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.laconical.player.ui.LocalAppSurface
 import com.laconical.player.ui.MainViewModel
+import com.laconical.player.ui.toHsl
 
 @Composable
 fun MiniPlayer(
@@ -52,15 +54,17 @@ fun MiniPlayer(
 
     val surfaceColor = LocalAppSurface.current
 
+    // Bright, saturated accent derived from the album color so the mini progress bar actually
+    // reads at rest (previously dimmed to 30% brightness — nearly invisible on the dark strip).
     val restAccent = if (vibeColor != null) {
-        Color(
-            red   = vibeColor!!.red   * 0.3f,
-            green = vibeColor!!.green * 0.3f,
-            blue  = vibeColor!!.blue  * 0.3f,
-            alpha = 1f
+        val hsl = vibeColor!!.toHsl()
+        Color.hsl(
+            hue = hsl[0] * 360f,
+            saturation = hsl[1].coerceIn(0.35f, 0.65f),
+            lightness = 0.55f
         )
     } else {
-        surfaceColor
+        MaterialTheme.colorScheme.primary
     }
 
     // Swipe-down-to-remove warning tint: rest -> vivid orange -> vivid red, easing back on abort.
@@ -178,7 +182,7 @@ fun MiniPlayer(
                 .fillMaxWidth()
                 .height(3.dp)
                 .align(Alignment.BottomCenter)
-                .background(Color(0x11FFFFFF))
+                .background(Color(0x33FFFFFF))
         ) {
             Box(
                 modifier = Modifier
