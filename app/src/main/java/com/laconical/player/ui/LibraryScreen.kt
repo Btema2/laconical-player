@@ -943,6 +943,12 @@ fun LibraryScreen(
                                             favoriteIds = favoriteIds,
                                             onFavoriteToggle = { viewModel.toggleFavorite(it) },
                                             onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
+                                            onTrackMenuOpen = { track, offset, size ->
+                                                contextMenuTrack = track
+                                                contextMenuArtOffset = offset
+                                                contextMenuArtSize = size
+                                                isMenuFromFullPlayer = false
+                                            },
                                             dominantColor = playingTrackDominantColor,
                                             bottomPadding = trackListBottomPadding
                                         )
@@ -986,6 +992,12 @@ fun LibraryScreen(
                                             favoriteIds = favoriteIds,
                                             onFavoriteToggle = { viewModel.toggleFavorite(it) },
                                             onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
+                                            onTrackMenuOpen = { track, offset, size ->
+                                                contextMenuTrack = track
+                                                contextMenuArtOffset = offset
+                                                contextMenuArtSize = size
+                                                isMenuFromFullPlayer = false
+                                            },
                                             dominantColor = playingTrackDominantColor,
                                             bottomPadding = trackListBottomPadding
                                         )
@@ -1051,6 +1063,12 @@ fun LibraryScreen(
                                             onFavoriteToggle = { viewModel.toggleFavorite(it) },
                                             onTrackClick = { list, idx -> viewModel.playTracks(list, idx) },
                                             onBack = { navController.popBackStack() },
+                                            onTrackMenuOpen = { track, offset, size ->
+                                                contextMenuTrack = track
+                                                contextMenuArtOffset = offset
+                                                contextMenuArtSize = size
+                                                isMenuFromFullPlayer = false
+                                            },
                                             bottomPadding = trackListBottomPadding
                                         )
                                     }
