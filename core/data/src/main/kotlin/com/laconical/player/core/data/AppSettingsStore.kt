@@ -28,6 +28,10 @@ interface AppSettingsStore {
     /** Raw AlbumSortOrder.name(), or null if never set. */
     val albumSortOrder: Flow<String?>
     suspend fun setAlbumSortOrder(name: String)
+
+    /** Raw StartupView.name() (ui/StartupView.kt), or null if never set. */
+    val startupView: Flow<String?>
+    suspend fun setStartupView(name: String)
 }
 
 // ----- DataStore extension -----
@@ -44,6 +48,7 @@ class DataStoreAppSettingsStore @Inject constructor(
 
     private object Keys {
         val ALBUM_SORT_ORDER = stringPreferencesKey("album_sort_order")
+        val STARTUP_VIEW = stringPreferencesKey("startup_view")
     }
 
     private val safeData: Flow<Preferences> = context.appSettingsDataStore.data
@@ -57,5 +62,12 @@ class DataStoreAppSettingsStore @Inject constructor(
 
     override suspend fun setAlbumSortOrder(name: String) {
         context.appSettingsDataStore.edit { it[Keys.ALBUM_SORT_ORDER] = name }
+    }
+
+    override val startupView: Flow<String?> =
+        safeData.map { it[Keys.STARTUP_VIEW] }
+
+    override suspend fun setStartupView(name: String) {
+        context.appSettingsDataStore.edit { it[Keys.STARTUP_VIEW] = name }
     }
 }

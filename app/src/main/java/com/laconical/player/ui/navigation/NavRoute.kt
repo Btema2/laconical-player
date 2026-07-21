@@ -12,6 +12,7 @@ object NavRoute {
     const val FAVORITES = "favorites"
     const val PLAYLIST_DETAIL = "playlist_detail/{playlistId}"
     const val SETTINGS = "settings"
+    const val SETTINGS_GENERAL = "settings_general"
     const val SETTINGS_PRIVACY = "settings_privacy"
     const val SETTINGS_MISCELLANEOUS = "settings_miscellaneous"
 
