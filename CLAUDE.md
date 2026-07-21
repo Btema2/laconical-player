@@ -1,6 +1,7 @@
 # CLAUDE.md
 
 **Code quality:** Modern Kotlin.
+**Graphify (MANDATORY):** Before exploring codebase (source browsing, grep, Read on unfamiliar files), run `graphify query "<question>"` first when `graphify-out/graph.json` exists. Use `graphify path "<A>" "<B>"` for relationships, `graphify explain "<concept>"` for focused concepts. Only fall back to raw grep/Read after graphify oriented you, or to modify/debug specific known lines. Applies to subagents too — include this rule in subagent prompts involving code exploration. See graphify section below for full details.
 **Dependency docs (MANDATORY):** Deps are bumped aggressively via Dependabot (Compose BOM, Media3, Coil 3, Kotlin/KSP, AGP are often months ahead of training data). APIs and behavior shift between these versions. Before using or debugging ANY library API here, fetch current docs via **context7 MCP** (`resolve-library-id` → `query-docs`) — do NOT rely on memory. This is how the morph regression below was diagnosed.
 **Worktrees:** Use `.worktrees/` for git worktree dirs.
 **SDK pin:** compileSdk/targetSdk stay at 36. Bump to 37 tried once (`5e2d44a`) and reverted (`9afe984`) — do not redo it, including as a side effect of a dependency bump, without checking why it broke first.
