@@ -2,6 +2,22 @@
 
 All notable changes to Laconical Player are documented here.
 
+## [1.2.1] - 2026-07-21
+
+### Added
+- Settings option to choose which tab (Tracks / Albums / Artists / Playlists) the app opens on at startup (#63)
+
+### Fixed
+- Album detail sort now defaults to disc-aware track number instead of title (#58)
+- Album sort choice now persists across navigation and app restarts (#62)
+- 3-dot track menu wired up on Albums/Artists/Favorites detail screens (#61)
+- Full player bottom controls no longer sit under the system nav bar (#59)
+- Mini player progress bar brightened — was nearly invisible (#60)
+- Full-player top particle effect restored (regressed by the perf gating in 1.2 — a stale closure froze `isVisible` from first composition, so particles stayed disabled)
+
+### Changed
+- Mandated `graphify` codebase-graph queries before raw source exploration, documented in CLAUDE.md
+
 ## [1.2] - 2026-07-19 — "Lyrics at last"
 
 ### Added
