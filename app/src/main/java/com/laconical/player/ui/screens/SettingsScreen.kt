@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.Tune
@@ -66,6 +67,7 @@ fun SettingsScreen(
     allTracks: List<Track>,
     dominantColor: Color?,
     onBack: () -> Unit,
+    onOpenGeneral: () -> Unit = {},
     onOpenPrivacy: () -> Unit = {},
     onOpenMiscellaneous: () -> Unit = {},
     lyricsNetworkEnabled: Boolean = false,
@@ -136,6 +138,14 @@ fun SettingsScreen(
                 .clip(RoundedCornerShape(16.dp))
                 .background(LocalAppSurface.current)
         ) {
+            SettingsNavRow(
+                icon = Icons.Filled.Home,
+                title = "General",
+                subtitle = "Startup view",
+                accent = accent,
+                onClick = onOpenGeneral
+            )
+            Divider(color = separatorColor)
             SettingsNavRow(
                 icon = Icons.Outlined.Masks,
                 title = "Privacy",

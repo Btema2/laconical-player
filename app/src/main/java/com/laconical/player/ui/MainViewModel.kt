@@ -2,6 +2,7 @@ package com.laconical.player.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.laconical.player.core.data.AppSettingsStore
 import com.laconical.player.core.data.MediaRepository
 import com.laconical.player.core.data.PlaybackSession
 import com.laconical.player.core.data.PlaybackSessionStore
@@ -218,7 +219,8 @@ class MainViewModel @Inject constructor(
     private val userDataRepository: UserDataRepository,
     private val sessionStore: PlaybackSessionStore,
     private val lyricsRepository: LyricsRepository,
-    private val lyricsSettingsStore: LyricsSettingsStore
+    private val lyricsSettingsStore: LyricsSettingsStore,
+    private val appSettingsStore: AppSettingsStore
 ) : ViewModel() {
 
     private val _allTracks = MutableStateFlow<List<Track>>(emptyList())
@@ -289,6 +291,17 @@ class MainViewModel @Inject constructor(
 
     val lyricsSourcePriority: StateFlow<LyricsSourcePriority> = lyricsSettingsStore.sourcePriority
         .stateIn(viewModelScope, SharingStarted.Eagerly, LyricsSourcePriority.EMBEDDED_FIRST)
+
+    /** Which bottom-nav tab the app opens on. Null until the first DataStore read completes —
+     *  NavHost's startDestination gates on this so the correct tab is the graph root from
+     *  the first frame (see LibraryScreen.kt), instead of starting on Tracks then jumping. */
+    val startupView: StateFlow<StartupView?> = appSettingsStore.startupView
+        .map { raw -> raw?.let { runCatching { StartupView.valueOf(it) }.getOrNull() } ?: StartupView.TRACKS }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun setStartupView(view: StartupView) {
+        viewModelScope.launch { appSettingsStore.setStartupView(view.name) }
+    }
 
     /** Index into the loaded synced lines at the current playback position; -1 = none.
      *  WhileSubscribed so the 50 ms position combine only runs while the sheet is open. */

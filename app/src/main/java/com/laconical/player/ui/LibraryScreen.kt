@@ -100,6 +100,7 @@ import com.laconical.player.ui.screens.AlbumsScreen
 import com.laconical.player.ui.screens.ArtistDetailScreen
 import com.laconical.player.ui.screens.ArtistsScreen
 import com.laconical.player.ui.screens.FavoritesScreen
+import com.laconical.player.ui.screens.GeneralSettingsScreen
 import com.laconical.player.ui.screens.PlaylistDetailScreen
 import com.laconical.player.ui.screens.PlaylistsScreen
 import com.laconical.player.ui.screens.PrivacySettingsScreen
@@ -189,6 +190,7 @@ fun LibraryScreen(
     }
 
     val playingTrackDominantColor by viewModel.playingTrackDominantColor.collectAsState()
+    val startupView by viewModel.startupView.collectAsState()
     val currentTrack by viewModel.currentTrack.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val searchedAlbums by viewModel.searchedAlbums.collectAsState()
@@ -301,7 +303,7 @@ fun LibraryScreen(
     }
 
     val rawRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-        ?: NavRoute.TRACKS
+        ?: (startupView?.route ?: NavRoute.TRACKS)
 
     // Transition-synced chrome visibility driver — mirrors the frozen-anchor idiom
     // used for the morph overlay: never hard-cut on rawRoute directly, since it flips
@@ -309,7 +311,7 @@ fun LibraryScreen(
     // TopBar composition collapses calculateTopPadding() in one frame, reflowing the
     // content underneath mid-slide. Keep TopBar/BottomNav composed at full height and
     // fade them via graphicsLayer alpha (draw-time only, doesn't affect measurement).
-    val onSettings = rawRoute == NavRoute.SETTINGS || rawRoute == NavRoute.SETTINGS_PRIVACY || rawRoute == NavRoute.SETTINGS_MISCELLANEOUS
+    val onSettings = rawRoute == NavRoute.SETTINGS || rawRoute == NavRoute.SETTINGS_GENERAL || rawRoute == NavRoute.SETTINGS_PRIVACY || rawRoute == NavRoute.SETTINGS_MISCELLANEOUS
     val chromeAlpha = remember { Animatable(if (onSettings) 0f else 1f) }
     LaunchedEffect(onSettings) {
         chromeAlpha.animateTo(
@@ -825,9 +827,15 @@ fun LibraryScreen(
                                     transformOrigin = TransformOrigin(0.5f, 0f)
                                 }
                         ) {
+                            // Gate NavHost's first composition on the persisted startup-view
+                            // load: startDestination is captured once, so building the graph
+                            // before the DataStore read completes would always root it on
+                            // Tracks and require a jump to the real preference afterward.
+                            val resolvedStartupView = startupView
+                            if (resolvedStartupView != null) {
                             NavHost(
                                 navController = navController,
-                                startDestination = NavRoute.TRACKS,
+                                startDestination = resolvedStartupView.route,
                                 modifier = Modifier.fillMaxSize(),
                                 enterTransition    = { navEnterTransition(initialState, targetState) },
                                 exitTransition     = { navExitTransition() },
@@ -1081,9 +1089,20 @@ fun LibraryScreen(
                                             allTracks = allTracks,
                                             dominantColor = playingTrackDominantColor,
                                             onBack = { navController.popBackStack() },
+                                            onOpenGeneral = { navController.navigate(NavRoute.SETTINGS_GENERAL) },
                                             onOpenPrivacy = { navController.navigate(NavRoute.SETTINGS_PRIVACY) },
                                             onOpenMiscellaneous = { navController.navigate(NavRoute.SETTINGS_MISCELLANEOUS) },
                                             lyricsNetworkEnabled = lyricsNetworkEnabled
+                                        )
+                                    }
+                                }
+                                composable(NavRoute.SETTINGS_GENERAL) {
+                                    Box(modifier = Modifier.fillMaxSize().background(LocalAppBackground.current)) {
+                                        GeneralSettingsScreen(
+                                            dominantColor = playingTrackDominantColor,
+                                            startupView = startupView ?: StartupView.TRACKS,
+                                            onStartupViewChange = viewModel::setStartupView,
+                                            onBack = { navController.popBackStack() }
                                         )
                                     }
                                 }
@@ -1109,6 +1128,7 @@ fun LibraryScreen(
                                         )
                                     }
                                 }
+                            }
                             }
 
                             if (isTransitioning) {
@@ -1185,7 +1205,7 @@ fun LibraryScreen(
                             viewModel.updateSearchQuery("")
                         }
                         navController.navigate(route) {
-                            popUpTo(NavRoute.TRACKS) { saveState = true }
+                            popUpTo(startupView?.route ?: NavRoute.TRACKS) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
                         }
