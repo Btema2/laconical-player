@@ -126,7 +126,7 @@ fun FullPlayer(
 
     val particleColor = remember(themeColor) {
         val hsl = themeColor.toHsl()
-        Color.hsl(hue = hsl[0] * 360f, saturation = hsl[1].coerceIn(0.2f, 0.5f), lightness = 0.4f)
+        Color.hsl(hue = hsl[0] * 360f, saturation = hsl[1].coerceIn(0.45f, 0.85f), lightness = 0.62f)
     }
 
     var likePressed by remember { mutableStateOf(false) }
@@ -727,7 +727,14 @@ fun ParticleSystem(isPlaying: Boolean, isVisible: Boolean, color: Color) {
         label = "ParticleEnergy"
     )
 
-    val particles = remember { List(25) { DriftParticle() } }
+    val particles = remember { List(32) { DriftParticle() } }
+
+    // isVisible is a plain param read inside a LaunchedEffect(Unit) that never
+    // relaunches — without rememberUpdatedState the coroutine closure freezes it
+    // at whatever it was on first composition (false, since FullPlayer composes
+    // while still collapsed), permanently idling the loop and killing the
+    // particles for good. See FullPlayer.kt particle regression, commit 9721c19.
+    val currentIsVisible by rememberUpdatedState(isVisible)
 
     // All state mutation happens here, outside the draw phase. When playback is
     // paused and all particles have died out, suspend on delay(100) instead of
@@ -736,7 +743,7 @@ fun ParticleSystem(isPlaying: Boolean, isVisible: Boolean, color: Color) {
     LaunchedEffect(Unit) {
         var lastNanos = 0L
         while (true) {
-            if (!isVisible || (energy < 0.005f && particles.all { it.life <= 0f })) {
+            if (!currentIsVisible || (energy < 0.005f && particles.all { it.life <= 0f })) {
                 delay(100)
                 lastNanos = 0L
                 continue
@@ -786,7 +793,7 @@ private class DriftParticle {
         y = if (initial) Random.nextFloat() * height else Random.nextFloat() * (height * 0.15f)
         angle = Random.nextFloat() * (2f * Math.PI.toFloat())
         speed = 10f + Random.nextFloat() * 20f
-        radius = 4f + Random.nextFloat() * 8f
+        radius = 5f + Random.nextFloat() * 9f
         maxLife = 4f + Random.nextFloat() * 5f
         life = if (initial) Random.nextFloat() * maxLife else maxLife
         fadeAlpha = 1f
