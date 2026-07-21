@@ -37,6 +37,7 @@ build_log.txt
 .superpowers/
 .codex/
 .github/hooks/
+.grok/
 
 # graphify knowledge graph (regenerable)
 graphify-out/
