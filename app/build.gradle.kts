@@ -119,7 +119,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("androidx.test.ext:junit:1.3.0")
     testImplementation(libs.robolectric)
-    testImplementation("org.bouncycastle:bcprov-jdk18on:1.84")
+    testImplementation("org.bouncycastle:bcprov-jdk18on:1.85")
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
