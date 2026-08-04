@@ -5,6 +5,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.provider.MediaStore
 import android.util.Log
 import com.laconical.player.core.model.Track
 import com.laconical.player.core.model.TrackAudioDetails
@@ -75,6 +76,44 @@ class AudioMetadataExtractor @Inject constructor(
             } catch (e: Exception) {
                 Log.w("AudioMetadataExtractor", "Failed to open asset file descriptor for URI: $uri", e)
             }
+
+            try {
+                val proj = arrayOf(
+                    MediaStore.Audio.Media.DATA,
+                    MediaStore.Audio.Media.RELATIVE_PATH,
+                    MediaStore.Audio.Media.DISPLAY_NAME,
+                    MediaStore.Audio.Media.DATE_MODIFIED,
+                )
+                context.contentResolver.query(uri, proj, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val dataIdx = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+                        val relIdx = cursor.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH)
+                        val nameIdx = cursor.getColumnIndex(MediaStore.Audio.Media.DISPLAY_NAME)
+                        val dateIdx = cursor.getColumnIndex(MediaStore.Audio.Media.DATE_MODIFIED)
+
+                        val dataPath = if (dataIdx != -1) cursor.getString(dataIdx) else null
+                        val relativePath = if (relIdx != -1) cursor.getString(relIdx) else null
+                        val displayName = if (nameIdx != -1) cursor.getString(nameIdx) else null
+
+                        if (!dataPath.isNull_or_blank()) {
+                            filePath = dataPath
+                        } else if (!relativePath.isNull_or_blank() && !displayName.isNull_or_blank()) {
+                            filePath = relativePath + displayName
+                        } else if (!displayName.isNull_or_blank()) {
+                            filePath = displayName
+                        }
+
+                        if (dateIdx != -1) {
+                            val dateSec = cursor.getLong(dateIdx)
+                            if (dateSec > 0) {
+                                dateAddedFormatted = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(dateSec * 1000L))
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("AudioMetadataExtractor", "Failed to query MediaStore details for URI: $uri", e)
+            }
         }
 
         // MediaExtractor for precise channel count, sample rate, bit depth, codec
@@ -118,12 +157,6 @@ class AudioMetadataExtractor @Inject constructor(
             Log.w("AudioMetadataExtractor", "Failed to extract media details using MediaExtractor for URI: $uri", e)
         }
 
-        // Synthetic frequency spectrum profile for rendering (64 bins normalized 0f..1f)
-        val spectrogramFrequencies = FloatArray(64) { i ->
-            val factor = (i + 1).toFloat() / 64f
-            (Math.sin(factor * Math.PI * 4).toFloat() * 0.4f + 0.5f).coerceIn(0.1f, 0.95f)
-        }
-
         TrackAudioDetails(
             track = track,
             filePath = filePath ?: track.mediaUri,
@@ -140,7 +173,6 @@ class AudioMetadataExtractor @Inject constructor(
             year = year,
             genre = genre,
             discNumber = discNumber,
-            spectrogramFrequencies = spectrogramFrequencies,
         )
     }
 
@@ -154,4 +186,6 @@ class AudioMetadataExtractor @Inject constructor(
             else -> "$bytes B"
         }
     }
+
+    private fun String?.isNull_or_blank(): Boolean = this == null || this.trim().isEmpty()
 }

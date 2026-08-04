@@ -30,12 +30,10 @@ class TrackAudioDetailsTest {
             year = "2026",
             genre = "Rock",
             discNumber = "1",
-            spectrogramFrequencies = floatArrayOf(0.1f, 0.5f, 0.9f),
         )
 
         assertEquals("Test Title", details.track.title)
         assertEquals(320, details.bitrateKbps)
         assertEquals("Stereo (2.0)", details.channels)
-        assertEquals(3, details.spectrogramFrequencies?.size)
     }
 }
