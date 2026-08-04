@@ -51,7 +51,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -77,6 +81,19 @@ fun SongInfoBottomSheet(
     val context = LocalContext.current
     var selectedTabIndex by remember { mutableIntStateOf(0) }
 
+    // Intercept upward nested scroll deltas so sheet cannot be dragged/expanded upward past top
+    val preventUpwardDragConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                return if (available.y < 0f) {
+                    Offset(0f, available.y) // consume all upward drag
+                } else {
+                    Offset.Zero
+                }
+            }
+        }
+    }
+
     // White with a subtle 15% tint of thumbnail dominant color for high contrast & legibility
     val primaryAccent = if (dominantColor != null) {
         Color(
@@ -101,6 +118,7 @@ fun SongInfoBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .nestedScroll(preventUpwardDragConnection)
                 .padding(bottom = 24.dp),
         ) {
             // Header
