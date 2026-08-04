@@ -77,7 +77,18 @@ fun SongInfoBottomSheet(
     val context = LocalContext.current
     var selectedTabIndex by remember { mutableIntStateOf(0) }
 
-    val primaryAccent = dominantColor ?: Color(0xFF9D8EFF)
+    // White with a subtle 15% tint of thumbnail dominant color for high contrast & legibility
+    val primaryAccent = if (dominantColor != null) {
+        Color(
+            red = (dominantColor.red * 0.15f + 0.85f).coerceIn(0f, 1f),
+            green = (dominantColor.green * 0.15f + 0.85f).coerceIn(0f, 1f),
+            blue = (dominantColor.blue * 0.15f + 0.85f).coerceIn(0f, 1f),
+            alpha = 1f,
+        )
+    } else {
+        Color(0xFFF2F0FF)
+    }
+
     val containerBg = MaterialTheme.colorScheme.surfaceContainer
 
     ModalBottomSheet(
@@ -135,7 +146,7 @@ fun SongInfoBottomSheet(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = track.artist,
-                        color = Color(0xFFCCCCCC),
+                        color = Color(0xFFDDDDDD),
                         fontSize = 13.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -172,7 +183,7 @@ fun SongInfoBottomSheet(
                         Text(
                             text = "Basic Info",
                             fontWeight = if (selectedTabIndex == 0) FontWeight.Bold else FontWeight.Medium,
-                            color = if (selectedTabIndex == 0) primaryAccent else Color(0xFFBBBBCC),
+                            color = if (selectedTabIndex == 0) primaryAccent else Color(0xFFAAAAAA),
                         )
                     },
                 )
@@ -183,7 +194,7 @@ fun SongInfoBottomSheet(
                         Text(
                             text = "Advanced Technical",
                             fontWeight = if (selectedTabIndex == 1) FontWeight.Bold else FontWeight.Medium,
-                            color = if (selectedTabIndex == 1) primaryAccent else Color(0xFFBBBBCC),
+                            color = if (selectedTabIndex == 1) primaryAccent else Color(0xFFAAAAAA),
                         )
                     },
                 )
@@ -370,7 +381,7 @@ private fun InfoSectionCard(
     ) {
         Text(
             text = title,
-            color = Color(0xFFDDDDFF),
+            color = Color(0xFFEEEEFF),
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.8.sp,
