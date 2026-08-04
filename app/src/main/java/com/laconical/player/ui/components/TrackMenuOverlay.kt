@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -97,6 +98,7 @@ fun TrackMenuOverlay(
     onViewArtist: (() -> Unit)?,
     onSelectPlaylist: (Playlist) -> Unit,
     onCreateNewPlaylist: (originOffset: Offset) -> Unit,
+    onShowSongInfo: (() -> Unit)? = null,
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -302,6 +304,7 @@ fun TrackMenuOverlay(
                             onFavoriteClick = { onFavoriteToggle(); dismiss() },
                             onViewAlbumClick = { onViewAlbum?.invoke(); dismiss() },
                             onViewArtistClick = { onViewArtist?.invoke(); dismiss() },
+                            onSongInfoClick = { onShowSongInfo?.invoke(); dismiss() },
                             onAddToPlaylistClick = {
                                 mode = TrackMenuMode.PLAYLIST
                                 scope.launch {
@@ -381,6 +384,7 @@ private fun MainMenuBody(
     onFavoriteClick: () -> Unit,
     onViewAlbumClick: () -> Unit,
     onViewArtistClick: () -> Unit,
+    onSongInfoClick: () -> Unit,
     onAddToPlaylistClick: () -> Unit,
 ) {
     Column {
@@ -411,6 +415,13 @@ private fun MainMenuBody(
                 onClick = onViewArtistClick,
             )
         }
+        HorizontalDivider(thickness = 0.5.dp, color = Color(0xFF1E1E28))
+        MenuRow(
+            icon = Icons.Outlined.Info,
+            label = "Song Info",
+            background = menuBg,
+            onClick = onSongInfoClick,
+        )
         HorizontalDivider(thickness = 0.5.dp, color = Color(0xFF1E1E28))
         MenuRow(
             icon = Icons.AutoMirrored.Filled.PlaylistAdd,
