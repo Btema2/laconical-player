@@ -100,7 +100,7 @@ fun LaconicalTopBar(
     ) {
         // ── Title ───────────────────────────────────────────────────
         Text(
-            text = "Laconical Library",
+            text = "Library",
             fontFamily = FontFamily.Serif,
             fontSize = 28.sp,
             color = Color.White,
