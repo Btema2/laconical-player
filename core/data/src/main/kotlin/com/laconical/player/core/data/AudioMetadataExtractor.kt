@@ -5,6 +5,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.util.Log
 import com.laconical.player.core.model.Track
 import com.laconical.player.core.model.TrackAudioDetails
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -45,11 +46,13 @@ class AudioMetadataExtractor @Inject constructor(
             genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE)
             discNumber = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER)
             mimeType = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w("AudioMetadataExtractor", "Failed to extract metadata using MediaMetadataRetriever for URI: $uri", e)
         } finally {
             try {
                 retriever.release()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w("AudioMetadataExtractor", "Failed to release MediaMetadataRetriever", e)
             }
         }
 
@@ -69,7 +72,8 @@ class AudioMetadataExtractor @Inject constructor(
                 context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { pfd ->
                     fileSizeFormatted = formatFileSize(pfd.length)
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w("AudioMetadataExtractor", "Failed to open asset file descriptor for URI: $uri", e)
             }
         }
 
@@ -110,7 +114,8 @@ class AudioMetadataExtractor @Inject constructor(
                 }
             }
             extractor.release()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w("AudioMetadataExtractor", "Failed to extract media details using MediaExtractor for URI: $uri", e)
         }
 
         // Synthetic frequency spectrum profile for rendering (64 bins normalized 0f..1f)

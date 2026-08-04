@@ -30,10 +30,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -79,8 +82,8 @@ fun SongInfoBottomSheet(
     val context = LocalContext.current
     var selectedTabIndex by remember { mutableIntStateOf(0) }
 
-    val primaryAccent = dominantColor ?: Color(0xFF7C6FE0)
-    val containerBg = Color(0xFF14141E)
+    val primaryAccent = dominantColor ?: MaterialTheme.colorScheme.primary
+    val containerBg = MaterialTheme.colorScheme.surfaceContainer
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -105,7 +108,7 @@ fun SongInfoBottomSheet(
                     modifier = Modifier
                         .size(54.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0x22FFFFFF)),
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center,
                 ) {
                     SubcomposeAsyncImage(
@@ -117,7 +120,7 @@ fun SongInfoBottomSheet(
                             Icon(
                                 imageVector = Icons.Rounded.MusicNote,
                                 contentDescription = null,
-                                tint = Color(0xFF888888),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         },
                     )
@@ -128,7 +131,7 @@ fun SongInfoBottomSheet(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = track.title,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -137,7 +140,7 @@ fun SongInfoBottomSheet(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = track.artist,
-                        color = Color(0xFFAAAAAA),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -148,7 +151,7 @@ fun SongInfoBottomSheet(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }
@@ -156,7 +159,7 @@ fun SongInfoBottomSheet(
             // Tab Selector
             TabRow(
                 selectedTabIndex = selectedTabIndex,
-                containerColor = Color(0xFF1E1E2C),
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = primaryAccent,
                 indicator = { tabPositions ->
                     if (selectedTabIndex < tabPositions.size) {
@@ -174,7 +177,7 @@ fun SongInfoBottomSheet(
                         Text(
                             text = "Basic Info",
                             fontWeight = if (selectedTabIndex == 0) FontWeight.Bold else FontWeight.Normal,
-                            color = if (selectedTabIndex == 0) primaryAccent else Color(0xFF888899),
+                            color = if (selectedTabIndex == 0) primaryAccent else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
                 )
@@ -185,7 +188,7 @@ fun SongInfoBottomSheet(
                         Text(
                             text = "Advanced Technical",
                             fontWeight = if (selectedTabIndex == 1) FontWeight.Bold else FontWeight.Normal,
-                            color = if (selectedTabIndex == 1) primaryAccent else Color(0xFF888899),
+                            color = if (selectedTabIndex == 1) primaryAccent else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
                 )
@@ -255,7 +258,63 @@ private fun BasicInfoTab(
             InfoRow(label = "Container / MIME", value = details?.mimeType ?: "Loading...")
             InfoRow(label = "Date Modified", value = details?.dateAddedFormatted ?: "Loading...")
         }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Button(
+            onClick = {
+                val metadataText = buildFullMetadataText(track, details)
+                copyToClipboard(context, "Full Metadata", metadataText)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = accentColor,
+            ),
+            shape = RoundedCornerShape(12.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.ContentCopy,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Copy Full Metadata",
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
     }
+}
+
+private fun buildFullMetadataText(track: Track, details: TrackAudioDetails?): String {
+    return buildString {
+        appendLine("--- Track Metadata ---")
+        appendLine("Title: ${track.title}")
+        appendLine("Artist: ${track.artist}")
+        appendLine("Album: ${track.album}")
+        details?.albumArtist?.let { appendLine("Album Artist: $it") }
+        details?.genre?.let { appendLine("Genre: $it") }
+        details?.year?.let { appendLine("Year: $it") }
+        if (track.trackNumber > 0) {
+            appendLine("Track #: ${track.trackNumber}")
+        }
+        appendLine()
+        appendLine("--- File Information ---")
+        appendLine("File Path: ${details?.filePath ?: track.mediaUri}")
+        details?.fileSizeFormatted?.let { appendLine("File Size: $it") }
+        details?.mimeType?.let { appendLine("Container / MIME: $it") }
+        details?.dateAddedFormatted?.let { appendLine("Date Modified: $it") }
+        if (details != null) {
+            appendLine()
+            appendLine("--- Audio Specs ---")
+            details.codec?.let { appendLine("Codec: $it") }
+            details.bitrateKbps?.let { appendLine("Bitrate: $it kbps") }
+            details.sampleRateHz?.let { appendLine("Sample Rate: ${it / 1000.0} kHz") }
+            details.bitDepthBits?.let { appendLine("Bit Depth: $it-bit") }
+            details.channels?.let { appendLine("Channels: $it") }
+        }
+    }.trimEnd()
 }
 
 @Composable
@@ -309,7 +368,7 @@ private fun AdvancedInfoTab(
             } else {
                 Text(
                     text = "Spectrogram unavailable for this track.",
-                    color = Color(0xFF666666),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(12.dp),
                 )
@@ -325,7 +384,7 @@ private fun SpectrogramCanvas(frequencies: FloatArray, accentColor: Color) {
             .fillMaxWidth()
             .height(140.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF0E0E16))
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
             .padding(12.dp),
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -364,12 +423,12 @@ private fun InfoSectionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF1E1E2A))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(16.dp),
     ) {
         Text(
             text = title,
-            color = Color(0xFF8888AA),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.8.sp,
@@ -393,13 +452,13 @@ private fun InfoRow(
     ) {
         Text(
             text = label,
-            color = Color(0xFFAAAAAA),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp,
             modifier = Modifier.width(110.dp),
         )
         Text(
             text = value,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 2,
@@ -419,9 +478,9 @@ private fun SpecBadge(label: String, value: String, accentColor: Color) {
             .background(accentColor.copy(alpha = 0.15f))
             .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
-        Text(text = label, color = Color(0xFFAAAAAA), fontSize = 11.sp)
+        Text(text = label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
         Spacer(modifier = Modifier.height(2.dp))
-        Text(text = value, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text(text = value, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 
