@@ -6,12 +6,12 @@ buildscript {
             add("classpath", "org.jdom:jdom2:2.0.6.1")
             // Netty vulnerabilities (Dependabot #10–#15, #17, #19–#20, #24–#29, #31–#39).
             // All Netty modules must be pinned to the same version.
-            add("classpath", "io.netty:netty-codec:4.2.16.Final")
-            add("classpath", "io.netty:netty-codec-http:4.2.16.Final")
-            add("classpath", "io.netty:netty-codec-http2:4.2.16.Final")
-            add("classpath", "io.netty:netty-common:4.2.16.Final")
-            add("classpath", "io.netty:netty-handler:4.2.16.Final")
-            add("classpath", "io.netty:netty-handler-proxy:4.2.16.Final")
+            add("classpath", "io.netty:netty-codec:4.2.17.Final")
+            add("classpath", "io.netty:netty-codec-http:4.2.17.Final")
+            add("classpath", "io.netty:netty-codec-http2:4.2.17.Final")
+            add("classpath", "io.netty:netty-common:4.2.17.Final")
+            add("classpath", "io.netty:netty-handler:4.2.17.Final")
+            add("classpath", "io.netty:netty-handler-proxy:4.2.17.Final")
             // Bouncy Castle vulnerabilities (Dependabot #21–#23).
             add("classpath", "org.bouncycastle:bcprov-jdk18on:1.85")
             add("classpath", "org.bouncycastle:bcpkix-jdk18on:1.85")
@@ -46,17 +46,17 @@ allprojects {
     configurations.all {
         resolutionStrategy {
             force(
-                "io.netty:netty-common:4.2.16.Final",
-                "io.netty:netty-buffer:4.2.16.Final",
-                "io.netty:netty-transport:4.2.16.Final",
-                "io.netty:netty-resolver:4.2.16.Final",
-                "io.netty:netty-codec:4.2.16.Final",
-                "io.netty:netty-codec-http:4.2.16.Final",
-                "io.netty:netty-codec-http2:4.2.16.Final",
-                "io.netty:netty-codec-socks:4.2.16.Final",
-                "io.netty:netty-handler:4.2.16.Final",
-                "io.netty:netty-handler-proxy:4.2.16.Final",
-                "io.netty:netty-transport-native-unix-common:4.2.16.Final",
+                "io.netty:netty-common:4.2.17.Final",
+                "io.netty:netty-buffer:4.2.17.Final",
+                "io.netty:netty-transport:4.2.17.Final",
+                "io.netty:netty-resolver:4.2.17.Final",
+                "io.netty:netty-codec:4.2.17.Final",
+                "io.netty:netty-codec-http:4.2.17.Final",
+                "io.netty:netty-codec-http2:4.2.17.Final",
+                "io.netty:netty-codec-socks:4.2.17.Final",
+                "io.netty:netty-handler:4.2.17.Final",
+                "io.netty:netty-handler-proxy:4.2.17.Final",
+                "io.netty:netty-transport-native-unix-common:4.2.17.Final",
                 "org.bouncycastle:bcprov-jdk18on:1.85",
                 "org.bouncycastle:bcpkix-jdk18on:1.85",
                 "org.apache.commons:commons-lang3:3.20.0",
