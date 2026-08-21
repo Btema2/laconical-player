@@ -19,7 +19,7 @@ robolectric = "4.16.1"
 junit4 = "4.13.2"
 
 # Compose
-composeBom = "2026.06.01"
+composeBom = "2026.08.00"
 androidx-compose-material3 = "1.4.0"
 
 # Hilt Extensions
