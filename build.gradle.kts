@@ -13,8 +13,8 @@ buildscript {
             add("classpath", "io.netty:netty-handler:4.2.17.Final")
             add("classpath", "io.netty:netty-handler-proxy:4.2.17.Final")
             // Bouncy Castle vulnerabilities (Dependabot #21–#23).
-            add("classpath", "org.bouncycastle:bcprov-jdk18on:1.85")
-            add("classpath", "org.bouncycastle:bcpkix-jdk18on:1.85")
+            add("classpath", "org.bouncycastle:bcprov-jdk18on:1.85.2")
+            add("classpath", "org.bouncycastle:bcpkix-jdk18on:1.85.2")
             // jose4j vulnerability (Dependabot #18).
             add("classpath", "org.bitbucket.b_c:jose4j:0.9.6")
             // commons-lang3 vulnerability (Dependabot #12).
@@ -57,8 +57,8 @@ allprojects {
                 "io.netty:netty-handler:4.2.17.Final",
                 "io.netty:netty-handler-proxy:4.2.17.Final",
                 "io.netty:netty-transport-native-unix-common:4.2.17.Final",
-                "org.bouncycastle:bcprov-jdk18on:1.85",
-                "org.bouncycastle:bcpkix-jdk18on:1.85",
+                "org.bouncycastle:bcprov-jdk18on:1.85.2",
+                "org.bouncycastle:bcpkix-jdk18on:1.85.2",
                 "org.apache.commons:commons-lang3:3.20.0",
                 "org.apache.httpcomponents:httpclient:4.5.14",
             )

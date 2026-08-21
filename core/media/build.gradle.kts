@@ -66,5 +66,5 @@ dependencies {
     testImplementation(libs.androidx.media3.test.utils)
     testImplementation(libs.androidx.media3.test.utils.robolectric)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation("org.bouncycastle:bcprov-jdk18on:1.85")
+    testImplementation("org.bouncycastle:bcprov-jdk18on:1.85.2")
 }
