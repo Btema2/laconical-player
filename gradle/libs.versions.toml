@@ -106,7 +106,7 @@ androidx-media3-test-utils-robolectric = { group = "androidx.media3", name = "me
 
 # Design
 google-material = { group = "com.google.android.material", name = "material", version = "1.14.0" }
-androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version = "1.7.1" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version = "1.8.0" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
