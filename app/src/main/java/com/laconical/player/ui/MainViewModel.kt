@@ -13,9 +13,11 @@ import com.laconical.player.core.data.lyrics.LyricsRepository
 import com.laconical.player.core.data.lyrics.LyricsResult
 import com.laconical.player.core.data.lyrics.LyricsSettingsStore
 import com.laconical.player.core.data.lyrics.LyricsSourcePriority
+import com.laconical.player.core.data.AudioMetadataExtractor
 import com.laconical.player.core.media.MusicPlayer
 import com.laconical.player.core.media.AudioVisualizerManager
 import com.laconical.player.core.model.Track
+import com.laconical.player.core.model.TrackAudioDetails
 import com.laconical.player.core.model.lyrics.Lyrics
 import com.laconical.player.core.model.lyrics.LyricsSource
 import com.laconical.player.core.model.lyrics.currentLineIndex
@@ -220,8 +222,28 @@ class MainViewModel @Inject constructor(
     private val sessionStore: PlaybackSessionStore,
     private val lyricsRepository: LyricsRepository,
     private val lyricsSettingsStore: LyricsSettingsStore,
-    private val appSettingsStore: AppSettingsStore
+    private val appSettingsStore: AppSettingsStore,
+    private val audioMetadataExtractor: AudioMetadataExtractor,
 ) : ViewModel() {
+
+    private val _selectedSongInfoTrack = MutableStateFlow<Track?>(null)
+    val selectedSongInfoTrack: StateFlow<Track?> = _selectedSongInfoTrack.asStateFlow()
+
+    private val _songInfoDetails = MutableStateFlow<TrackAudioDetails?>(null)
+    val songInfoDetails: StateFlow<TrackAudioDetails?> = _songInfoDetails.asStateFlow()
+
+    fun openSongInfo(track: Track) {
+        _selectedSongInfoTrack.value = track
+        _songInfoDetails.value = null
+        viewModelScope.launch {
+            _songInfoDetails.value = audioMetadataExtractor.extractDetails(track)
+        }
+    }
+
+    fun closeSongInfo() {
+        _selectedSongInfoTrack.value = null
+        _songInfoDetails.value = null
+    }
 
     private val _allTracks = MutableStateFlow<List<Track>>(emptyList())
     private val _isLoadingTracks = MutableStateFlow(false)

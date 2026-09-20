@@ -64,6 +64,7 @@ import com.laconical.player.ui.components.PlaylistMenuOverlay
 import com.laconical.player.ui.components.SortChipRow
 import com.laconical.player.ui.components.ShuffleFab
 import com.laconical.player.ui.components.PlaylistBottomSheet
+import com.laconical.player.ui.components.SongInfoBottomSheet
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -241,6 +242,8 @@ fun LibraryScreen(
     val playlists by viewModel.playlists.collectAsState()
     val playlistArtTracks by viewModel.playlistArtTracks.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
+    val selectedSongInfoTrack by viewModel.selectedSongInfoTrack.collectAsState()
+    val songInfoDetails by viewModel.songInfoDetails.collectAsState()
     // Context menu state — hoisted here so overlay renders above all other layers
     var contextMenuTrack by remember { mutableStateOf<Track?>(null) }
     var contextMenuArtOffset by remember { mutableStateOf(Offset.Zero) }
@@ -1509,6 +1512,15 @@ fun LibraryScreen(
                     // contextMenuTrack intentionally NOT cleared — overlay stays alive
                     showCreateForPicker = true
                 },
+                onShowSongInfo = {
+                    val fromFullPlayer = isMenuFromFullPlayer
+                    contextMenuTrack = null
+                    isMenuFromFullPlayer = false
+                    if (fromFullPlayer) {
+                        scope.launch { scaffoldState.bottomSheetState.partialExpand() }
+                    }
+                    viewModel.openSongInfo(track)
+                },
             )
         }
         // ── Playlist context menu overlay ───────────────────────────────────
@@ -1611,6 +1623,14 @@ fun LibraryScreen(
             data = playlistToastData,
             onDismiss = { playlistToastData = null },
         )
+        selectedSongInfoTrack?.let { track ->
+            SongInfoBottomSheet(
+                track = track,
+                details = songInfoDetails,
+                dominantColor = playingTrackDominantColor,
+                onDismiss = { viewModel.closeSongInfo() },
+            )
+        }
     } // end outer Box
     } // end CompositionLocalProvider
 }
